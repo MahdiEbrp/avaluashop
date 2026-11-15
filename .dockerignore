@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.husky
+.github
+tests
+.vscode
+.react-email
+*.tsbuildinfo
+.env
+.env.local
+README.md
+HARDENING.md
+ESLINT-RULES.md
+UPGRADE.md
