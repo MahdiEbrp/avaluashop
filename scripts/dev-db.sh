@@ -28,17 +28,28 @@ say() { printf '\033[1m·\033[0m %s\n' "$*"; }
 fail() { printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 find_pgbin() {
-   local found
-   found="$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)"
+   local found initdb
+   found="$(ls -d /usr/lib/postgresql/*/bin /usr/pgsql-*/bin /usr/lib/pgsql/bin 2>/dev/null | sort -V | tail -1 || true)"
+   if [ -z "$found" ]; then
+      # Fedora/RHEL ship postgres binaries directly in /usr/bin
+      initdb="$(command -v initdb 2>/dev/null || true)"
+      [ -n "$initdb" ] && found="$(dirname "$initdb")"
+   fi
    [ -n "$found" ] || return 1
    echo "$found"
 }
 
 install_postgres() {
-   command -v apt-get >/dev/null || fail "postgresql is not installed and apt-get is unavailable"
-   say "installing postgresql (one time, ~20s)"
-   sudo apt-get update -qq >/dev/null
-   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-contrib >/dev/null
+   if command -v apt-get >/dev/null; then
+      say "installing postgresql (one time, ~20s)"
+      sudo apt-get update -qq >/dev/null
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-contrib >/dev/null
+   elif command -v dnf >/dev/null; then
+      say "installing postgresql (one time)"
+      sudo dnf install -y -q postgresql-server >/dev/null
+   else
+      fail "postgresql is not installed and neither apt-get nor dnf is available"
+   fi
 }
 
 running() { pg_isready -h 127.0.0.1 -p "$PGPORT" -q 2>/dev/null; }
