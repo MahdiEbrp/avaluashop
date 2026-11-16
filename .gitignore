@@ -42,3 +42,4 @@ src/generated/
 
 # service worker emitted by the app
 sw.json
+.env*
