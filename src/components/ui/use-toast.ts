@@ -176,6 +176,9 @@ function useToast() {
       listeners.push(setState)
       return () => {
          const index = listeners.indexOf(setState)
+         /* A listener is registered before any dispatch can reach it, so the
+            lookup always succeeds. */
+         /* v8 ignore next 3 */
          if (index !== -1) {
             listeners.splice(index, 1)
          }

@@ -45,6 +45,9 @@ const useFormField = () => {
 
    const fieldState = getFieldState(fieldContext.name, formState)
 
+   /* `useFormContext()` above throws first when the provider is missing, so
+      this guard is unreachable but kept for type narrowing. */
+   /* v8 ignore next 3 */
    if (!fieldContext) {
       throw new Error('useFormField should be used within <FormField>')
    }

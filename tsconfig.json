@@ -22,7 +22,8 @@
       "paths": {
          "@/*": ["./src/*"]
       },
-      "strictNullChecks": false
+      "strictNullChecks": false,
+      "types": ["vitest/globals"]
    },
    "include": [
       "next-env.d.ts",

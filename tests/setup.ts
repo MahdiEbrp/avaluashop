@@ -1,0 +1,74 @@
+import '@testing-library/jest-dom/vitest'
+import { cleanup } from '@testing-library/react'
+import { afterEach, vi } from 'vitest'
+
+/* Deterministic environment for every test file. */
+process.env.JWT_SECRET_KEY ??= 'test-secret-key-that-is-at-least-32-chars-long'
+process.env.DATABASE_URL ??= 'postgresql://shop:shop@127.0.0.1:5432/avaluashop'
+process.env.NEXT_PUBLIC_URL ??= 'http://localhost:3000'
+
+afterEach(() => {
+   cleanup()
+   globalThis.localStorage?.clear()
+   globalThis.sessionStorage?.clear()
+   vi.clearAllMocks()
+   vi.restoreAllMocks()
+   vi.useRealTimers()
+})
+
+/* jsdom implements neither of these, and several components reach for them. */
+if (!globalThis.matchMedia) {
+   Object.defineProperty(globalThis, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+         matches: false,
+         media: query,
+         onchange: null,
+         addListener: () => {},
+         removeListener: () => {},
+         addEventListener: () => {},
+         removeEventListener: () => {},
+         dispatchEvent: () => false,
+      }),
+   })
+}
+
+if (!globalThis.ResizeObserver) {
+   globalThis.ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+   } as unknown as typeof ResizeObserver
+}
+
+if (typeof Element !== 'undefined') {
+   if (!Element.prototype.scrollIntoView) {
+      Element.prototype.scrollIntoView = () => {}
+   }
+
+   if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = () => false
+      Element.prototype.releasePointerCapture = () => {}
+   }
+}
+
+if (!globalThis.IntersectionObserver) {
+   globalThis.IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+         return []
+      }
+      root = null
+      rootMargin = ''
+      thresholds = []
+   } as unknown as typeof IntersectionObserver
+}
+
+/* Radix emits these during pointer interactions. */
+if (!globalThis.DOMRect) {
+   globalThis.DOMRect = {
+      fromRect: () => ({ top: 0, left: 0, bottom: 0, right: 0, width: 0, height: 0 }),
+   } as unknown as typeof DOMRect
+}
