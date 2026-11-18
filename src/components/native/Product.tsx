@@ -5,79 +5,54 @@ import { ProductWithIncludes } from '@/types/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
 
-export const ProductGrid = ({
-   products,
-}: {
-   products: ProductWithIncludes[]
-}) => {
-   return (
-      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-         {products.map((product) => (
-            <Product product={product} key={product.id} />
-         ))}
-      </div>
-   )
-}
+const toman = new Intl.NumberFormat('fa-IR')
+const formatPrice = (value: number) => `${toman.format(value)} تومان`
 
-export const ProductSkeletonGrid = () => {
-   return (
-      <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-         {Array.from({ length: 12 }).map((_, i) => (
-            <ProductSkeleton key={i} />
-         ))}
-      </div>
-   )
-}
+export const ProductGrid = ({ products }: { products: ProductWithIncludes[] }) => (
+   <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-5 xl:grid-cols-4">
+      {products.map((product) => <Product product={product} key={product.id} />)}
+   </div>
+)
+
+export const ProductSkeletonGrid = () => (
+   <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)}
+   </div>
+)
 
 export const Product = ({ product }: { product: ProductWithIncludes }) => {
-   function Price() {
-      if (product?.discount > 0) {
-         const price = product?.price - product?.discount
-         const percentage = (product?.discount / product?.price) * 100
-         return (
-            <div className="flex gap-2 items-center">
-               <Badge className="flex gap-4" variant="destructive">
-                  <div className="line-through">${product?.price}</div>
-                  <div>%{percentage.toFixed(2)}</div>
-               </Badge>
-               <h2 className="">${price.toFixed(2)}</h2>
-            </div>
-         )
-      }
-
-      return <h2>${product?.price}</h2>
-   }
+   const hasDiscount = product?.discount > 0
+   const price = product?.price - (hasDiscount ? product.discount : 0)
+   const percentage = hasDiscount ? Math.round((product.discount / product.price) * 100) : 0
 
    return (
-      <Link className="" href={`/products/${product.id}`}>
-         <Card className="h-full">
+      <Link className="group block h-full" href={`/products/${product.id}`}>
+         <Card className="h-full overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
             <CardHeader className="p-0">
-               <div className="relative h-60 w-full">
+               <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary">
                   <Image
-                     className="rounded-t-lg object-cover"
+                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                      src={product?.images[0]}
-                     alt="product image"
+                     alt={product.title}
                      fill
-                     sizes="(min-width: 1000px) 30vw, 50vw"
+                     sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
                   />
+                  {hasDiscount ? <Badge className="absolute right-3 top-3 rounded-full bg-primary text-primary-foreground">٪{toman.format(percentage)} تخفیف</Badge> : null}
                </div>
             </CardHeader>
-            <CardContent className="grid gap-1 p-4">
-               <Badge variant="subtle" className="w-min">
-                  {product?.categories[0]?.title}
-               </Badge>
-
-               <h2 className="mt-2">{product.title}</h2>
-               <p className="text-xs text-muted-foreground text-justify">
-                  {product.description}
-               </p>
+            <CardContent className="grid gap-2 p-3 md:p-4">
+               {product?.categories[0]?.title ? <Badge variant="secondary" className="w-fit rounded-full text-xs">{product.categories[0].title}</Badge> : null}
+               <h2 className="line-clamp-2 min-h-10 text-sm font-semibold leading-6 text-card-foreground md:text-base">{product.title}</h2>
+               {product?.description ? <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{product.description}</p> : null}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-3 py-3 md:px-4">
                {product?.isAvailable ? (
-                  Price()
-               ) : (
-                  <Badge variant="secondary">Out of stock</Badge>
-               )}
+                  <div className="flex flex-col gap-1">
+                     {hasDiscount ? <span className="text-xs text-muted-foreground line-through">{formatPrice(product.price)}</span> : null}
+                     <span className="text-sm font-bold text-primary md:text-base">{formatPrice(price)}</span>
+                  </div>
+               ) : <Badge variant="secondary">ناموجود</Badge>}
+               {product?.isAvailable ? <span className="text-xs text-muted-foreground">مشاهده محصول</span> : null}
             </CardFooter>
          </Card>
       </Link>
@@ -86,24 +61,13 @@ export const Product = ({ product }: { product: ProductWithIncludes }) => {
 
 export function ProductSkeleton() {
    return (
-      <Link href="#">
-         <div className="animate-pulse rounded-lg border border-border bg-card">
-            <div className="relative h-full w-full">
-               <div className="flex h-40 w-full items-center justify-center rounded bg-muted ">
-                  <ImageSkeleton />
-               </div>
-            </div>
-            <div className="p-5">
-               <div className="w-full">
-                  <div className="mb-4 h-2.5 w-48 rounded-full bg-muted"></div>
-                  <div className="mb-2.5 h-2 max-w-120 rounded-full bg-muted"></div>
-                  <div className="mb-2.5 h-2 rounded-full bg-muted"></div>
-                  <div className="mb-2.5 h-2 max-w-110 rounded-full bg-muted"></div>
-                  <div className="mb-2.5 h-2 max-w-115 rounded-full bg-muted"></div>
-                  <div className="h-2 max-w-90 rounded-full bg-muted"></div>
-               </div>
-            </div>
+      <div className="animate-pulse overflow-hidden rounded-2xl border border-border bg-card">
+         <div className="flex aspect-[4/5] w-full items-center justify-center bg-muted"><ImageSkeleton /></div>
+         <div className="space-y-3 p-4">
+            <div className="h-3 w-20 rounded-full bg-muted" />
+            <div className="h-3 w-3/4 rounded-full bg-muted" />
+            <div className="h-3 w-1/2 rounded-full bg-muted" />
          </div>
-      </Link>
+      </div>
    )
 }
