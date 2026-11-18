@@ -17,6 +17,7 @@
       "start": "next start",
       "lint": "eslint . --max-warnings 0",
       "typecheck": "tsc --noEmit",
+      "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
       "format": "prettier --write \"src/**/*.{ts,tsx,md,json}\"",
       "postinstall": "prisma generate",
       "prepare": "husky install",
