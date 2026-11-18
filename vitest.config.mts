@@ -10,6 +10,11 @@ export default defineConfig({
    plugins: [react(), tsconfigPaths()],
    resolve: {
       alias: [
+         /* Declared here as well as in tsconfig so resolution does not depend
+            on which files the root tsconfig happens to include: `tests` is
+            excluded there (the app build has no reason to typecheck it), and
+            vite-tsconfig-paths honours that exclusion. */
+         { find: /^@\/(.*)$/, replacement: fileURLToPath(new URL('./src/$1', import.meta.url)) },
          /* The Prisma client is generated at install time into a git-ignored
             folder and needs a real database engine. Tests never talk to a
             database, so the client is replaced by a constructible stub. */
