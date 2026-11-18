@@ -29,7 +29,8 @@ vi.mock('react-hot-toast', () => ({
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const fetchSpy = (ok = true) =>
-   vi.fn(async () => new Response('{}', { status: ok ? 200 : 500 }))
+   vi.fn(async (_url: string, _init?: RequestInit) =>
+      new Response('{}', { status: ok ? 200 : 500 }))
 
 beforeEach(() => {
    widgetState.opens = 0

@@ -75,7 +75,7 @@ beforeEach(() => {
 
 describe('guest cart line APIs', () => {
    it('adds a brand-new line through the product endpoint', async () => {
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify(product)))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(product)))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
@@ -175,7 +175,7 @@ describe('product page cart button', () => {
    it('posts the increment when signed in', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ButtonComponent product={product} />)
@@ -384,7 +384,7 @@ describe('admin forms request failures', () => {
    it('admin user form falls back to a generic message', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response('not json', { status: 503 }))
+         vi.fn(async (_url: string, _init?: RequestInit) => new Response('not json', { status: 503 }))
       )
       const { toast } = await import('react-hot-toast')
 
@@ -430,7 +430,7 @@ describe('admin forms request failures', () => {
 
 describe('profile order form add path', () => {
    it('creates through the products endpoint when there is no initial data', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}'))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}'))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ProfileOrderForm initialData={null} />)
@@ -490,8 +490,8 @@ describe('orders table', () => {
       const { container } = render(
          <OrdersTable
             data={[
-               { id: 'o1', number: 'Order #1', date: '2024', payable: '$5', isPaid: true },
-               { id: 'o2', number: 'Order #2', date: '2024', payable: '$6', isPaid: false },
+               { id: 'o1', number: 'Order #1', createdAt: '2024', payable: '$5', isPaid: true },
+               { id: 'o2', number: 'Order #2', createdAt: '2024', payable: '$6', isPaid: false },
             ]}
          />
       )
@@ -551,7 +551,7 @@ describe('logout failure paths', () => {
    })
 
    it('storefront logout does not reload on a non-200 answer', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+      vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 })))
       const reload = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, reload })
 

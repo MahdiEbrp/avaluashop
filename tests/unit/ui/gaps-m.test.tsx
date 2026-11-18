@@ -55,7 +55,7 @@ describe('tables with a placeholder header', () => {
    })
 
    it('does the same in the admin table', () => {
-      render(<AdminDataTable columns={columns as never} data={[{ name: 'alpha' }]} />)
+      render(<AdminDataTable columns={columns as never} data={[{ name: 'alpha' }]} searchKey="name" />)
 
       expect(screen.getByText('cell')).toBeInTheDocument()
    })
@@ -102,7 +102,7 @@ describe('tables with grouped columns', () => {
 
    it('skips the placeholder cell in the admin table', () => {
       const { container } = render(
-         <AdminDataTable columns={columns as never} data={[{ a: 1, b: 2, c: 3 }]} />
+         <AdminDataTable columns={columns as never} data={[{ a: 1, b: 2, c: 3 }]} searchKey="a" />
       )
 
       expect(screen.getByText('Group')).toBeInTheDocument()
@@ -123,7 +123,7 @@ describe('tables with no rows', () => {
    })
 
    it('renders the empty-state row in the admin table', () => {
-      render(<AdminDataTable columns={columns as never} data={[]} />)
+      render(<AdminDataTable columns={columns as never} data={[]} searchKey="name" />)
 
       expect(screen.getByText('No results.')).toBeInTheDocument()
    })

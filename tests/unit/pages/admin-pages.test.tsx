@@ -408,7 +408,10 @@ describe('storefront product pages', () => {
    it('builds open graph metadata from the product', async () => {
       prismaMock.product.findUnique.mockResolvedValue(product)
 
-      const metadata = await generateMetadata({ params: Promise.resolve({ productId: 'p1' }) })
+      const metadata = await generateMetadata({
+         params: Promise.resolve({ productId: 'p1' }),
+         searchParams: Promise.resolve({}),
+      } as never)
 
       expect(metadata.title).toBe('Runner')
       expect(metadata.openGraph?.images).toEqual(['/r.png'])

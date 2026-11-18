@@ -68,7 +68,9 @@ describe('empty admin collections still render their headings', () => {
       getDelegate().mockResolvedValue([])
 
       const element =
-         _name === 'orders' ? await Page({ searchParams: {} }) : await Page()
+         _name === 'orders'
+            ? await (Page as (props: { searchParams: object }) => Promise<never>)({ searchParams: {} })
+            : await (Page as () => Promise<never>)()
       render(element)
 
       expect(screen.getByText(heading)).toBeInTheDocument()

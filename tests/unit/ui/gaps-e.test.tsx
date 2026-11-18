@@ -250,7 +250,7 @@ describe('toast removal queue', () => {
 
       /* Dismissing schedules the removal timer that clears the queue. */
       act(() => {
-         toast({ id: 'x', title: 'second' })
+         toast({ title: 'second' })
       })
 
       const item = result.current.toasts[0]
@@ -334,7 +334,7 @@ describe('dropdown submenus', () => {
                <AdminDropdownMenuRadioGroup value="a">
                   <AdminDropdownMenuRadioItem value="a">Admin A</AdminDropdownMenuRadioItem>
                </AdminDropdownMenuRadioGroup>
-               <AdminDropdownMenuCheckboxItem inset checked>
+               <AdminDropdownMenuCheckboxItem checked>
                   Admin check
                </AdminDropdownMenuCheckboxItem>
             </AdminDropdownMenuContent>
@@ -395,22 +395,19 @@ describe('tweet media grid', () => {
 
    it('uses the two-column grid for multiple images', async () => {
       const { default: Tweet } = await import('@/components/native/mdx/Tweet')
+      const AnyTweet = Tweet as unknown as (props: object) => React.ReactElement
 
-      const { container } = render(<Tweet {...(baseTweet as never)} />)
+      const { container } = render(<AnyTweet {...baseTweet} />)
 
       expect(container.querySelector('.grid-cols-2')).toBeInTheDocument()
    })
 
    it('uses the single-column grid for one image', async () => {
       const { default: Tweet } = await import('@/components/native/mdx/Tweet')
+      const AnyTweet = Tweet as unknown as (props: object) => React.ReactElement
 
       const { container } = render(
-         <Tweet
-            {...({
-               ...baseTweet,
-               media: [baseTweet.media[0]],
-            } as never)}
-         />
+         <AnyTweet {...{ ...baseTweet, media: [baseTweet.media[0]] }} />
       )
 
       expect(container.querySelector('.grid-cols-1')).toBeInTheDocument()

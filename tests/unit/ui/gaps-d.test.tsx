@@ -62,7 +62,7 @@ afterEach(() => {
 
 describe('profile edit form', () => {
    it('creates the profile through /api/products', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserForm initialData={null} />)
@@ -77,7 +77,7 @@ describe('profile edit form', () => {
    })
 
    it('patches the profile when there is existing data', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(
@@ -203,7 +203,9 @@ describe('admin table status cells', () => {
    })
 
    it('renders successful and failed payment marks', () => {
-      const Cell = paymentColumns.find((column) => column.accessorKey === 'isSuccessful') as never
+      const Cell = paymentColumns.find(
+         (column) => (column as { accessorKey?: string }).accessorKey === 'isSuccessful'
+      ) as never
 
       render(
          <table>
@@ -244,7 +246,7 @@ describe('admin chrome', () => {
    })
 
    it('reloads the page after logging out', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })

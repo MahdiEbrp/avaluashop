@@ -12,7 +12,9 @@ export const json = (body: unknown, headers: Record<string, string> = {}) =>
 export const get = (headers: Record<string, string> = {}, url = 'http://localhost/api/test') =>
    new Request(url, { headers })
 
-export const call = (params: Record<string, string>) => ({
+/* Route handlers declare their params shape (`Promise<{ bannerId: string }>`),
+   so the helper is generic and infers from the call site. */
+export const call = <T extends Record<string, string>>(params: T) => ({
    params: Promise.resolve(params),
 })
 

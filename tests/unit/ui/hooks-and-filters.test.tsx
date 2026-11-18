@@ -193,7 +193,7 @@ describe('data tables', () => {
    })
 
    it('the admin table renders rows without the search box', () => {
-      render(<AdminDataTable columns={columns as never} data={[{ name: 'alpha' }]} />)
+      render(<AdminDataTable columns={columns as never} data={[{ name: 'alpha' }]} searchKey="name" />)
 
       expect(screen.queryByPlaceholderText('Search')).not.toBeInTheDocument()
       expect(screen.getByText('alpha')).toBeInTheDocument()
@@ -202,7 +202,7 @@ describe('data tables', () => {
    it('the admin table paginates forward and back', async () => {
       const rows = Array.from({ length: 15 }, (_, index) => ({ name: `row-${index}` }))
 
-      render(<AdminDataTable columns={columns as never} data={rows} />)
+      render(<AdminDataTable columns={columns as never} data={rows} searchKey="name" />)
 
       expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
 
@@ -214,7 +214,7 @@ describe('data tables', () => {
    })
 
    it('the admin table shows its empty state without rows', () => {
-      render(<AdminDataTable columns={columns as never} data={[]} />)
+      render(<AdminDataTable columns={columns as never} data={[]} searchKey="name" />)
 
       expect(screen.getByText('No results.')).toBeInTheDocument()
    })

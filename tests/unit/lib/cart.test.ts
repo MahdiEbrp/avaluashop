@@ -39,8 +39,8 @@ describe('lib/cart', () => {
 
       it('returns an empty cart outside the browser', () => {
          const original = globalThis.window
-         // @ts-expect-error - simulate a server render
-         delete globalThis.window
+         /* Simulate a server render. */
+         delete (globalThis as { window?: unknown }).window
 
          expect(getLocalCart()).toEqual({ items: [] })
 

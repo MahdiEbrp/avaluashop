@@ -32,7 +32,7 @@ beforeEach(() => {
 
 describe('profile UserForm', () => {
    it('prefills from the profile and submits', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 

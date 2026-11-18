@@ -12,8 +12,9 @@ describe('jwt', () => {
 
       expect(payload.sub).toBe('user-1')
       expect(payload.role).toBe('admin')
-      expect(payload.iat).toBeTypeOf('number')
-      expect(payload.exp! - payload.iat!).toBe(300)
+      const claims = payload as unknown as { iat: number; exp: number }
+      expect(claims.iat).toBeTypeOf('number')
+      expect(claims.exp - claims.iat).toBe(300)
    })
 
    it('round-trips the user role', async () => {

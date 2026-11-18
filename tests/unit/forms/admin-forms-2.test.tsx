@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe('admin PaymentForm', () => {
    it('patches the payment and returns to the list', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -105,7 +105,7 @@ describe('admin PaymentForm', () => {
 
 describe('admin OrderForm', () => {
    it('patches the order status', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -150,7 +150,7 @@ describe('admin UserForm', () => {
    }
 
    it('patches the user and returns to the list', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -195,7 +195,7 @@ describe('admin UserForm', () => {
 
 describe('storefront login form', () => {
    it('asks for an email and enables the button once it is valid', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -211,7 +211,7 @@ describe('storefront login form', () => {
 
    it('requests an OTP and switches to the verification step', async () => {
       setParams({ email: 'buyer@example.com' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -228,7 +228,7 @@ describe('storefront login form', () => {
 
    it('stays on the email step when the request fails logically', async () => {
       setParams({ email: 'buyer@example.com' })
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+      vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 })))
 
       render(<UserAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
@@ -252,7 +252,7 @@ describe('storefront login form', () => {
 
    it('requests an OTP by phone', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -296,7 +296,7 @@ describe('storefront login form', () => {
    it('verifies the OTP, clears the guest cart and redirects home', async () => {
       setParams({ email: 'buyer@example.com', OTP: '12345' })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
@@ -340,7 +340,7 @@ describe('storefront login form', () => {
 describe('admin login form', () => {
    it('uses the admin OTP endpoints', async () => {
       setParams({ email: 'owner@example.com' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminAuthForm />)
@@ -368,7 +368,7 @@ describe('admin login form', () => {
 
    it('stays on the email step when the OTP request fails', async () => {
       setParams({ email: 'owner@example.com' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 500 }))
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 }))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminAuthForm />)
