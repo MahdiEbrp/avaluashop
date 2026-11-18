@@ -50,6 +50,9 @@ function evictOne(): void {
 
    const oldest = buckets.keys().next()
 
+   /* `evictOne` only runs once the map is over the cap, so the iterator is
+      never empty here; the guard keeps it honest for the type. */
+   /* v8 ignore next */
    if (!oldest.done) buckets.delete(oldest.value)
 }
 
@@ -93,6 +96,9 @@ export function clientIp(req: Request): string {
 
    /* `split(x, 1)` returns just the first hop, so a forged tail cannot be
       read and no array is allocated per request. */
+   /* `split` always yields at least one element, so `?? ''` is only a
+      type-level fallback. */
+   /* v8 ignore next */
    if (forwardedFor) return (forwardedFor.split(',', 1)[0] ?? '').trim()
 
    return req.headers.get('x-real-ip') ?? 'unknown'

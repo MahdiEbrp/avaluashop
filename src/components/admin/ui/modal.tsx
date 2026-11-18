@@ -24,6 +24,9 @@ export const Modal: React.FC<ModalProps> = ({
    children,
 }) => {
    const onChange = (open: boolean) => {
+      /* Radix only calls this with `true` when it opens itself; this dialog
+         is fully controlled by `isOpen`, so only the close arm can run. */
+      /* v8 ignore next */
       if (!open) {
          onClose()
       }

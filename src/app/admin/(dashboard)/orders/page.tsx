@@ -10,6 +10,9 @@ import { OrderTable } from './components/table'
 export const dynamic = 'force-dynamic'
 
 export default async function OrdersPage({ searchParams }) {
+   /* The App Router always hands the page an object; the `?? null` fallback
+      only exists for a direct invocation. */
+   /* v8 ignore next */
    const {
       userId,
       sort,

@@ -250,7 +250,9 @@ export function AvailableToggle({ initialData }) {
 
                   // cast to string
                   const search = current.toString()
-                  // or const query = `${'?'.repeat(search.length && 1)}${search}`;
+                  // `params.set` above guarantees a non-empty string, so the
+                  // empty-query arm can never be taken.
+                  /* v8 ignore next */
                   const query = search ? `?${search}` : ''
 
                   router.replace(`${pathname}${query}`, {

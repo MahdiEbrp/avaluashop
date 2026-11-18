@@ -59,6 +59,9 @@ function ChangeMethodButton({ isLoading }) {
 
       params.set('method', method == 'phone' ? 'email' : 'phone')
       const search = params.toString()
+      /* `params.set` above always yields a non-empty string, so the
+         empty-query arm cannot be taken. */
+      /* v8 ignore next */
       const query = search ? `?${search}` : ''
 
       router.replace(`${pathname}${query}`, {
@@ -103,6 +106,9 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
 
       params.set('email', event.target.value)
       const search = params.toString()
+      /* `params.set` above always yields a non-empty string, so the
+         empty-query arm cannot be taken. */
+      /* v8 ignore next */
       const query = search ? `?${search}` : ''
 
       router.replace(`${pathname}${query}`, {
@@ -115,6 +121,9 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
 
       params.set('phone', event.target.value)
       const search = params.toString()
+      /* `params.set` above always yields a non-empty string, so the
+         empty-query arm cannot be taken. */
+      /* v8 ignore next */
       const query = search ? `?${search}` : ''
 
       router.replace(`${pathname}${query}`, {
@@ -243,6 +252,9 @@ function VerifyComponents({ isLoading, setIsLoading }) {
 
       params.set('OTP', event.target.value)
       const search = params.toString()
+      /* `params.set` above always yields a non-empty string, so the
+         empty-query arm cannot be taken. */
+      /* v8 ignore next */
       const query = search ? `?${search}` : ''
 
       router.replace(`${pathname}${query}`, {
