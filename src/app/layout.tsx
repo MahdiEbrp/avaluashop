@@ -5,7 +5,6 @@ import { Baloo_Bhaijaan_2 } from 'next/font/google'
 
 import './globals.css'
 
-// Baloo Bhaijaan 2 — Persian/Arabic + Latin glyphs, variable weight 400–800.
 const baloo = Baloo_Bhaijaan_2({
    subsets: ['arabic', 'latin'],
    display: 'swap',
@@ -14,15 +13,15 @@ const baloo = Baloo_Bhaijaan_2({
 
 export const metadata = {
    title: {
-      default: 'AvaluaShop — فروشگاه اینترنتی آوالواشاپ',
-      template: '%s | AvaluaShop',
+      default: 'آوالوا | فروشگاه اکسسوری زنانه',
+      template: '%s | آوالوا',
    },
    description:
-      'فروشگاه اینترنتی آوالواشاپ — خرید آنلاین با طراحی مدرن، پرداخت امن و ارسال سریع.',
-   keywords: ['AvaluaShop', 'آوالواشاپ', 'فروشگاه اینترنتی', 'خرید آنلاین'],
-   authors: [{ name: 'AvaluaShop', url: 'https://avaluashop.com' }],
-   creator: 'AvaluaShop',
-   publisher: 'AvaluaShop',
+      'فروشگاه آنلاین اکسسوری زنانه آوالوا؛ انتخابی ظریف برای استایل روزمره و خاص شما.',
+   keywords: ['آوالوا', 'اکسسوری زنانه', 'زیورآلات', 'کیف زنانه', 'اکسسوری مو'],
+   authors: [{ name: 'آوالوا', url: 'https://avaluashop.vercel.app' }],
+   creator: 'آوالوا',
+   publisher: 'آوالوا',
    metadataBase: new URL('https://avaluashop.vercel.app'),
 }
 
@@ -34,7 +33,7 @@ export default function RootLayout({
    return (
       <html lang="fa" dir="rtl" suppressHydrationWarning>
          <body className={`${baloo.variable} font-sans antialiased`}>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
                <ToastProvider />
                <ModalProvider />
                {children}
