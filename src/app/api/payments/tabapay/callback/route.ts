@@ -52,7 +52,9 @@ export async function GET(request: Request) {
       }
 
       await completePendingOrder(payment.orderId, payment.id)
-      return checkoutRedirect('success')
+      /* The checkout page only shows the verified receipt after it re-reads the
+         order through the authenticated API, so the reference is required. */
+      return checkoutRedirect('success', payment.orderId)
    } catch (error) {
       console.error('[TABAPAY_CALLBACK]', error)
       // A network/verification error is not proof of payment failure.

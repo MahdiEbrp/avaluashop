@@ -74,6 +74,7 @@ const stubFetch = (handler: (url: string, init?: RequestInit) => Promise<Respons
 beforeEach(() => {
    dispatchCart.mockClear()
    redirectToPayment.mockClear()
+   redirectToPayment.mockClear()
    userState.user = { id: 'u1' }
    userState.loading = false
    cartState.cart = cartWithItems
@@ -397,6 +398,263 @@ describe('checkout — switching the selected address', () => {
 
       expect(fetchMock).not.toHaveBeenCalledWith('/api/orders', expect.anything())
       expect(screen.queryByText('سفارش شما ثبت شد')).not.toBeInTheDocument()
+   })
+})
+
+describe('checkout — returning from the gateway', () => {
+   afterEach(() => {
+      window.history.replaceState({}, '', '/checkout')
+   })
+
+   it('confirms a verified payment through the authenticated orders API', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch(async (url) => {
+         if (url === '/api/orders') {
+            return jsonResponse([{ id: 'o1', number: 42, isPaid: true }])
+         }
+         return jsonResponse([])
+      })
+
+      render(<CheckoutPage />)
+
+      expect(
+         await screen.findByText('پرداخت سفارش شماره ۴۲ با موفقیت تأیید شد.')
+      ).toBeInTheDocument()
+   })
+
+   it('refuses to claim success without an order reference', async () => {
+      /* A forged `?payment=success` must not produce a receipt. */
+      window.history.replaceState({}, '', '/checkout?payment=success')
+      stubFetch(async () => jsonResponse([]))
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'شناسه سفارش برای بررسی نتیجه پرداخت وجود ندارد.'
+      )
+   })
+
+   it('does not claim success when the order is still unpaid', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch(async (url) => {
+         if (url === '/api/orders') {
+            return jsonResponse([{ id: 'o1', number: 42, isPaid: false }])
+         }
+         return jsonResponse([])
+      })
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'وضعیت پرداخت این سفارش هنوز در سامانه تأیید نشده است.'
+      )
+   })
+
+   it('reports a failed order lookup after the redirect', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch(async (url) => {
+         if (url === '/api/orders') return new Response('nope', { status: 500 })
+         return jsonResponse([])
+      })
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'دریافت وضعیت سفارش انجام نشد.'
+      )
+   })
+
+   it('ignores a non-Error rejection while confirming the payment', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch(async (url) => {
+         if (url === '/api/orders') throw 'plain string failure'
+         return jsonResponse([])
+      })
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'بررسی وضعیت پرداخت انجام نشد.'
+      )
+   })
+
+   it('ignores a payment check that rejects after unmount', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      let reject: (reason: Error) => void = () => {}
+      const pending = new Promise<Response>((_resolve, rejectFn) => {
+         reject = rejectFn
+      })
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async (url: string) => {
+            if (url === '/api/orders') return pending
+            return jsonResponse([])
+         })
+      )
+
+      const { unmount } = render(<CheckoutPage />)
+      unmount()
+
+      await act(async () => {
+         reject(new Error('late failure'))
+         await pending.catch(() => undefined)
+      })
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+   })
+
+   it('explains a failed payment', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=failed')
+      stubFetch(async () => jsonResponse([]))
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         /پرداخت تأیید نشد/
+      )
+   })
+
+   it('explains an uncertain payment and asks the shopper not to retry', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=pending')
+      stubFetch(async () => jsonResponse([]))
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         /تأیید پرداخت هنوز قطعی نیست/
+      )
+   })
+
+   it('does not update state when the payment check resolves after unmount', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      let release: (value: Response) => void = () => {}
+      const pending = new Promise<Response>((resolve) => {
+         release = resolve
+      })
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async (url: string) => {
+            if (url === '/api/orders') return pending
+            return jsonResponse([])
+         })
+      )
+
+      const { unmount } = render(<CheckoutPage />)
+      unmount()
+
+      await act(async () => {
+         release(jsonResponse([{ id: 'o1', number: 42, isPaid: true }]))
+         await pending
+      })
+
+      expect(screen.queryByText(/با موفقیت تأیید شد/)).not.toBeInTheDocument()
+   })
+})
+
+describe('checkout — gateway initialization', () => {
+   it('creates the order then hands the shopper to the gateway', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' })
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      await waitFor(() =>
+         expect(redirectToPayment).toHaveBeenCalledWith(
+            'https://api.tabapay.ir/pay/abc'
+         )
+      )
+      /* The order is created first, then the gateway session for it. */
+      expect(fetchMock).toHaveBeenCalledWith(
+         '/api/payments/tabapay',
+         expect.objectContaining({ body: JSON.stringify({ orderId: 'o1' }) })
+      )
+      /* Nothing is confirmed client-side before the gateway says so. */
+      expect(screen.queryByText('سفارش شما ثبت شد')).not.toBeInTheDocument()
+   })
+
+   it('explains an amount outside the gateway range', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ message: 'PAYMENT_AMOUNT_OUT_OF_RANGE' }, 400)
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
+      )
+      expect(redirectToPayment).not.toHaveBeenCalled()
+   })
+
+   it('reports a gateway that cannot be reached', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') return new Response('down', { status: 502 })
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+      )
+   })
+
+   it('rejects a gateway response without a usable URL', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') return jsonResponse({})
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('نشانی درگاه نامعتبر است.')
+      expect(redirectToPayment).not.toHaveBeenCalled()
+   })
+
+   it('tolerates a gateway error body that is not JSON', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return new Response('<html>bad gateway</html>', { status: 502 })
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+      )
    })
 })
 
