@@ -38,7 +38,9 @@ export const CartContextProvider = ({ children }) => {
       setServerCart(user.cart)
    }
 
-   const cart = isVariableValid(user) ? (serverCart ?? user.cart) : localCart
+   const cart = isVariableValid(user)
+      ? (serverCart ?? user.cart ?? { userId: user.id, items: [] })
+      : localCart
 
    const dispatchCart = (next) => {
       // Optimistic: show it right away and mirror it for the guest store.
