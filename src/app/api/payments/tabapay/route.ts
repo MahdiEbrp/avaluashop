@@ -77,7 +77,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ paymentUrl: result.paymentUrl })
    } catch (error) {
       console.error('[TABAPAY_CREATE]', error)
-      if (orderId && paymentId) {
+      if (orderId) {
          await releasePendingOrder(orderId, paymentId).catch((releaseError) => {
             console.error('[TABAPAY_RELEASE]', releaseError)
          })
