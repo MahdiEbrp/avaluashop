@@ -34,7 +34,7 @@ export default function CheckoutPage() {
 
 function CheckoutContent() {
    const { user, loading: userLoading } = useUserContext()
-   const { cart, loading: cartLoading, dispatchCart } = useCartContext()
+   const { cart, loading: cartLoading } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
@@ -49,6 +49,15 @@ function CheckoutContent() {
       phone: '',
       postalCode: '',
    })
+
+   useEffect(() => {
+      const paymentResult = new URLSearchParams(window.location.search).get('payment')
+      if (paymentResult === 'success') {
+         setSuccess('پرداخت با موفقیت تأیید شد و سفارش شما ثبت نهایی شد.')
+      } else if (paymentResult === 'failed') {
+         setError('پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.')
+      }
+   }, [])
 
    useEffect(() => {
       if (!user) {
@@ -151,11 +160,22 @@ function CheckoutContent() {
             )
          }
          const order = await response.json()
-         /* The server cleared the cart inside the order transaction; mirror that
-            locally so the header badge and /cart do not keep showing the items
-            that were just purchased. */
-         dispatchCart({ userId: user.id, items: [] })
-         setSuccess(`سفارش شماره ${money.format(order.number)} ثبت شد.`)
+         const paymentResponse = await fetch('/api/payments/tabapay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order.id }),
+         })
+         if (!paymentResponse.ok) {
+            const paymentError = await paymentResponse.json().catch(() => ({}))
+            throw new Error(
+               paymentError.message === 'PAYMENT_AMOUNT_OUT_OF_RANGE'
+                  ? 'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
+                  : 'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+            )
+         }
+         const { paymentUrl } = await paymentResponse.json()
+         if (typeof paymentUrl !== 'string') throw new Error('نشانی درگاه نامعتبر است.')
+         window.location.assign(paymentUrl)
       } catch (reason) {
          setError(reason instanceof Error ? reason.message : 'خطا در ثبت سفارش')
       } finally {
@@ -185,9 +205,9 @@ function CheckoutContent() {
          <div className="container mx-auto max-w-2xl p-6" dir="rtl">
             <Card>
                <CardContent className="space-y-4 p-6 text-center">
-                  <h1 className="text-2xl font-bold text-primary">سفارش شما ثبت شد</h1>
+                  <h1 className="text-2xl font-bold text-primary">پرداخت تأیید شد</h1>
                   <p>{success}</p>
-                  <p className="text-sm text-muted-foreground">این مرحله ثبت سفارش است؛ پرداخت آنلاین تا زمان اتصال و تأیید درگاه پرداخت فعال نیست.</p>
+                  <p className="text-sm text-muted-foreground">تراکنش از سمت سرور تأیید شده است. می‌توانید برای مشاهده فروشگاه بازگردید.</p>
                   <Link href="/"><Button className="w-full">بازگشت به فروشگاه</Button></Link>
                </CardContent>
             </Card>
@@ -290,9 +310,9 @@ function CheckoutContent() {
                      <p className="text-xs text-muted-foreground">هزینه ارسال در این نسخه محاسبه نشده و مبلغ پرداختی نهایی ممکن است پس از تکمیل تنظیمات ارسال تغییر کند.</p>
                   </div>
                   <Button className="w-full" onClick={submitOrder} disabled={submitting || !selectedAddress}>
-                     {submitting ? 'در حال ثبت سفارش...' : 'ثبت سفارش'}
+                     {submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
                   </Button>
-                  <p className="text-xs text-muted-foreground">ثبت سفارش به معنی پرداخت آنلاین نیست. درگاه پرداخت هنوز به این فروشگاه متصل نشده است.</p>
+                  <p className="text-xs text-muted-foreground">پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود.</p>
                </CardContent>
             </Card>
          </div>
