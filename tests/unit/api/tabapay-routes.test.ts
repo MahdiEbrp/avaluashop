@@ -114,7 +114,7 @@ describe('GET /api/payments/tabapay/callback', () => {
 
       expect(response.status).toBe(303)
       expect(response.headers.get('location')).toBe(
-         'https://avaluashop.vercel.app/checkout?payment=success'
+         'https://avaluashop.vercel.app/checkout?payment=success&orderId=order-1'
       )
       expect(verifyTabapayPayment).toHaveBeenCalledWith({
          token: 'tabapay-token',
