@@ -254,8 +254,6 @@ describe('POST /api/orders', () => {
       prismaMock.cart.findUnique.mockResolvedValue(cart)
       prismaMock.product.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.order.create.mockResolvedValue({ id: 'o1', number: 42 })
-      prismaMock.owner.findMany.mockResolvedValue([{ id: 'own1', email: 'o@b.co' }])
-      prismaMock.notification.createMany.mockResolvedValue({ count: 1 })
    }
 
    it('rejects an anonymous caller', async () => {
@@ -284,18 +282,18 @@ describe('POST /api/orders', () => {
       expect(prismaMock.order.create).not.toHaveBeenCalled()
    })
 
-   it('creates the order with computed totals and notifies the owners', async () => {
+   it('creates a pending-payment order with server-computed totals', async () => {
       stubSuccess()
 
       const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(201)
       await expect(response.json()).resolves.toEqual({ id: 'o1', number: 42 })
 
       /* total 250, discount 10, tax 9% of 240 = 21.6, payable 261.6 */
       expect(prismaMock.order.create).toHaveBeenCalledWith({
          data: expect.objectContaining({
-            status: 'Processing',
+            status: 'PendingPayment',
             total: 250,
             discount: 10,
             tax: 21.6,
@@ -303,17 +301,8 @@ describe('POST /api/orders', () => {
             shipping: 0,
          }),
       })
-      expect(prismaMock.notification.createMany).toHaveBeenCalledWith({
-         data: [
-            {
-               userId: 'own1',
-               content: 'Order #42 was created with a value of $261.6.',
-            },
-         ],
-      })
-      expect(prismaMock.cartItem.deleteMany).toHaveBeenCalledWith({
-         where: { cartId: 'user-1' },
-      })
+      expect(prismaMock.notification.createMany).not.toHaveBeenCalled()
+      expect(prismaMock.cartItem.deleteMany).not.toHaveBeenCalled()
    })
 
    it('reserves stock for every line inside the transaction', async () => {
@@ -410,14 +399,13 @@ describe('POST /api/orders', () => {
       expect(prismaMock.cart.findUnique).not.toHaveBeenCalled()
    })
 
-   it('still succeeds when owner mail delivery fails', async () => {
+   it('keeps the cart intact until the payment callback is verified', async () => {
       stubSuccess()
-      const { sendMail } = await import('@persepolis/mail')
-      vi.mocked(sendMail).mockRejectedValueOnce(new Error('smtp down'))
 
       const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(201)
+      expect(prismaMock.cartItem.deleteMany).not.toHaveBeenCalled()
    })
 
    it('answers 400 when the cart is empty or missing', async () => {
