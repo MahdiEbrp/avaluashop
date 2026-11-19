@@ -8,13 +8,16 @@ import { isVariableValid } from '@/lib/utils'
 import { useCartContext } from '@/state/Cart'
 import Link from 'next/link'
 
+const toman = new Intl.NumberFormat('fa-IR')
+const formatPrice = (value: string) => `${toman.format(Number(value))} تومان`
+
 export function Receipt() {
    const { authenticated } = useAuthenticated()
    const { loading, cart } = useCartContext()
 
    function calculatePayableCost() {
-      let totalAmount = 0,
-         discountAmount = 0
+      let totalAmount = 0
+      let discountAmount = 0
 
       if (isVariableValid(cart?.items)) {
          for (const item of cart?.items) {
@@ -28,53 +31,49 @@ export function Receipt() {
       const payableAmount = afterDiscountAmount + taxAmount
 
       return {
-         totalAmount: totalAmount.toFixed(2),
-         discountAmount: discountAmount.toFixed(2),
-         afterDiscountAmount: afterDiscountAmount.toFixed(2),
-         taxAmount: taxAmount.toFixed(2),
-         payableAmount: payableAmount.toFixed(2),
+         totalAmount: totalAmount.toFixed(0),
+         discountAmount: discountAmount.toFixed(0),
+         taxAmount: taxAmount.toFixed(0),
+         payableAmount: payableAmount.toFixed(0),
       }
    }
 
+   const totals = calculatePayableCost()
+
    return (
-      <Card variant={loading ? 'loading' : 'default'}>
+      <Card variant={loading ? 'loading' : 'default'} dir="rtl">
          <CardHeader className="p-4 pb-0">
-            <h2 className="font-bold tracking-tight">Receipt</h2>
+            <h2 className="font-bold tracking-tight">خلاصه سفارش</h2>
          </CardHeader>
          <CardContent className="p-4">
-            <div className="block space-y-[1vh] text-sm">
-               <div className="flex justify-between">
-                  <p>Total Amount</p>
-                  <h3>${calculatePayableCost().totalAmount}</h3>
+            <div className="space-y-3 text-sm">
+               <div className="flex justify-between gap-3">
+                  <p>جمع کالاها</p>
+                  <h3>{formatPrice(totals.totalAmount)}</h3>
                </div>
-               <div className="flex justify-between">
-                  <p>Discount Amount</p>
-                  <h3>${calculatePayableCost().discountAmount}</h3>
+               <div className="flex justify-between gap-3">
+                  <p>تخفیف</p>
+                  <h3>{formatPrice(totals.discountAmount)}</h3>
                </div>
-               <div className="flex justify-between">
-                  <p>Tax Amount</p>
-                  <h3>${calculatePayableCost().taxAmount}</h3>
+               <div className="flex justify-between gap-3">
+                  <p>مالیات</p>
+                  <h3>{formatPrice(totals.taxAmount)}</h3>
                </div>
             </div>
             <Separator className="my-4" />
-            <div className="flex justify-between text-sm">
-               <p>Payable Amount</p>
-               <h3>${calculatePayableCost().payableAmount}</h3>
+            <div className="flex justify-between gap-3 text-sm font-bold">
+               <p>مبلغ قابل پرداخت</p>
+               <h3>{formatPrice(totals.payableAmount)}</h3>
             </div>
          </CardContent>
          <Separator />
          <CardFooter>
-            <Link
-               href={authenticated ? '/checkout' : '/login'}
-               className="w-full"
-            >
+            <Link href={authenticated ? '/checkout' : '/login'} className="w-full">
                <Button
-                  disabled={
-                     !isVariableValid(cart?.items) || cart.items.length === 0
-                  }
+                  disabled={!isVariableValid(cart?.items) || cart.items.length === 0}
                   className="w-full"
                >
-                  Checkout
+                  ادامه فرایند خرید
                </Button>
             </Link>
          </CardFooter>

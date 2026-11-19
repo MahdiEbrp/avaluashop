@@ -58,7 +58,7 @@ describe('storefront user nav logout', () => {
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
 
-      const logout = await screen.findByText('Logout')
+      const logout = await screen.findByText('خروج از حساب')
       await user().click(logout)
 
       await waitFor(() =>
@@ -74,7 +74,7 @@ describe('storefront user nav logout', () => {
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
-      await user().click(await screen.findByText('Logout'))
+      await user().click(await screen.findByText('خروج از حساب'))
 
       await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
       expect(reload).not.toHaveBeenCalled()
@@ -86,7 +86,7 @@ describe('storefront user nav logout', () => {
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
-      await user().click(await screen.findByText('Logout'))
+      await user().click(await screen.findByText('خروج از حساب'))
 
       await waitFor(() => expect(errorSpy).toHaveBeenCalled())
       errorSpy.mockRestore()
@@ -96,8 +96,10 @@ describe('storefront user nav logout', () => {
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
 
-      expect(await screen.findByRole('menuitem', { name: /edit profile/i })).toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: /orders/i })).toBeInTheDocument()
+      expect(
+         await screen.findByRole('menuitem', { name: /ویرایش حساب کاربری/i })
+      ).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: /سفارش‌های من/i })).toBeInTheDocument()
    })
 
    it('leaves the router alone', () => {

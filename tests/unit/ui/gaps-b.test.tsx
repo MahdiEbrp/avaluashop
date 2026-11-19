@@ -78,36 +78,19 @@ describe('empty admin collections still render their headings', () => {
    })
 })
 
-describe('empty storefront listings reveal their skeletons', () => {
-   /* `isVariableValid` only rejects null/undefined, so the placeholder grids show
-      when a read comes back empty-handed rather than as an empty list. */
-   it('home page falls back to the skeleton grids', async () => {
-      prismaMock.banner.findMany.mockResolvedValue([])
-      prismaMock.product.findMany.mockResolvedValue(null)
-      prismaMock.blog.findMany.mockResolvedValue(null)
+describe('empty storefront listings reveal their empty states', () => {
+   /* The accessories-only home page reads products alone and renders the
+      Persian "collection coming soon" panel when the shelf is empty. */
+   it('home page falls back to its empty shelf', async () => {
+      prismaMock.product.findMany.mockResolvedValue([])
 
-      const { container } = render(await Index())
+      render(await Index())
 
-      /* The redesign retitles the shelf in Persian. */
-      expect(screen.getByText('منتخب‌های آوالوا')).toBeInTheDocument()
-      /* Eight skeleton cards, one pulse wrapper each. */
-      expect(container.querySelectorAll('.animate-pulse').length).toBe(8)
+      expect(screen.getByText('اکسسوری‌های منتخب')).toBeInTheDocument()
+      expect(screen.getByText('مجموعه آوالوا در حال تکمیل است')).toBeInTheDocument()
    })
 
-   it('products page falls back to the skeleton grid', async () => {
-      prismaMock.brand.findMany.mockResolvedValue([])
-      prismaMock.category.findMany.mockResolvedValue([])
-      prismaMock.product.findMany.mockResolvedValue(null)
-
-      const { container } = render(
-         await ProductsListPage({ searchParams: Promise.resolve({ sort: 'featured' }) })
-      )
-
-      expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0)
-   })
-
-   it('products page sorts the featured shelf by price', async () => {
-      prismaMock.brand.findMany.mockResolvedValue([])
+   it('products page falls back to its empty catalogue panel', async () => {
       prismaMock.category.findMany.mockResolvedValue([])
       prismaMock.product.findMany.mockResolvedValue([])
 
@@ -115,11 +98,24 @@ describe('empty storefront listings reveal their skeletons', () => {
          await ProductsListPage({ searchParams: Promise.resolve({ sort: 'featured' }) })
       )
 
-      expect(prismaMock.product.findMany.mock.calls[0][0].orderBy).toEqual({ price: 'desc' })
+      expect(screen.getByText('محصولی در این دسته موجود نیست')).toBeInTheDocument()
+   })
+
+   it('products page falls back to the featured ordering', async () => {
+      prismaMock.category.findMany.mockResolvedValue([])
+      prismaMock.product.findMany.mockResolvedValue([])
+
+      render(
+         await ProductsListPage({ searchParams: Promise.resolve({ sort: 'featured' }) })
+      )
+
+      expect(prismaMock.product.findMany.mock.calls[0][0].orderBy).toEqual([
+         { isFeatured: 'desc' },
+         { createdAt: 'desc' },
+      ])
    })
 
    it('products page sorts by most expensive', async () => {
-      prismaMock.brand.findMany.mockResolvedValue([])
       prismaMock.category.findMany.mockResolvedValue([])
       prismaMock.product.findMany.mockResolvedValue([])
 
@@ -131,13 +127,17 @@ describe('empty storefront listings reveal their skeletons', () => {
    })
 
    it('products page ignores an unknown sort', async () => {
-      prismaMock.brand.findMany.mockResolvedValue([])
       prismaMock.category.findMany.mockResolvedValue([])
       prismaMock.product.findMany.mockResolvedValue([])
 
       render(await ProductsListPage({ searchParams: Promise.resolve({ sort: 'weird' }) }))
 
-      expect(prismaMock.product.findMany.mock.calls[0][0].orderBy).toBeUndefined()
+      /* An unknown ordering falls back to the featured shelf, never to no sort
+         at all, so the catalogue stays deterministic. */
+      expect(prismaMock.product.findMany.mock.calls[0][0].orderBy).toEqual([
+         { isFeatured: 'desc' },
+         { createdAt: 'desc' },
+      ])
    })
 })
 

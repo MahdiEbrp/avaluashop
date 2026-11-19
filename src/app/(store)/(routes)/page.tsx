@@ -1,62 +1,62 @@
-import { BlogPostGrid, BlogPostSkeletonGrid } from '@/components/native/BlogCard'
-import Carousel from '@/components/native/Carousel'
-import { ProductGrid, ProductSkeletonGrid } from '@/components/native/Product'
+import { ProductGrid } from '@/components/native/Product'
 import { Heading } from '@/components/native/heading'
-import { Separator } from '@/components/native/separator'
 import prisma from '@/lib/prisma'
-import { isVariableValid } from '@/lib/utils'
 
 export const revalidate = 60
-const HOME_SHELF = 8
+
+const WOMENS_ACCESSORY_CATEGORIES = [
+   'اکسسوری زنانه',
+   'اکسسوری دخترانه',
+   'زیورآلات',
+   'بدلیجات',
+   'کیف زنانه',
+   'کیف دستی',
+   'کیف دوشی',
+   'عینک آفتابی زنانه',
+   'شال و روسری',
+   'اکسسوری مو',
+   'ساعت زنانه',
+]
 
 export default async function Index() {
-   const [products, blogs, banners] = await Promise.all([
-      prisma.product.findMany({
-         where: { isAvailable: true },
-         include: { brand: true, categories: true },
-         orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
-         take: HOME_SHELF,
-      }),
-      prisma.blog.findMany({
-         include: { author: true },
-         orderBy: { createdAt: 'desc' },
-         take: 3,
-      }),
-      prisma.banner.findMany({ take: 8 }),
-   ])
+   const products = await prisma.product.findMany({
+      where: {
+         isAvailable: true,
+         categories: { some: { title: { in: WOMENS_ACCESSORY_CATEGORIES } } },
+      },
+      include: { brand: true, categories: true },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      take: 8,
+   })
 
    return (
-      <div className="flex flex-col">
-         <section className="mb-8 mt-5">
-            <div className="mb-5 flex flex-col gap-2 text-center">
-               <p className="text-sm font-semibold tracking-wide text-primary">زیبایی در انتخاب‌های کوچک است</p>
-               <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">دنیای خاص آوالوا</h1>
-               <p className="mx-auto max-w-2xl text-sm leading-7 text-muted-foreground md:text-base">
-                  انتخاب‌هایی دلنشین برای سبک زندگی امروز؛ با خریدی آسان، مطمئن و لذت‌بخش.
-               </p>
-            </div>
-            {banners.length > 0 ? (
-               <Carousel images={banners.map((obj) => obj.image)} />
+      <div className="flex flex-col" dir="rtl">
+         <section className="mb-10 mt-6 rounded-3xl bg-gradient-to-l from-accent via-background to-secondary px-5 py-10 text-center md:py-16">
+            <p className="mb-3 text-sm font-semibold text-primary">انتخاب‌هایی ظریف برای استایل تو</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
+               جزئیات کوچک، زیبایی ماندگار
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-8 text-muted-foreground md:text-base">
+               مجموعه‌ای منتخب از اکسسوری‌های زنانه؛ از زیورآلات و کیف تا اکسسوری مو و جزئیات دوست‌داشتنی استایل.
+            </p>
+         </section>
+
+         <section className="mb-12">
+            <Heading
+               title="اکسسوری‌های منتخب"
+               description="محصولات مرتبط با استایل زنانه، با دقت برای آوالوا انتخاب شده‌اند."
+            />
+            {products.length > 0 ? (
+               <ProductGrid products={products} />
             ) : (
-               <div className="flex min-h-52 items-center justify-center rounded-2xl bg-secondary px-6 text-center">
-                  <div>
-                     <p className="text-xl font-bold text-secondary-foreground">به آوالوا خوش آمدید</p>
-                     <p className="mt-2 text-sm text-muted-foreground">محصولات محبوبتان را با خیال راحت پیدا کنید.</p>
-                  </div>
+               <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
+                  <p className="text-lg font-semibold text-foreground">مجموعه آوالوا در حال تکمیل است</p>
+                  <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                     به‌زودی اکسسوری‌های منتخب را اینجا می‌بینید. فعلاً محصول نامرتبطی نمایش داده نمی‌شود.
+                  </p>
                </div>
             )}
          </section>
-         <section className="mb-10">
-            <Heading title="منتخب‌های آوالوا" description="محصولات محبوب و تازه‌رسیده، با دقت برای شما انتخاب شده‌اند." />
-            {isVariableValid(products) ? <ProductGrid products={products} /> : <ProductSkeletonGrid />}
-         </section>
-         {isVariableValid(blogs) && blogs.length > 0 ? (
-            <section className="mb-10">
-               <Separator className="my-8" />
-               <Heading title="مجله آوالوا" description="ایده‌ها، پیشنهادها و مطالب خواندنی برای انتخاب بهتر." />
-               <BlogPostGrid blogs={blogs} />
-            </section>
-         ) : null}
       </div>
    )
 }

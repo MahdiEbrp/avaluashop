@@ -34,6 +34,18 @@ const typed = [
          },
       },
    },
+   /* `tests` is excluded from the root tsconfig so `next build` does not
+      typecheck it; typed linting still needs a project that includes them. */
+   {
+      files: ['tests/**/*.{ts,tsx}'],
+      languageOptions: {
+         parserOptions: {
+            projectService: false,
+            project: './tsconfig.lint.json',
+            tsconfigRootDir: import.meta.dirname,
+         },
+      },
+   },
 ]
 
 const config = [
