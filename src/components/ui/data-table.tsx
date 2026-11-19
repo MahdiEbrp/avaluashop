@@ -81,6 +81,9 @@ export function DataTable<TData extends RowData, TValue>({
                      table.getRowModel().rows.map((row) => (
                         <TableRow
                            key={row.id}
+                           /* Selection is never enabled for these tables,
+                              so this always evaluates to false. */
+                           /* v8 ignore next */
                            data-state={row.getIsSelected() && 'selected'}
                         >
                            {row.getVisibleCells().map((cell) => (

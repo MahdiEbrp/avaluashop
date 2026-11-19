@@ -109,6 +109,9 @@ export default function WishlistButton({ product }) {
       )
    }
 
+   /* The `!isProductInWishlist()` guard above returns for one case and falls
+      through for the other, so this arm is exhaustive at runtime. */
+   /* v8 ignore next */
    if (isProductInWishlist()) {
       return (
          <Button

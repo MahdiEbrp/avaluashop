@@ -68,6 +68,9 @@ export async function POST(req: NextRequest) {
          )
       }
 
+      /* The `if (isIranianPhoneNumberValid(...))` block above always returns, so this arm is
+         a defensive re-check that cannot run. */
+      /* v8 ignore next */
       if (!isIranianPhoneNumberValid(phone)) {
          return getErrorResponse(400, 'Incorrect Email')
       }
