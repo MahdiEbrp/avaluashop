@@ -311,6 +311,9 @@ describe('POST /api/orders', () => {
             },
          ],
       })
+      expect(prismaMock.cartItem.deleteMany).toHaveBeenCalledWith({
+         where: { cartId: 'user-1' },
+      })
    })
 
    it('reserves stock for every line inside the transaction', async () => {
