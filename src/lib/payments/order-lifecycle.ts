@@ -9,19 +9,19 @@ export async function releasePendingOrder(orderId: string, paymentId?: string) {
 
       if (!order || order.isPaid || order.status !== 'PendingPayment') return false
 
-      if (paymentId) {
-         const payment = await tx.payment.updateMany({
-            where: { id: paymentId, status: 'Processing' },
-            data: { status: 'Failed' },
-         })
-         if (payment.count !== 1) return false
-      }
-
       const cancelled = await tx.order.updateMany({
          where: { id: orderId, status: 'PendingPayment', isPaid: false },
          data: { status: 'Cancelled' },
       })
       if (cancelled.count !== 1) return false
+
+      if (paymentId) {
+         const payment = await tx.payment.updateMany({
+            where: { id: paymentId, status: 'Processing' },
+            data: { status: 'Failed' },
+         })
+         if (payment.count !== 1) throw new Error('PAYMENT_STATE_CONFLICT')
+      }
 
       for (const item of order.orderItems) {
          await tx.product.update({
