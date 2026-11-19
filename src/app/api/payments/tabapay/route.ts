@@ -9,7 +9,9 @@ export async function POST(req: Request) {
 
    try {
       const userId = req.headers.get('X-USER-ID')
-      if (!userId) return NextResponse.json({ message: 'UNAUTHORIZED' }, { status: 401 })
+      if (!userId) {
+         return NextResponse.json({ message: 'UNAUTHORIZED' }, { status: 401 })
+      }
 
       const body = await req.json()
       orderId = typeof body.orderId === 'string' ? body.orderId : undefined
@@ -36,7 +38,10 @@ export async function POST(req: Request) {
          if (existingPayment.paymentUrl && !existingPayment.refId.startsWith('pending:')) {
             return NextResponse.json({ paymentUrl: existingPayment.paymentUrl })
          }
-         return NextResponse.json({ message: 'PAYMENT_ALREADY_INITIALIZED' }, { status: 409 })
+         return NextResponse.json(
+            { message: 'PAYMENT_ALREADY_INITIALIZED' },
+            { status: 409 }
+         )
       }
 
       const provider = await prisma.paymentProvider.upsert({
@@ -49,12 +54,7 @@ export async function POST(req: Request) {
          },
          update: {},
       })
-      if (!provider.isActive) {
-         return NextResponse.json({ message: 'PAYMENT_PROVIDER_DISABLED' }, { status: 503 })
-      }
-
-      /*
-      })
+      if (!provider.isActive) throw new Error('PAYMENT_PROVIDER_DISABLED')
 
       const placeholder = `pending:${crypto.randomUUID()}`
       const payment = await prisma.payment.create({
@@ -91,10 +91,16 @@ export async function POST(req: Request) {
             console.error('[TABAPAY_RELEASE]', releaseError)
          })
       }
-      const message =
-         error instanceof Error && error.message === 'TABAPAY_AMOUNT_OUT_OF_RANGE'
-            ? 'PAYMENT_AMOUNT_OUT_OF_RANGE'
-            : 'PAYMENT_INITIALIZATION_FAILED'
-      return NextResponse.json({ message }, { status: 502 })
+
+      if (error instanceof Error && error.message === 'PAYMENT_AMOUNT_OUT_OF_RANGE') {
+         return NextResponse.json({ message: error.message }, { status: 400 })
+      }
+      if (error instanceof Error && error.message === 'PAYMENT_PROVIDER_DISABLED') {
+         return NextResponse.json({ message: error.message }, { status: 503 })
+      }
+      return NextResponse.json(
+         { message: 'PAYMENT_INITIALIZATION_FAILED' },
+         { status: 502 }
+      )
    }
 }
