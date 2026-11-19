@@ -52,10 +52,49 @@ function CheckoutContent() {
    })
 
    useEffect(() => {
-      const paymentResult = new URLSearchParams(window.location.search).get('payment')
+      const params = new URLSearchParams(window.location.search)
+      const paymentResult = params.get('payment')
+
       if (paymentResult === 'success') {
-         setSuccess('پرداخت با موفقیت تأیید شد و سفارش شما ثبت نهایی شد.')
-      } else if (paymentResult === 'failed') {
+         const orderId = params.get('orderId')
+         if (!orderId) {
+            setError('شناسه سفارش برای بررسی نتیجه پرداخت وجود ندارد.')
+            return
+         }
+
+         let cancelled = false
+         fetch('/api/orders', { cache: 'no-store' })
+            .then(async (response) => {
+               if (!response.ok) throw new Error('دریافت وضعیت سفارش انجام نشد.')
+               return response.json()
+            })
+            .then((orders: Array<{ id: string; number: number; isPaid: boolean }>) => {
+               const confirmedOrder = orders.find((order) => order.id === orderId)
+               if (!confirmedOrder?.isPaid) {
+                  throw new Error('وضعیت پرداخت این سفارش هنوز در سامانه تأیید نشده است.')
+               }
+               if (!cancelled) {
+                  setSuccess(
+                     `پرداخت سفارش شماره ${money.format(confirmedOrder.number)} با موفقیت تأیید شد.`
+                  )
+               }
+            })
+            .catch((reason) => {
+               if (!cancelled) {
+                  setError(
+                     reason instanceof Error
+                        ? reason.message
+                        : 'بررسی وضعیت پرداخت انجام نشد.'
+                  )
+               }
+            })
+
+         return () => {
+            cancelled = true
+         }
+      }
+
+      if (paymentResult === 'failed') {
          setError('پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.')
       } else if (paymentResult === 'pending') {
          setError('تأیید پرداخت هنوز قطعی نیست. لطفاً از ثبت دوباره سفارش خودداری کنید و وضعیت تراکنش را با پشتیبانی بررسی کنید.')
