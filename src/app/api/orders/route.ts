@@ -1,17 +1,10 @@
-import config from '@/config/site'
-import Mail from '@/emails/order_notification_owner'
 import prisma from '@/lib/prisma'
-import { sendMail } from '@persepolis/mail'
-import { render } from '@react-email/render'
 import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
    try {
       const userId = req.headers.get('X-USER-ID')
-
-      if (!userId) {
-         return new NextResponse('Unauthorized', { status: 401 })
-      }
+      if (!userId) return new NextResponse('Unauthorized', { status: 401 })
 
       const orders = await prisma.order.findMany({
          where: { userId },
@@ -33,32 +26,22 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
    try {
       const userId = req.headers.get('X-USER-ID')
-
-      if (!userId) {
-         return new NextResponse('Unauthorized', { status: 401 })
-      }
+      if (!userId) return new NextResponse('Unauthorized', { status: 401 })
 
       const body = await req.json()
-      const addressId =
-         typeof body.addressId === 'string' ? body.addressId : null
+      const addressId = typeof body.addressId === 'string' ? body.addressId : null
       const discountCode =
          typeof body.discountCode === 'string' ? body.discountCode.trim() : ''
 
       if (!addressId) {
-         return new NextResponse('A valid shipping address is required', {
-            status: 400,
-         })
+         return new NextResponse('A valid shipping address is required', { status: 400 })
       }
 
-      // Never allow an order to be attached to another customer's address.
       const address = await prisma.address.findFirst({
          where: { id: addressId, userId },
          select: { id: true },
       })
-
-      if (!address) {
-         return new NextResponse('Shipping address not found', { status: 404 })
-      }
+      if (!address) return new NextResponse('Shipping address not found', { status: 404 })
 
       if (discountCode) {
          const validCode = await prisma.discountCode.findFirst({
@@ -70,23 +53,15 @@ export async function POST(req: Request) {
             },
             select: { id: true },
          })
-
          if (!validCode) {
-            return new NextResponse('Discount code is invalid or expired', {
-               status: 400,
-            })
+            return new NextResponse('Discount code is invalid or expired', { status: 400 })
          }
       }
 
       const cart = await prisma.cart.findUnique({
          where: { userId },
-         include: {
-            items: {
-               include: { product: true },
-            },
-         },
+         include: { items: { include: { product: true } } },
       })
-
       if (!cart?.items?.length) {
          return new NextResponse('Your cart is empty', { status: 400 })
       }
@@ -105,10 +80,10 @@ export async function POST(req: Request) {
          }
       }
 
-      const { total, tax, discount, payable } = calculateCosts({ cart })
+      const { total, tax, discount, payable } = calculateCosts(cart)
 
-      // Reserve stock and create the order atomically. A concurrent checkout
-      // cannot make the stock count negative or create an order for stale stock.
+      // Inventory is reserved atomically while payment is pending. It is
+      // restored by the payment lifecycle if Tabapay rejects or fails.
       const order = await prisma.$transaction(async (tx) => {
          for (const item of cart.items) {
             const updated = await tx.product.updateMany({
@@ -119,16 +94,13 @@ export async function POST(req: Request) {
                },
                data: { stock: { decrement: item.count } },
             })
-
-            if (updated.count !== 1) {
-               throw new Error('INSUFFICIENT_STOCK')
-            }
+            if (updated.count !== 1) throw new Error('INSUFFICIENT_STOCK')
          }
 
-         const createdOrder = await tx.order.create({
+         return tx.order.create({
             data: {
                userId,
-               status: 'Processing',
+               status: 'PendingPayment',
                total,
                tax,
                payable,
@@ -145,42 +117,10 @@ export async function POST(req: Request) {
                },
             },
          })
-
-         // Clear only after the order and stock reservation have succeeded.
-         await tx.cartItem.deleteMany({ where: { cartId: userId } })
-
-         return createdOrder
       })
 
-      const owners = await prisma.owner.findMany()
-
-      await prisma.notification.createMany({
-         data: owners.map((owner) => ({
-            userId: owner.id,
-            content: `Order #${order.number} was created with a value of $${payable}.`,
-         })),
-      })
-
-      // The order and its notifications are already committed. A mail
-      // transport failure must not turn a successful order into a 500.
-      for (const owner of owners) {
-         await sendMail({
-            name: config.name,
-            to: owner.email,
-            subject: 'An order was created.',
-            html: await render(
-               Mail({
-                  id: order.id,
-                  payable: payable.toFixed(2),
-                  orderNum: order.number.toString(),
-               })
-            ),
-         }).catch((error) => {
-            console.error('[ORDER_MAIL]', error)
-         })
-      }
-
-      return NextResponse.json(order)
+      // Keep the cart until payment is verified by Tabapay.
+      return NextResponse.json(order, { status: 201 })
    } catch (error) {
       if (error instanceof Error && error.message === 'INSUFFICIENT_STOCK') {
          return new NextResponse(
@@ -188,12 +128,17 @@ export async function POST(req: Request) {
             { status: 409 }
          )
       }
-      console.error('[ORDER_POST]', error)
+      console.error('[ORDERS_POST]', error)
       return new NextResponse('Internal error', { status: 500 })
    }
 }
 
-function calculateCosts({ cart }) {
+function calculateCosts(cart: {
+   items: Array<{
+      count: number
+      product: { price: number; discount: number }
+   }>
+}) {
    let total = 0
    let discount = 0
 
@@ -202,14 +147,14 @@ function calculateCosts({ cart }) {
       discount += item.count * item.product.discount
    }
 
-   const afterDiscount = total - discount
+   const afterDiscount = Math.max(0, total - discount)
    const tax = afterDiscount * 0.09
    const payable = afterDiscount + tax
 
    return {
-      total: Number.parseFloat(total.toFixed(2)),
-      discount: Number.parseFloat(discount.toFixed(2)),
-      tax: Number.parseFloat(tax.toFixed(2)),
-      payable: Number.parseFloat(payable.toFixed(2)),
+      total: Number(total.toFixed(2)),
+      discount: Number(discount.toFixed(2)),
+      tax: Number(tax.toFixed(2)),
+      payable: Number(payable.toFixed(2)),
    }
 }
