@@ -30,8 +30,8 @@ export function MobileNav() {
                <MenuIcon className="h-5 w-5" />
             </Button>
          </SheetTrigger>
-         <SheetContent side="right" dir="rtl" className="w-[ min(86vw, 360px) ]">
-            <div className="mb-6 text-right text-lg font-bold">{'آوالوا'}</div>
+         <SheetContent side="right" dir="rtl" className="w-[min(86vw,360px)]">
+            <div className="mb-6 text-right text-lg font-bold">آوالوا</div>
             <ScrollArea className="h-[calc(100vh-7rem)] pe-3">
                <nav className="flex flex-col gap-1 text-right">
                   {links.map((item) => (
