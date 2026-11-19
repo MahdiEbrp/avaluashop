@@ -37,7 +37,7 @@ export function UserNav() {
                <UserIcon className="h-4 w-4" />
             </Button>
          </DropdownMenuTrigger>
-         <DropdownMenuContent className="w-56" align="end" forceMount dir="rtl">
+         <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuGroup>
                <Link href="/profile/addresses">
                   <DropdownMenuItem className="flex gap-2">
