@@ -6,7 +6,7 @@ import {
 import { verifyTabapayPayment } from '@/lib/payments/tabapay'
 import { NextResponse } from 'next/server'
 
-function checkoutRedirect(request: Request, result: 'success' | 'failed') {
+function checkoutRedirect(request: Request, result: 'success' | 'failed' | 'pending') {
    return NextResponse.redirect(
       new URL(`/checkout?payment=${result}`, request.url),
       { status: 303 }
@@ -49,6 +49,6 @@ export async function GET(request: Request) {
       console.error('[TABAPAY_CALLBACK]', error)
       // A network/verification error is not proof of payment failure.
       // Keep the order pending so it can be safely checked again.
-      return checkoutRedirect(request, 'failed')
+      return checkoutRedirect(request, 'pending')
    }
 }
