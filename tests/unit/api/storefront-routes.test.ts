@@ -235,13 +235,24 @@ describe('GET /api/orders', () => {
 describe('POST /api/orders', () => {
    const cart = {
       items: [
-         { count: 2, productId: 'p1', product: { price: 100, discount: 5 } },
-         { count: 1, productId: 'p2', product: { price: 50, discount: 0 } },
+         {
+            count: 2,
+            productId: 'p1',
+            product: { price: 100, discount: 5, stock: 10, isAvailable: true },
+         },
+         {
+            count: 1,
+            productId: 'p2',
+            product: { price: 50, discount: 0, stock: 3, isAvailable: true },
+         },
       ],
    }
 
+   /* Every request now has to clear the address-ownership gate first. */
    const stubSuccess = () => {
-      prismaMock.cart.findUniqueOrThrow.mockResolvedValue(cart)
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockResolvedValue(cart)
+      prismaMock.product.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.order.create.mockResolvedValue({ id: 'o1', number: 42 })
       prismaMock.owner.findMany.mockResolvedValue([{ id: 'own1', email: 'o@b.co' }])
       prismaMock.notification.createMany.mockResolvedValue({ count: 1 })
@@ -249,6 +260,28 @@ describe('POST /api/orders', () => {
 
    it('rejects an anonymous caller', async () => {
       expect((await ordersPOST(json({ addressId: 'ad1' }))).status).toBe(401)
+   })
+
+   it('requires a shipping address', async () => {
+      const response = await ordersPOST(json({}, USER))
+
+      expect(response.status).toBe(400)
+      await expect(response.text()).resolves.toBe('A valid shipping address is required')
+   })
+
+   it('refuses an address that belongs to another customer', async () => {
+      prismaMock.address.findFirst.mockResolvedValue(null)
+
+      const response = await ordersPOST(json({ addressId: 'someone-elses' }, USER))
+
+      expect(response.status).toBe(404)
+      await expect(response.text()).resolves.toBe('Shipping address not found')
+      /* Ownership is part of the query, not a post-hoc check. */
+      expect(prismaMock.address.findFirst).toHaveBeenCalledWith({
+         where: { id: 'someone-elses', userId: 'user-1' },
+         select: { id: true },
+      })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
    })
 
    it('creates the order with computed totals and notifies the owners', async () => {
@@ -274,20 +307,104 @@ describe('POST /api/orders', () => {
          data: [
             {
                userId: 'own1',
-               content: 'Order #42 was created was created with a value of $261.6.',
+               content: 'Order #42 was created with a value of $261.6.',
             },
          ],
       })
    })
 
+   it('reserves stock for every line inside the transaction', async () => {
+      stubSuccess()
+
+      await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(prismaMock.$transaction).toHaveBeenCalled()
+      expect(prismaMock.product.updateMany).toHaveBeenCalledWith({
+         where: { id: 'p1', isAvailable: true, stock: { gte: 2 } },
+         data: { stock: { decrement: 2 } },
+      })
+      expect(prismaMock.product.updateMany).toHaveBeenCalledWith({
+         where: { id: 'p2', isAvailable: true, stock: { gte: 1 } },
+         data: { stock: { decrement: 1 } },
+      })
+   })
+
+   it('answers 409 when stock changes between the read and the reservation', async () => {
+      stubSuccess()
+      prismaMock.product.updateMany.mockResolvedValue({ count: 0 })
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.text()).resolves.toBe(
+         'One or more products no longer have enough stock'
+      )
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('answers 409 before writing when a line cannot be fulfilled', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockResolvedValue({
+         items: [
+            {
+               count: 99,
+               productId: 'p1',
+               product: { price: 100, discount: 0, stock: 2, isAvailable: true },
+            },
+         ],
+      })
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(409)
+      expect(prismaMock.$transaction).not.toHaveBeenCalled()
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('answers 409 for an unavailable product', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockResolvedValue({
+         items: [
+            {
+               count: 1,
+               productId: 'p1',
+               product: { price: 100, discount: 0, stock: 5, isAvailable: false },
+            },
+         ],
+      })
+
+      expect((await ordersPOST(json({ addressId: 'ad1' }, USER))).status).toBe(409)
+   })
+
    it('checks a discount code when one is supplied', async () => {
       stubSuccess()
+      prismaMock.discountCode.findFirst.mockResolvedValue({ id: 'd1' })
 
       await ordersPOST(json({ addressId: 'ad1', discountCode: 'SAVE10' }, USER))
 
-      expect(prismaMock.discountCode.findUniqueOrThrow).toHaveBeenCalledWith({
-         where: { code: 'SAVE10', stock: { gte: 1 } },
+      /* The lookup now pins the validity window as well as the remaining stock. */
+      expect(prismaMock.discountCode.findFirst).toHaveBeenCalledWith({
+         where: {
+            code: 'SAVE10',
+            stock: { gte: 1 },
+            startDate: { lte: expect.any(Date) },
+            endDate: { gte: expect.any(Date) },
+         },
+         select: { id: true },
       })
+   })
+
+   it('rejects an expired or unknown discount code', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.discountCode.findFirst.mockResolvedValue(null)
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', discountCode: 'OLD' }, USER)
+      )
+
+      expect(response.status).toBe(400)
+      await expect(response.text()).resolves.toBe('Discount code is invalid or expired')
+      expect(prismaMock.cart.findUnique).not.toHaveBeenCalled()
    })
 
    it('still succeeds when owner mail delivery fails', async () => {
@@ -300,8 +417,26 @@ describe('POST /api/orders', () => {
       expect(response.status).toBe(200)
    })
 
-   it('answers 500 when the cart is empty or missing', async () => {
-      prismaMock.cart.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
+   it('answers 400 when the cart is empty or missing', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockResolvedValue(null)
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(400)
+      await expect(response.text()).resolves.toBe('Your cart is empty')
+   })
+
+   it('answers 400 for a cart with no items', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockResolvedValue({ items: [] })
+
+      expect((await ordersPOST(json({ addressId: 'ad1' }, USER))).status).toBe(400)
+   })
+
+   it('answers 500 on an unexpected database failure', async () => {
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      prismaMock.cart.findUnique.mockRejectedValue(new Error('down'))
 
       const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
 
