@@ -5,7 +5,7 @@ const PrivacyPolicy = () => {
             <h1 className="text-3xl font-semibold mb-4">Privacy Policy</h1>
 
             <p className="mb-4">
-               This Privacy Policy describes how AvaluaShop collects, uses, and
+               This Privacy Policy describes how آوالونا شاپ collects, uses, and
                protects your personal information when you use our website.
             </p>
 

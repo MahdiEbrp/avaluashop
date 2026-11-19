@@ -179,7 +179,7 @@ describe('command menu secondary actions', () => {
       render(<CommandMenu />)
 
       fireEvent.keyDown(document, { key: 'k', metaKey: true })
-      await user().click(await screen.findByText('درباره آوالوا'))
+      await user().click(await screen.findByText('درباره آوالونا شاپ'))
 
       expect(routerMock.push).toHaveBeenCalledWith('/about')
    })

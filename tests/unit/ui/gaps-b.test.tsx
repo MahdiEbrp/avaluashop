@@ -87,7 +87,7 @@ describe('empty storefront listings reveal their empty states', () => {
       render(await Index())
 
       expect(screen.getByText('اکسسوری‌های منتخب')).toBeInTheDocument()
-      expect(screen.getByText('مجموعه آوالوا در حال تکمیل است')).toBeInTheDocument()
+      expect(screen.getByText('مجموعه آوالونا شاپ در حال تکمیل است')).toBeInTheDocument()
    })
 
    it('products page falls back to its empty catalogue panel', async () => {

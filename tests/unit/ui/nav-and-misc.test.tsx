@@ -182,7 +182,7 @@ describe('storefront shell navigation', () => {
          'href',
          '/products'
       )
-      expect(screen.getByRole('link', { name: 'درباره آوالوا' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'درباره آوالونا شاپ' })).toHaveAttribute(
          'href',
          '/about'
       )
@@ -265,7 +265,7 @@ describe('command menu', () => {
 
       /* The palette is search-only now; theme switching lives in the admin. */
       await userEvent.setup().click(screen.getByRole('button', { name: /جستجو در فروشگاه/i }))
-      await userEvent.setup().click(await screen.findByText('درباره آوالوا'))
+      await userEvent.setup().click(await screen.findByText('درباره آوالونا شاپ'))
 
       expect(routerMock.push).toHaveBeenCalledWith('/about')
    })
