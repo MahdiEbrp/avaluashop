@@ -125,7 +125,7 @@ export async function POST(req: Request) {
             }
          }
 
-         return tx.order.create({
+         const createdOrder = await tx.order.create({
             data: {
                userId,
                status: 'Processing',
@@ -145,6 +145,11 @@ export async function POST(req: Request) {
                },
             },
          })
+
+         // Clear only after the order and stock reservation have succeeded.
+         await tx.cartItem.deleteMany({ where: { cartId: userId } })
+
+         return createdOrder
       })
 
       const owners = await prisma.owner.findMany()

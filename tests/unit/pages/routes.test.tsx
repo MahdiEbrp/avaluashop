@@ -140,10 +140,16 @@ describe('static storefront pages', () => {
       expect(screen.getByText('1. Information We Collect')).toBeInTheDocument()
    })
 
-   it('checkout page has content', () => {
+   /* The checkout route used to render a stray Privacy Policy; the real page
+      is covered in depth by tests/unit/pages/checkout-page.test.tsx. */
+   it('checkout page no longer renders the privacy policy', () => {
       render(<CheckoutPage />)
 
-      expect(screen.getByText('Privacy Policy')).toBeInTheDocument()
+      expect(screen.queryByText('Privacy Policy')).not.toBeInTheDocument()
+      /* Unauthenticated by default, so the page offers the sign-in path. */
+      expect(
+         screen.getByText('برای ادامه خرید وارد حساب کاربری شوید')
+      ).toBeInTheDocument()
    })
 
    it('cart page renders the cart shell', () => {
