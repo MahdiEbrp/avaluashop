@@ -8,107 +8,65 @@ import {
    CommandInput,
    CommandItem,
    CommandList,
-   CommandSeparator,
 } from '@/components/ui/command'
-import { docsConfig } from '@/config/docs'
-import { CircleIcon, LaptopIcon, MoonIcon, SunIcon } from 'lucide-react'
-import { useTheme } from 'next-themes'
+import { SearchIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import * as React from 'react'
+
+const pages = [
+   { title: 'صفحه اصلی', href: '/' },
+   { title: 'فروشگاه اکسسوری', href: '/products' },
+   { title: 'درباره آوالوا', href: '/about' },
+   { title: 'تماس با ما', href: '/contact' },
+   { title: 'سوالات متداول', href: '/faq' },
+]
 
 export function CommandMenu(
    props: Readonly<React.ComponentProps<typeof CommandDialog>>
 ) {
    const router = useRouter()
    const [open, setOpen] = React.useState(false)
-   const { setTheme } = useTheme()
 
    React.useEffect(() => {
-      const down = (e: KeyboardEvent) => {
-         if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault()
-            setOpen((open) => !open)
+      const down = (event: KeyboardEvent) => {
+         if (event.key === 'k' && (event.metaKey || event.ctrlKey)) {
+            event.preventDefault()
+            setOpen((current) => !current)
          }
       }
-
       document.addEventListener('keydown', down)
-      return () => {
-         document.removeEventListener('keydown', down)
-      }
-   }, [])
-
-   const runCommand = React.useCallback((command: () => unknown) => {
-      setOpen(false)
-      command()
+      return () => document.removeEventListener('keydown', down)
    }, [])
 
    return (
       <>
          <Button
             variant="search"
-            className="relative w-full sm:pr-12 md:w-40 lg:w-64"
-            onClick={() => {
-               setOpen(true)
-            }}
+            aria-label="جستجو در فروشگاه"
+            className="h-10 w-10 shrink-0 px-0 sm:w-40 sm:justify-start sm:gap-2 sm:px-3 lg:w-64"
+            onClick={() => setOpen(true)}
             {...props}
          >
-            <span className="inline-flex">Search...</span>
+            <SearchIcon className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">جستجو در آوالوا</span>
          </Button>
          <CommandDialog open={open} onOpenChange={setOpen}>
-            <CommandInput placeholder="Type a command or search..." />
-            <CommandList>
-               <CommandEmpty>No results found.</CommandEmpty>
-
-               <CommandGroup heading="Links">
-                  {docsConfig.sidebarNav.map((navItem) => (
+            <CommandInput dir="rtl" placeholder="نام محصول یا صفحه را جستجو کنید..." />
+            <CommandList dir="rtl">
+               <CommandEmpty>موردی پیدا نشد.</CommandEmpty>
+               <CommandGroup heading="صفحات فروشگاه">
+                  {pages.map((page) => (
                      <CommandItem
-                        key={navItem.href}
-                        value={navItem.title}
+                        key={page.href}
+                        value={page.title}
                         onSelect={() => {
-                           runCommand(() => {
-                              router.push(navItem.href)
-                           })
+                           setOpen(false)
+                           router.push(page.href)
                         }}
                      >
-                        <div className="mr-2 flex h-4 items-center justify-center">
-                           <CircleIcon className="h-3" />
-                        </div>
-                        {navItem.title}
+                        {page.title}
                      </CommandItem>
                   ))}
-               </CommandGroup>
-               <CommandSeparator />
-               <CommandGroup heading="Theme">
-                  <CommandItem
-                     onSelect={() => {
-                        runCommand(() => {
-                           setTheme('light')
-                        })
-                     }}
-                  >
-                     <SunIcon className="mr-2 h-4" />
-                     Light
-                  </CommandItem>
-                  <CommandItem
-                     onSelect={() => {
-                        runCommand(() => {
-                           setTheme('dark')
-                        })
-                     }}
-                  >
-                     <MoonIcon className="mr-2 h-4" />
-                     Dark
-                  </CommandItem>
-                  <CommandItem
-                     onSelect={() => {
-                        runCommand(() => {
-                           setTheme('system')
-                        })
-                     }}
-                  >
-                     <LaptopIcon className="mr-2 h-4" />
-                     System
-                  </CommandItem>
                </CommandGroup>
             </CommandList>
          </CommandDialog>
