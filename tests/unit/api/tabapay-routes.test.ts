@@ -34,7 +34,7 @@ beforeEach(() => {
    silenceConsole()
    prismaMock.order.findFirst.mockResolvedValue(order)
    prismaMock.payment.findFirst.mockResolvedValue(null)
-   prismaMock.paymentProvider.upsert.mockResolvedValue({ id: 'provider-1' })
+   prismaMock.paymentProvider.upsert.mockResolvedValue({ id: 'provider-1', isActive: true })
    prismaMock.payment.create.mockResolvedValue({ id: 'payment-1' })
    prismaMock.payment.update.mockResolvedValue({})
    vi.mocked(createTabapayPayment).mockResolvedValue({
