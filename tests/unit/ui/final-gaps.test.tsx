@@ -505,13 +505,17 @@ describe('product card', () => {
       render(<Product product={product as never} />)
 
       expect(screen.getAllByText('Shoe').length).toBeGreaterThan(0)
-      expect(screen.getByText('%10.00')).toBeInTheDocument()
+      /* Price is Toman-formatted and the badge speaks Persian. */
+      expect(screen.getByText('٪۱۰ تخفیف')).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۹۰ تومان')).toBeInTheDocument()
    })
 
    it('shows the flat price block', () => {
       render(<Product product={{ ...product, discount: 0 } as never} />)
 
-      expect(screen.getByText('$100')).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.queryByText(/تخفیف/)).toBeNull()
    })
 })
 

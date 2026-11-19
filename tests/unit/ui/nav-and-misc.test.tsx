@@ -154,28 +154,24 @@ describe('storefront shell navigation', () => {
    it('shows a login button to guests', () => {
       render(<Header />)
 
-      expect(screen.getByText('Login')).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: '' })).toBeInTheDocument()
+      /* The redesign labels the guest call to action in Persian. */
+      expect(screen.getByText('ورود / ثبت‌نام')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /ورود \/ ثبت‌نام/ })).toHaveAttribute(
+         'href',
+         '/login'
+      )
    })
 
    it('shows the account menu to signed-in visitors', () => {
       document.cookie = 'logged-in=true'
       render(<Header />)
 
-      expect(screen.queryByText('Login')).not.toBeInTheDocument()
+      expect(screen.queryByText('ورود / ثبت‌نام')).not.toBeInTheDocument()
       document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
    })
 
-   it('theme toggle in the header flips the theme', async () => {
-      render(<Header />)
-
-      const toggle = screen
-         .getAllByRole('button')
-         .find((button) => button.innerHTML.includes('lucide-moon'))!
-      await userEvent.setup().click(toggle)
-
-      expect(themeMock.setTheme).toHaveBeenCalled()
-   })
+   /* The redesign removes the header theme toggle; the admin navbar keeps its
+      own and is covered in gaps-m. */
 
    it('desktop main nav renders its menu', () => {
       render(<MainNav />)
