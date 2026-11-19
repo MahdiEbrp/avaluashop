@@ -111,6 +111,52 @@ describe('authenticated cart mutations', () => {
       vi.unstubAllGlobals()
    })
 
+   it('hides the quantity stepper behind a spinner while a guest add is in flight', async () => {
+      cartValue.cart = { items: [] } as never
+      let release: (value: Response) => void = () => {}
+      const pending = new Promise<Response>((resolve) => {
+         release = resolve
+      })
+      vi.stubGlobal('fetch', vi.fn(async () => pending))
+
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
+
+      /* The "+ افزودن" control is replaced by a disabled spinner button for the
+         duration of the product lookup. */
+      await act(async () => {
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
+      })
+
+      expect(screen.getByRole('button')).toBeDisabled()
+
+      await act(async () => {
+         release(new Response(JSON.stringify(product)))
+         await pending
+      })
+      vi.unstubAllGlobals()
+   })
+
+   it('removes a guest line whose product is no longer in the stored cart', async () => {
+      /* The stored cart has no matching entry, so the guarded splice must not
+         run — but the dispatch still happens. */
+      cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
+      localStorage.setItem(
+         'Cart',
+         JSON.stringify({ items: [{ productId: 'other', product, count: 3 }] })
+      )
+
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+
+      await act(async () => {
+         fireEvent.click(screen.getByRole('button', { name: 'کاهش تعداد' }))
+      })
+
+      expect(cartValue.dispatchCart).toHaveBeenCalled()
+      const dispatched = cartValue.dispatchCart.mock.calls.at(-1)![0]
+      expect(dispatched.items).toHaveLength(1)
+      expect(dispatched.items[0].productId).toBe('other')
+   })
+
    it('logs a failed authenticated add', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [] } as never
@@ -119,7 +165,7 @@ describe('authenticated cart mutations', () => {
 
       render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       await waitFor(() => expect(errorSpy).toHaveBeenCalled())

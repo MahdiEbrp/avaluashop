@@ -1,6 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
 
-import { BrandCombobox, CategoriesCombobox } from '@/app/(store)/(routes)/products/components/options'
+import { CategoriesCombobox } from '@/app/(store)/(routes)/products/components/options'
 import WishlistButton from '@/app/(store)/(routes)/products/[productId]/components/wishlist_button'
 
 /* The component reads the auth flag through a partial mock so the effect runs
@@ -38,7 +38,7 @@ describe('wishlist lookup', () => {
       render(<WishlistButton product={product} />)
 
       /* Visiting every entry without a match leaves the "Add" affordance. */
-      expect(await screen.findByText(/add to wishlist/i)).toBeInTheDocument()
+      expect(await screen.findByText(/افزودن به علاقه‌مندی‌ها/i)).toBeInTheDocument()
    })
 
    it('finds the product further down the list', async () => {
@@ -53,7 +53,8 @@ describe('wishlist lookup', () => {
       render(<WishlistButton product={product} />)
 
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
-      expect(screen.getByRole('button').textContent).toMatch(/wishlist/i)
+      /* A saved product flips the label to the removal wording. */
+      expect(screen.getByRole('button').textContent).toMatch(/حذف از علاقه‌مندی‌ها/i)
    })
 
    it('removes the product once it is in the list', async () => {
@@ -79,7 +80,7 @@ describe('wishlist lookup', () => {
 
       render(<WishlistButton product={product} />)
 
-      expect(await screen.findByText(/add to wishlist/i)).toBeInTheDocument()
+      expect(await screen.findByText(/افزودن به علاقه‌مندی‌ها/i)).toBeInTheDocument()
    })
 })
 
@@ -92,16 +93,13 @@ describe('combobox triggers without a matching option', () => {
          />
       )
 
-      expect(screen.getByRole('combobox')).toHaveTextContent('')
+      /* The redesign prints the synced value verbatim instead of resolving it
+         through the category list. */
+      expect(screen.getByRole('combobox')).toHaveTextContent('Ghost')
       expect(screen.getByRole('combobox')).not.toHaveTextContent('Shoes')
    })
 
-   it('shows the raw brand value when nothing matches', () => {
-      render(
-         <BrandCombobox initialBrand="Ghost" brands={[{ id: 'b1', title: 'Acme' }]} />
-      )
-
-      expect(screen.getByRole('combobox')).not.toHaveTextContent('Acme')
-   })
+   /* The accessories-only storefront drops brand filtering, so the raw brand
+      fallback no longer exists. */
 })
 

@@ -237,12 +237,13 @@ describe('footer and analytics', () => {
       expect(links.some((link) => link.getAttribute('href') === '/privacy')).toBe(true)
       expect(links.some((link) => link.getAttribute('href') === '/faq')).toBe(true)
 
-      expect(screen.getByRole('link', { name: 'گیت‌هاب' })).toHaveAttribute(
+      /* Only Instagram survived the redesign; the GitHub icon is gone. */
+      expect(screen.getByRole('link', { name: 'اینستاگرام آوالوا' })).toHaveAttribute(
          'href',
-         'https://github.com/avaluashop'
+         'https://instagram.com/avaluashop'
       )
-      expect(screen.getByRole('link', { name: 'اینستاگرام آوالوا' })).toBeInTheDocument()
-      expect(screen.getAllByText(/AvaluaShop/).length).toBeGreaterThan(0)
+      expect(screen.queryByRole('link', { name: 'گیت‌هاب' })).not.toBeInTheDocument()
+      expect(screen.getAllByText(/©/).length).toBeGreaterThan(0)
    })
 
    it('GoogleAnalytics renders nothing without an id', () => {

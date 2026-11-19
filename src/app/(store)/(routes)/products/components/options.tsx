@@ -39,15 +39,10 @@ export function SortBy({ initialData }) {
          value={value}
          onValueChange={(nextValue) => {
             const current = new URLSearchParams(searchParams.toString())
-            if (nextValue === value) {
-               current.delete('sort')
-               setValue('featured')
-            } else {
-               current.set('sort', nextValue)
-               setValue(nextValue)
-            }
-            const query = current.toString()
-            router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+            current.set('sort', nextValue)
+            setValue(nextValue)
+            /* `sort` is always set here, so the query string is never empty. */
+            router.replace(`${pathname}?${current.toString()}`, { scroll: false })
          }}
       >
          <SelectTrigger className="w-full" dir="rtl">

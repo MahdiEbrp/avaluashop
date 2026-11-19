@@ -34,7 +34,7 @@ import ProductDetailPage, {
 import WishlistPage from '@/app/(store)/(routes)/wishlist/page'
 import { ProductGrid } from '@/components/native/Product'
 import { prismaMock } from '../support/db'
-import { routerMock } from '../support/navigation'
+import { notFound, routerMock } from '../support/navigation'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
@@ -337,8 +337,37 @@ describe('storefront product pages', () => {
          })
       )
 
-      expect(screen.getByText('Products')).toBeInTheDocument()
+      expect(screen.getByText('فروشگاه اکسسوری')).toBeInTheDocument()
       expect(prismaMock.product.findMany.mock.calls[0][0].orderBy).toEqual({ price: 'asc' })
+   })
+
+   it('narrows the catalogue to a single accessory category', async () => {
+      prismaMock.category.findMany.mockResolvedValue([category])
+      prismaMock.product.findMany.mockResolvedValue([])
+
+      render(
+         await ProductsListPage({
+            searchParams: Promise.resolve({ category: 'زیورآلات', isAvailable: 'true' }),
+         })
+      )
+
+      const where = prismaMock.product.findMany.mock.calls[0][0].where
+      expect(where.isAvailable).toBe(true)
+      expect(where.categories.some.title).toEqual({
+         equals: 'زیورآلات',
+         in: expect.any(Array),
+      })
+   })
+
+   it('keeps every accessory category without a filter', async () => {
+      prismaMock.category.findMany.mockResolvedValue([])
+      prismaMock.product.findMany.mockResolvedValue([])
+
+      render(await ProductsListPage({ searchParams: Promise.resolve({}) }))
+
+      const where = prismaMock.product.findMany.mock.calls[0][0].where
+      expect(where.isAvailable).toBeUndefined()
+      expect(where.categories.some.title).toEqual({ in: expect.any(Array) })
    })
 
    it('clamps a bogus page number', async () => {
@@ -386,27 +415,28 @@ describe('storefront product pages', () => {
    })
 
    it('renders a product with its breadcrumbs and data', async () => {
-      prismaMock.product.findUnique.mockResolvedValue(product)
+      /* The product routes read through `findFirst` so the accessories-only
+         category guard can be part of the where clause. */
+      prismaMock.product.findFirst.mockResolvedValue(product)
 
       render(await ProductDetailPage({ params: Promise.resolve({ productId: 'p1' }) }))
 
-      expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument()
+      expect(screen.getByRole('navigation', { name: 'مسیر صفحه' })).toBeInTheDocument()
       expect(screen.getByRole('heading', { name: 'Runner' })).toBeInTheDocument()
-      expect(screen.getByText('$15.00')).toBeInTheDocument()
+      expect(screen.getByText('۱۵ تومان')).toBeInTheDocument()
    })
 
-   it('renders nothing for a missing product', async () => {
-      prismaMock.product.findUnique.mockResolvedValue(null)
+   it('raises notFound for a missing product', async () => {
+      prismaMock.product.findFirst.mockResolvedValue(null)
 
-      const { container } = render(
-         await ProductDetailPage({ params: Promise.resolve({ productId: 'gone' }) })
-      )
-
-      expect(container).toBeEmptyDOMElement()
+      await expect(
+         ProductDetailPage({ params: Promise.resolve({ productId: 'gone' }) })
+      ).rejects.toThrow('NEXT_NOT_FOUND')
+      expect(notFound).toHaveBeenCalled()
    })
 
    it('builds open graph metadata from the product', async () => {
-      prismaMock.product.findUnique.mockResolvedValue(product)
+      prismaMock.product.findFirst.mockResolvedValue(product)
 
       const metadata = await generateMetadata({
          params: Promise.resolve({ productId: 'p1' }),
@@ -415,6 +445,17 @@ describe('storefront product pages', () => {
 
       expect(metadata.title).toBe('Runner')
       expect(metadata.openGraph?.images).toEqual(['/r.png'])
+   })
+
+   it('falls back to the Persian capture-all title without a product', async () => {
+      prismaMock.product.findFirst.mockResolvedValue(null)
+
+      const metadata = await generateMetadata({
+         params: Promise.resolve({ productId: 'gone' }),
+         searchParams: Promise.resolve({}),
+      } as never)
+
+      expect(metadata.title).toBe('محصول پیدا نشد')
    })
 })
 

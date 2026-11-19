@@ -52,7 +52,7 @@ describe('root layout', () => {
    })
 
    it('declares the site metadata', () => {
-      expect(metadata.title.default).toContain('AvaluaShop')
+      expect(metadata.title.default).toContain('آوالوا')
       expect(metadata.metadataBase.toString()).toContain('avaluashop')
    })
 })
@@ -86,23 +86,17 @@ describe('home page', () => {
             brand: { title: 'Acme' },
          },
       ])
-      prismaMock.blog.findMany.mockResolvedValue([
-         { slug: 'post', title: 'Post', image: '/p.png', author: { name: 'Ada' } },
-      ])
-      prismaMock.banner.findMany.mockResolvedValue([{ image: '/banner.png' }])
-
       const element = await Index()
       render(element)
 
       expect(screen.getByText('Shoe')).toBeInTheDocument()
-      expect(screen.getByText('Post')).toBeInTheDocument()
+      /* The accessories-only home page reads the product shelf alone; the blog
+         and banner rails were removed with the redesign. */
       expect(prismaMock.product.findMany).toHaveBeenCalledWith(
          expect.objectContaining({ take: 8 })
       )
-      expect(prismaMock.blog.findMany).toHaveBeenCalledWith(
-         expect.objectContaining({ take: 3 })
-      )
-      expect(prismaMock.banner.findMany).toHaveBeenCalledWith({ take: 8 })
+      expect(prismaMock.blog.findMany).not.toHaveBeenCalled()
+      expect(prismaMock.banner.findMany).not.toHaveBeenCalled()
    })
 })
 
@@ -155,7 +149,7 @@ describe('static storefront pages', () => {
    it('cart page renders the cart shell', () => {
       render(<CartPage />)
 
-      expect(screen.getByText('Cart')).toBeInTheDocument()
+      expect(screen.getAllByText('سبد خرید').length).toBeGreaterThan(0)
    })
 
    it('login page renders the auth form', () => {

@@ -176,21 +176,36 @@ describe('storefront shell navigation', () => {
    it('desktop main nav renders its menu', () => {
       render(<MainNav />)
 
-      expect(screen.getByText('Brands')).toBeInTheDocument()
-      expect(screen.getAllByRole('link', { name: 'Products' }).length).toBeGreaterThan(0)
+      /* The storefront nav is accessor-only: a single catalogue link plus
+         the two brand pages. */
+      expect(screen.getByRole('link', { name: 'همه اکسسوری‌ها' })).toHaveAttribute(
+         'href',
+         '/products'
+      )
+      expect(screen.getByRole('link', { name: 'درباره آوالوا' })).toHaveAttribute(
+         'href',
+         '/about'
+      )
+      expect(screen.getByRole('link', { name: 'تماس با ما' })).toHaveAttribute(
+         'href',
+         '/contact'
+      )
    })
 
    it('mobile nav opens the sheet', async () => {
       render(<MobileNav />)
 
-      await userEvent.setup().click(screen.getByRole('button', { name: /toggle menu/i }))
+      await userEvent.setup().click(screen.getByRole('button', { name: /باز کردن منو/i }))
 
-      /* mainNav items are links; sidebar entries only render their headings. */
-      expect(await screen.findByRole('link', { name: 'Documentation' })).toHaveAttribute(
+      /* The mobile sheet lists the same five storefront pages as links. */
+      expect(await screen.findByRole('link', { name: 'فروشگاه اکسسوری' })).toHaveAttribute(
          'href',
-         '/docs'
+         '/products'
       )
-      expect(screen.getByRole('heading', { name: 'Products' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'سوالات متداول' })).toHaveAttribute(
+         'href',
+         '/faq'
+      )
    })
 
    it('mobile nav closes after choosing a link', async () => {
@@ -198,13 +213,12 @@ describe('storefront shell navigation', () => {
 
       /* Radix locks body pointer events while the sheet is open, which jsdom
          cannot recompute, and next/link swallows nothing under fireEvent. */
-      fireEvent.click(screen.getByRole('button', { name: /toggle menu/i }))
-      const link = await screen.findByRole('link', { name: 'Documentation' })
+      fireEvent.click(screen.getByRole('button', { name: /باز کردن منو/i }))
+      const link = await screen.findByRole('link', { name: 'فروشگاه اکسسوری' })
       fireEvent.click(link)
 
-      /* MobileLink closes the sheet and pushes the route. */
-      await waitFor(() => expect(routerMock.push).toHaveBeenCalled())
-      expect(routerMock.push.mock.calls[0][0]).toBe('/docs')
+      /* Choosing a link closes the sheet. */
+      await waitFor(() => expect(screen.queryByRole('link', { name: 'فروشگاه اکسسوری' })).not.toBeInTheDocument())
    })
 
    it('sidebar nav marks the current page', () => {
@@ -222,7 +236,7 @@ describe('storefront shell navigation', () => {
       render(<UserNav />)
       await userEvent.setup().click(screen.getByRole('button'))
 
-      const logOut = await screen.findByText(/log ?out/i)
+      const logOut = await screen.findByText(/خروج از حساب/i)
       await userEvent.setup().click(logOut)
 
       await waitFor(() =>
@@ -240,19 +254,20 @@ describe('command menu', () => {
          fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
       })
 
-      const link = await screen.findByText('Products')
+      const link = await screen.findByText('فروشگاه اکسسوری')
       await userEvent.setup().click(link)
 
       expect(routerMock.push).toHaveBeenCalled()
    })
 
-   it('opens from the search button and switches the theme', async () => {
+   it('opens from the search button and navigates', async () => {
       render(<CommandMenu />)
 
-      await userEvent.setup().click(screen.getByRole('button', { name: /search/i }))
-      await userEvent.setup().click(await screen.findByText('Dark'))
+      /* The palette is search-only now; theme switching lives in the admin. */
+      await userEvent.setup().click(screen.getByRole('button', { name: /جستجو در فروشگاه/i }))
+      await userEvent.setup().click(await screen.findByText('درباره آوالوا'))
 
-      expect(themeMock.setTheme).toHaveBeenCalledWith('dark')
+      expect(routerMock.push).toHaveBeenCalledWith('/about')
    })
 
    it('ignores other keys', async () => {
