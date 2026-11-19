@@ -283,6 +283,7 @@ model Payment {
   status PaymentStatusEnum
 
   refId    String  @unique
+  paymentUrl String?
   cardPan  String?
   cardHash String?
   fee      Float?
