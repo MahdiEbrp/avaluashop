@@ -82,6 +82,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+   window.history.replaceState({}, '', '/')
    vi.unstubAllGlobals()
    vi.restoreAllMocks()
 })
@@ -249,6 +250,42 @@ describe('checkout — order summary', () => {
       expect(
          screen.getByText(/پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود/)
       ).toBeInTheDocument()
+   })
+
+   it('shows payment success only after the authenticated orders API confirms it', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') {
+            return jsonResponse([{ id: 'o1', number: 42, isPaid: true }])
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByText(/پرداخت سفارش شماره ۴۲ با موفقیت تأیید شد/)).toBeInTheDocument()
+      expect(fetchMock).toHaveBeenCalledWith('/api/orders', { cache: 'no-store' })
+   })
+
+   it('does not trust a success query when the order is still unpaid', async () => {
+      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async (url: string) => {
+            if (url === '/api/orders') {
+               return jsonResponse([{ id: 'o1', number: 42, isPaid: false }])
+            }
+            return jsonResponse([address])
+         })
+      )
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'وضعیت پرداخت این سفارش هنوز در سامانه تأیید نشده است.'
+      )
+      expect(screen.queryByText('پرداخت تأیید شد')).not.toBeInTheDocument()
    })
 })
 
