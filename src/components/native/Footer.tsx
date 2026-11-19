@@ -1,67 +1,23 @@
 import { Separator } from '@/components/native/separator'
 import config from '@/config/site'
-import {
-   GitHubLogoIcon,
-   InstagramLogoIcon,
-   TwitterLogoIcon,
-} from '@radix-ui/react-icons'
+import { InstagramLogoIcon, GitHubLogoIcon } from '@radix-ui/react-icons'
 import Link from 'next/link'
 
 const data = [
-   {
-      label: 'LEGAL',
-      links: [
-         {
-            label: 'Privacy Policy',
-            url: '/privacy',
-         },
-         {
-            label: 'Terms & Conditions',
-            url: '/terms',
-         },
-      ],
-   },
-   {
-      label: 'RESOURCES',
-      links: [
-         {
-            label: 'Blog',
-            url: '/blog',
-         },
-         {
-            label: 'About',
-            url: '/about',
-         },
-         {
-            label: 'Contact',
-            url: '/contact',
-         },
-      ],
-   },
-   {
-      label: 'SUPPORT',
-      links: [
-         {
-            label: 'Telegram',
-            url: '/telegram',
-         },
-         {
-            label: 'FAQ',
-            url: '/faq',
-         },
-      ],
-   },
+   { label: 'راهنمای خرید', links: [{ label: 'سوالات متداول', url: '/faq' }, { label: 'شرایط و قوانین', url: '/terms' }, { label: 'حریم خصوصی', url: '/privacy' }] },
+   { label: 'آوالوا', links: [{ label: 'درباره ما', url: '/about' }, { label: 'مجله', url: '/blog' }, { label: 'تماس با ما', url: '/contact' }] },
+   { label: 'پشتیبانی', links: [{ label: 'پیگیری سفارش', url: '/profile/orders' }, { label: 'ارتباط با ما', url: '/contact' }] },
 ]
 
 export default function Footer() {
    return (
-      <footer className="w-full">
-         <Separator className="my-12" />
-         <div className="flex justify-between px-5.5 md:px-16 lg:px-24 xl:px-32 2xl:px-48">
+      <footer className="mt-12 w-full bg-secondary/60">
+         <Separator />
+         <div className="grid gap-10 px-5 py-10 md:grid-cols-[1.2fr_2fr] md:px-16 lg:px-24 xl:px-32 2xl:px-48">
             <Trademark />
             <Links />
          </div>
-         <Separator className="mt-8 mb-6" />
+         <Separator />
          <Socials />
       </footer>
    )
@@ -69,19 +25,14 @@ export default function Footer() {
 
 function Links() {
    return (
-      <div className="text-end justify-evenly grid grid-cols-2 gap-8 sm:grid-cols-3 sm:gap-6">
+      <div className="grid grid-cols-2 gap-7 text-end sm:grid-cols-3">
          {data.map(({ label, links }) => (
             <div key={label}>
-               <h2 className="mb-3 text-sm uppercase">{label}</h2>
-               <ul className="block space-y-1">
+               <h2 className="mb-3 text-sm font-bold text-foreground">{label}</h2>
+               <ul className="space-y-2">
                   {links.map(({ label, url }) => (
                      <li key={label}>
-                        <Link
-                           href={url}
-                           className="text-sm transition duration-300 text-muted-foreground hover:text-foreground"
-                        >
-                           {label}
-                        </Link>
+                        <Link href={url} className="text-sm text-muted-foreground transition-colors hover:text-primary">{label}</Link>
                      </li>
                   ))}
                </ul>
@@ -93,47 +44,19 @@ function Links() {
 
 function Trademark() {
    return (
-      <div className="mb-6 hidden md:mb-0 md:block">
-         <span className="flex flex-col">
-            <h2 className="whitespace-nowrap text-sm font-semibold uppercase">
-               {config.name}
-            </h2>
-            <span className="mt-2 text-sm text-muted-foreground">
-               © {new Date().getFullYear()} {config.name}™ . All Rights
-               Reserved.
-            </span>
-         </span>
+      <div className="text-right">
+         <h2 className="text-lg font-bold text-foreground">{config.name}</h2>
+         <p className="mt-2 max-w-sm text-sm leading-7 text-muted-foreground">تجربه‌ای دلنشین از انتخاب و خرید آنلاین؛ همراه شما برای خریدی آسان و مطمئن.</p>
+         <span className="mt-4 block text-xs text-muted-foreground">© {new Date().getFullYear()} {config.name} — تمامی حقوق محفوظ است.</span>
       </div>
    )
 }
 
 function Socials() {
    return (
-      <div className="mb-6 flex justify-center space-x-6 text-muted-foreground">
-         <a
-            href="https://instagram.com/avaluashop"
-            target="_blank"
-            rel="noreferrer"
-         >
-            <InstagramLogoIcon className="h-4" />
-            <span className="sr-only">Instagram page</span>
-         </a>
-         <a
-            href="https://twitter.com/avaluashop"
-            target="_blank"
-            rel="noreferrer"
-         >
-            <TwitterLogoIcon className="h-4" />
-            <span className="sr-only">Twitter page</span>
-         </a>
-         <a
-            href="https://github.com/avaluashop"
-            target="_blank"
-            rel="noreferrer"
-         >
-            <GitHubLogoIcon className="h-4" />
-            <span className="sr-only">GitHub account</span>
-         </a>
+      <div className="flex justify-center gap-6 py-5 text-muted-foreground">
+         <a href="https://instagram.com/avaluashop" target="_blank" rel="noreferrer" aria-label="اینستاگرام آوالوا"><InstagramLogoIcon className="h-5 w-5 transition-colors hover:text-primary" /></a>
+         <a href="https://github.com/avaluashop" target="_blank" rel="noreferrer" aria-label="گیت‌هاب"><GitHubLogoIcon className="h-5 w-5 transition-colors hover:text-primary" /></a>
       </div>
    )
 }
