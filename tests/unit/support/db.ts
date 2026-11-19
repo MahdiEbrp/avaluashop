@@ -38,6 +38,7 @@ export interface PrismaMock {
    owner: TableMock
    author: TableMock
    provider: TableMock
+   paymentProvider: TableMock
    $queryRaw: MockFn
    $transaction: MockFn
    $connect: MockFn
@@ -66,6 +67,7 @@ const TABLES = [
    'owner',
    'author',
    'provider',
+   'paymentProvider',
 ]
 
 const CRUD = [
