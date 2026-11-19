@@ -31,7 +31,7 @@ export function NavMenu() {
             </NavigationMenuItem>
             <NavigationMenuItem>
                <NavigationMenuLink asChild variant="trigger">
-                  <Link href="/about">درباره آوالوا</Link>
+                  <Link href="/about">درباره آوالونا شاپ</Link>
                </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
