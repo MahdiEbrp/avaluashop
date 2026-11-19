@@ -5,6 +5,10 @@ import CheckoutPage from '@/app/(store)/(routes)/checkout/page'
 
 /* The page composes both providers itself, so the doubles replace the hooks
    rather than the providers — that keeps the real nesting under test. */
+const { redirectToPayment } = vi.hoisted(() => ({ redirectToPayment: vi.fn() }))
+
+vi.mock('@/lib/payments/redirect', () => ({ redirectToPayment }))
+
 const userState = {
    user: null as null | { id: string },
    loading: false,
@@ -69,6 +73,7 @@ const stubFetch = (handler: (url: string, init?: RequestInit) => Promise<Respons
 
 beforeEach(() => {
    dispatchCart.mockClear()
+   redirectToPayment.mockClear()
    userState.user = { id: 'u1' }
    userState.loading = false
    cartState.cart = cartWithItems
@@ -257,7 +262,6 @@ describe('checkout — submitting the order', () => {
          return jsonResponse([address])
       })
       vi.stubGlobal('fetch', fetchMock)
-      const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {})
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
@@ -279,7 +283,7 @@ describe('checkout — submitting the order', () => {
                body: JSON.stringify({ orderId: 'o1' }),
             })
          )
-         expect(assign).toHaveBeenCalledWith('https://api.tabapay.ir/sandbox/pay/token')
+         expect(redirectToPayment).toHaveBeenCalledWith('https://api.tabapay.ir/sandbox/pay/token')
       })
       expect(screen.queryByText('پرداخت تأیید شد')).not.toBeInTheDocument()
       expect(dispatchCart).not.toHaveBeenCalled()
