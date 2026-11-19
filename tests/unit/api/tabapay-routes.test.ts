@@ -31,6 +31,7 @@ const order = {
 }
 
 beforeEach(() => {
+   process.env.APP_URL = 'https://avaluashop.vercel.app'
    silenceConsole()
    prismaMock.order.findFirst.mockResolvedValue(order)
    prismaMock.payment.findFirst.mockResolvedValue(null)
