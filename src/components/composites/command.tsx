@@ -16,7 +16,7 @@ import * as React from 'react'
 const pages = [
    { title: 'صفحه اصلی', href: '/' },
    { title: 'فروشگاه اکسسوری', href: '/products' },
-   { title: 'درباره آوالوا', href: '/about' },
+   { title: 'درباره آوالونا شاپ', href: '/about' },
    { title: 'تماس با ما', href: '/contact' },
    { title: 'سوالات متداول', href: '/faq' },
 ]
@@ -48,7 +48,7 @@ export function CommandMenu(
             {...props}
          >
             <SearchIcon className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">جستجو در آوالوا</span>
+            <span className="hidden sm:inline">جستجو در آوالونا شاپ</span>
          </Button>
          <CommandDialog open={open} onOpenChange={setOpen}>
             <CommandInput dir="rtl" placeholder="نام محصول یا صفحه را جستجو کنید..." />

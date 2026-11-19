@@ -13,15 +13,15 @@ const baloo = Baloo_Bhaijaan_2({
 
 export const metadata = {
    title: {
-      default: 'آوالوا | فروشگاه اکسسوری زنانه',
-      template: '%s | آوالوا',
+      default: 'آوالونا شاپ | فروشگاه اکسسوری زنانه',
+      template: '%s | آوالونا شاپ',
    },
    description:
-      'فروشگاه آنلاین اکسسوری زنانه آوالوا؛ انتخابی ظریف برای استایل روزمره و خاص شما.',
-   keywords: ['آوالوا', 'اکسسوری زنانه', 'زیورآلات', 'کیف زنانه', 'اکسسوری مو'],
-   authors: [{ name: 'آوالوا', url: 'https://avaluashop.vercel.app' }],
-   creator: 'آوالوا',
-   publisher: 'آوالوا',
+      'فروشگاه آنلاین اکسسوری زنانه آوالونا شاپ؛ انتخابی ظریف برای استایل روزمره و خاص شما.',
+   keywords: ['آوالونا شاپ', 'اکسسوری زنانه', 'زیورآلات', 'کیف زنانه', 'اکسسوری مو'],
+   authors: [{ name: 'آوالونا شاپ', url: 'https://avaluashop.vercel.app' }],
+   creator: 'آوالونا شاپ',
+   publisher: 'آوالونا شاپ',
    metadataBase: new URL('https://avaluashop.vercel.app'),
 }
 

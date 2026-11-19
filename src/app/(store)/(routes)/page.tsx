@@ -32,7 +32,7 @@ export default async function Index() {
    return (
       <div className="flex flex-col" dir="rtl">
          <section className="mb-10 mt-6 rounded-3xl bg-gradient-to-l from-accent via-background to-secondary px-5 py-10 text-center md:py-16">
-            <p className="mb-3 text-sm font-semibold text-primary">انتخاب‌هایی ظریف برای استایل تو</p>
+            <p className="mb-3 text-sm font-semibold text-primary">به آوالونا شاپ خوش آمدید</p>
             <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
                جزئیات کوچک، زیبایی ماندگار
             </h1>
@@ -44,13 +44,13 @@ export default async function Index() {
          <section className="mb-12">
             <Heading
                title="اکسسوری‌های منتخب"
-               description="محصولات مرتبط با استایل زنانه، با دقت برای آوالوا انتخاب شده‌اند."
+               description="محصولات مرتبط با استایل زنانه، با دقت برای آوالونا شاپ انتخاب شده‌اند."
             />
             {products.length > 0 ? (
                <ProductGrid products={products} />
             ) : (
                <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
-                  <p className="text-lg font-semibold text-foreground">مجموعه آوالوا در حال تکمیل است</p>
+                  <p className="text-lg font-semibold text-foreground">مجموعه آوالونا شاپ در حال تکمیل است</p>
                   <p className="mt-2 text-sm leading-7 text-muted-foreground">
                      به‌زودی اکسسوری‌های منتخب را اینجا می‌بینید. فعلاً محصول نامرتبطی نمایش داده نمی‌شود.
                   </p>

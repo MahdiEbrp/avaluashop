@@ -238,7 +238,7 @@ describe('footer and analytics', () => {
       expect(links.some((link) => link.getAttribute('href') === '/faq')).toBe(true)
 
       /* Only Instagram survived the redesign; the GitHub icon is gone. */
-      expect(screen.getByRole('link', { name: 'اینستاگرام آوالوا' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'اینستاگرام آوالونا شاپ' })).toHaveAttribute(
          'href',
          'https://instagram.com/avaluashop'
       )

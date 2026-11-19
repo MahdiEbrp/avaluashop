@@ -13,7 +13,7 @@ const groups = [
       ],
    },
    {
-      title: 'آوالوا',
+      title: 'آوالونا شاپ',
       links: [
          { title: 'درباره ما', href: '/about' },
          { title: 'تماس با ما', href: '/contact' },
@@ -58,7 +58,7 @@ export default function Footer() {
          </div>
          <Separator />
          <div className="flex justify-center py-5 text-muted-foreground">
-            <a href={config.links.instagram} target="_blank" rel="noreferrer" aria-label="اینستاگرام آوالوا">
+            <a href={config.links.instagram} target="_blank" rel="noreferrer" aria-label="اینستاگرام آوالونا شاپ">
                <InstagramLogoIcon className="h-5 w-5 transition-colors hover:text-primary" />
             </a>
          </div>

@@ -1,11 +1,11 @@
 const config = {
-   name: 'آوالوا',
+   name: 'آوالونا شاپ',
    handle: '@avaluashop',
    url: 'https://avaluashop.vercel.app',
    ogImage:
-      'https://og-image.vercel.app/AvaluaShop.png?theme=light&md=1&fontSize=100px',
+      'https://og-image.vercel.app/AvalonaShop.png?theme=light&md=1&fontSize=100px',
    description:
-      'فروشگاه آنلاین اکسسوری زنانه آوالوا؛ انتخابی ظریف برای استایل روزمره و خاص شما.',
+      'فروشگاه آنلاین اکسسوری زنانه آوالونا شاپ؛ انتخابی ظریف برای استایل روزمره و خاص شما.',
    links: {
       site: 'https://avaluashop.vercel.app',
       support: 'mailto:hello@avaluashop.com',

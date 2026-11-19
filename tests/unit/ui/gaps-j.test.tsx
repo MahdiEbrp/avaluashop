@@ -35,7 +35,7 @@ describe('storefront nav menu', () => {
          'href',
          '/products'
       )
-      expect(screen.getByRole('link', { name: 'درباره آوالوا' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'درباره آوالونا شاپ' })).toHaveAttribute(
          'href',
          '/about'
       )

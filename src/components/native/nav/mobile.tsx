@@ -10,7 +10,7 @@ import { useState } from 'react'
 const links = [
    { title: 'صفحه اصلی', href: '/' },
    { title: 'فروشگاه اکسسوری', href: '/products' },
-   { title: 'درباره آوالوا', href: '/about' },
+   { title: 'درباره آوالونا شاپ', href: '/about' },
    { title: 'تماس با ما', href: '/contact' },
    { title: 'سوالات متداول', href: '/faq' },
 ]
@@ -31,7 +31,7 @@ export function MobileNav() {
             </Button>
          </SheetTrigger>
          <SheetContent side="right" dir="rtl" className="w-[min(86vw,360px)]">
-            <div className="mb-6 text-right text-lg font-bold">آوالوا</div>
+            <div className="mb-6 text-right text-lg font-bold">آوالونا شاپ</div>
             <ScrollArea className="h-[calc(100vh-7rem)] pe-3">
                <nav className="flex flex-col gap-1 text-right">
                   {links.map((item) => (
