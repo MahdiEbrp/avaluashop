@@ -56,10 +56,40 @@ export async function completePendingOrder(orderId: string, paymentId: string) {
 
       const order = await tx.order.findUnique({
          where: { id: orderId },
-         select: { userId: true },
+         include: { orderItems: true },
       })
       if (order) {
-         await tx.cartItem.deleteMany({ where: { cartId: order.userId } })
+         for (const item of order.orderItems) {
+            const cartLine = await tx.cartItem.findUnique({
+               where: {
+                  UniqueCartItem: {
+                     cartId: order.userId,
+                     productId: item.productId,
+                  },
+               },
+            })
+            if (!cartLine) continue
+            if (cartLine.count > item.count) {
+               await tx.cartItem.update({
+                  where: {
+                     UniqueCartItem: {
+                        cartId: order.userId,
+                        productId: item.productId,
+                     },
+                  },
+                  data: { count: { decrement: item.count } },
+               })
+            } else {
+               await tx.cartItem.delete({
+                  where: {
+                     UniqueCartItem: {
+                        cartId: order.userId,
+                        productId: item.productId,
+                     },
+                  },
+               })
+            }
+         }
       }
 
       return true
