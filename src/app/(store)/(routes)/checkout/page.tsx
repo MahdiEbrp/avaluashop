@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useCartContext } from '@/state/Cart'
-import { useUserContext } from '@/state/User'
+import { CartContextProvider, useCartContext } from '@/state/Cart'
+import { UserContextProvider, useUserContext } from '@/state/User'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 
 type Address = {
    id: string
@@ -23,7 +23,16 @@ const money = new Intl.NumberFormat('fa-IR')
 const toman = (value: number) => `${money.format(Math.round(value))} تومان`
 
 export default function CheckoutPage() {
-   const router = useRouter()
+   return (
+      <UserContextProvider>
+         <CartContextProvider>
+            <CheckoutContent />
+         </CartContextProvider>
+      </UserContextProvider>
+   )
+}
+
+function CheckoutContent() {
    const { user, loading: userLoading } = useUserContext()
    const { cart, loading: cartLoading } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
