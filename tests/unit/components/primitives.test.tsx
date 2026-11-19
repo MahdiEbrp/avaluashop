@@ -168,16 +168,30 @@ describe('product and blog cards', () => {
       )
 
       expect(screen.getAllByText('Blue Shoe').length).toBeGreaterThan(0)
-      expect(screen.getByText('%1.00')).toBeInTheDocument()
-      expect(screen.getByText('$99.00')).toBeInTheDocument()
-      expect(screen.getByText('Out of stock')).toBeInTheDocument()
+      /* The redesign shows a Persian percentage badge and Toman prices. */
+      expect(screen.getByText(/٪.*تخفیف/)).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۹۹ تومان')).toBeInTheDocument()
+      expect(screen.getByText('ناموجود')).toBeInTheDocument()
    })
 
    it('renders a full-price product without a badge', () => {
       render(<ProductGrid products={[{ ...(product as object), discount: 0 } as never]} />)
 
-      expect(screen.getByText('$100')).toBeInTheDocument()
-      expect(screen.queryByText(/%/)).toBeNull()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.queryByText(/تخفیف/)).toBeNull()
+   })
+
+   it('omits the category and description when a product has neither', () => {
+      render(
+         <ProductGrid
+            products={[{ ...(product as object), categories: [], description: null } as never]}
+         />
+      )
+
+      expect(screen.getByText('Blue Shoe')).toBeInTheDocument()
+      expect(screen.queryByText('Shoes')).toBeNull()
+      expect(screen.queryByText('A very blue shoe')).toBeNull()
    })
 
    it('renders the skeleton grids', () => {
@@ -188,7 +202,9 @@ describe('product and blog cards', () => {
          </div>
       )
 
-      expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(10)
+      /* The skeleton grid renders eight cards plus the standalone one; each
+         card carries its own pulse wrapper plus three pulsing lines. */
+      expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(8)
    })
 
    it('renders blog cards and skeletons', () => {
@@ -211,8 +227,21 @@ describe('footer and analytics', () => {
    it('Footer links every configured destination', () => {
       render(<Footer />)
 
-      expect(screen.getByText('Privacy Policy')).toBeInTheDocument()
-      expect(screen.getByText('GitHub account')).toBeInTheDocument()
+      /* The redesign groups Persian links and reduces the socials to icons
+         with accessible names. */
+      expect(screen.getByText('حریم خصوصی')).toBeInTheDocument()
+      expect(screen.getByText('راهنمای خرید')).toBeInTheDocument()
+      expect(screen.getByText('پشتیبانی')).toBeInTheDocument()
+
+      const links = screen.getAllByRole('link')
+      expect(links.some((link) => link.getAttribute('href') === '/privacy')).toBe(true)
+      expect(links.some((link) => link.getAttribute('href') === '/faq')).toBe(true)
+
+      expect(screen.getByRole('link', { name: 'گیت‌هاب' })).toHaveAttribute(
+         'href',
+         'https://github.com/avaluashop'
+      )
+      expect(screen.getByRole('link', { name: 'اینستاگرام آوالوا' })).toBeInTheDocument()
       expect(screen.getAllByText(/AvaluaShop/).length).toBeGreaterThan(0)
    })
 

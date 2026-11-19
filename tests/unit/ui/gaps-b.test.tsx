@@ -88,8 +88,10 @@ describe('empty storefront listings reveal their skeletons', () => {
 
       const { container } = render(await Index())
 
-      expect(screen.getByText('Products')).toBeInTheDocument()
-      expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(10)
+      /* The redesign retitles the shelf in Persian. */
+      expect(screen.getByText('منتخب‌های آوالوا')).toBeInTheDocument()
+      /* Eight skeleton cards, one pulse wrapper each. */
+      expect(container.querySelectorAll('.animate-pulse').length).toBe(8)
    })
 
    it('products page falls back to the skeleton grid', async () => {

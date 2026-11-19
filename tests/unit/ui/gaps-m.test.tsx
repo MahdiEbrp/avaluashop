@@ -5,14 +5,6 @@ import { DataTable } from '@/components/ui/data-table'
 import { DataTable as AdminDataTable } from '@/components/admin/ui/data-table'
 import Header from '@/components/native/nav/parent'
 
-const themeMock = { resolvedTheme: 'dark', setTheme: vi.fn() }
-
-vi.mock('next-themes', async (importOriginal) => {
-   const actual = await importOriginal<typeof import('next-themes')>()
-
-   return { ...actual, useTheme: () => themeMock }
-})
-
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
    const navigation = await import('../support/navigation')
@@ -22,22 +14,9 @@ vi.mock('next/navigation', async (importOriginal) => {
 
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
-beforeEach(() => themeMock.setTheme.mockClear())
-
-describe('theme toggle in dark mode', () => {
-   it('switches back to the light theme', async () => {
-      render(<Header />)
-
-      /* In dark mode the toggle shows a sun; locate it by its icon markup. */
-      const toggle = screen
-         .getAllByRole('button')
-         .find((button) => button.innerHTML.includes('lucide-sun'))!
-
-      await user().click(toggle)
-
-      expect(themeMock.setTheme).toHaveBeenCalledWith('light')
-   })
-})
+/* The luxury redesign ships a fixed light palette and drops the storefront
+   theme toggle, so there is no longer a control here to exercise. The admin
+   toggle keeps its own coverage. */
 
 describe('tables with a placeholder header', () => {
    const columns = [
