@@ -52,7 +52,7 @@ describe('root layout', () => {
    })
 
    it('declares the site metadata', () => {
-      expect(metadata.title.default).toContain('آوالوا')
+      expect(metadata.title.default).toContain('آوالونا شاپ')
       expect(metadata.metadataBase.toString()).toContain('avaluashop')
    })
 })
