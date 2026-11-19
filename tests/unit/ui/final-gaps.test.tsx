@@ -81,7 +81,7 @@ describe('guest cart line APIs', () => {
       render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
 
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       await waitFor(() =>
@@ -103,12 +103,21 @@ describe('guest cart line APIs', () => {
 
       render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       await waitFor(() => expect(errorSpy).toHaveBeenCalled())
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
+   })
+
+   it('renders a stored line whose product payload is gone', () => {
+      /* A cart persisted before the redesign may carry only the id, so every
+         product field falls back gracefully. */
+      render(<Item cartItem={{ productId: 'p1', count: 1 } as never} />)
+
+      expect(screen.getAllByAltText('تصویر محصول').length).toBeGreaterThan(0)
+      expect(screen.queryByText('Blue')).not.toBeInTheDocument()
    })
 
    it('removes the last unit from a guest cart', async () => {
@@ -140,7 +149,7 @@ describe('guest cart line APIs', () => {
    it('falls back to the plain price when there is no discount', () => {
       render(<Item cartItem={{ productId: 'p9', product: { ...product, discount: 0 }, count: 1 } as never} />)
 
-      expect(screen.getByText('$100')).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
    })
 })
 
@@ -218,18 +227,36 @@ describe('product page cart button', () => {
 })
 
 describe('product data section', () => {
-   it('renders the discounted price and links', () => {
+   it('renders the discounted price and title', () => {
       render(<DataSection product={product as never} />)
 
-      expect(screen.getByText('%10.00')).toBeInTheDocument()
-      expect(screen.getByText('$90.00')).toBeInTheDocument()
-      expect(screen.getByText('Acme')).toBeInTheDocument()
+      /* The redesign renders both the struck-through list price and the
+         payable Toman amount; brand chips are gone from the detail card. */
+      expect(screen.getByRole('heading', { name: 'Shoe' })).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۹۰ تومان')).toBeInTheDocument()
+   })
+
+   it('marks an unavailable accessory as out of stock', () => {
+      render(<DataSection product={{ ...product, isAvailable: false } as never} />)
+
+      /* Sold-out products show the Persian badge instead of a price and drop
+         the cart button, but stay wishlist-able. */
+      expect(screen.getByText('ناموجود')).toBeInTheDocument()
+      expect(screen.queryByText('۹۰ تومان')).not.toBeInTheDocument()
+   })
+
+   it('omits the description block when there is no copy', () => {
+      render(<DataSection product={{ ...product, description: '' } as never} />)
+
+      expect(screen.getByRole('heading', { name: 'Shoe' })).toBeInTheDocument()
+      expect(screen.queryByText('Blue')).not.toBeInTheDocument()
    })
 
    it('renders a flat price without a discount', () => {
       render(<DataSection product={{ ...product, discount: 0 } as never} />)
 
-      expect(screen.getByText('$100')).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
    })
 })
 
@@ -561,7 +588,7 @@ describe('logout failure paths', () => {
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
-      await user().click(await screen.findByText(/log ?out/i))
+      await user().click(await screen.findByText(/خروج از حساب/i))
 
       await waitFor(() =>
          expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' })

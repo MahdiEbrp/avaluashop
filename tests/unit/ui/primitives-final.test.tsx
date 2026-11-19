@@ -179,28 +179,22 @@ describe('command menu secondary actions', () => {
       render(<CommandMenu />)
 
       fireEvent.keyDown(document, { key: 'k', metaKey: true })
-      await user().click(await screen.findByText('Blog'))
+      await user().click(await screen.findByText('درباره آوالوا'))
 
-      expect(routerMock.push).toHaveBeenCalledWith('/blog')
+      expect(routerMock.push).toHaveBeenCalledWith('/about')
    })
 
-   it('switches to the system theme', async () => {
+   it('navigates to the FAQ page from the search button', async () => {
       render(<CommandMenu />)
 
-      await user().click(screen.getByRole('button', { name: /search/i }))
-      await user().click(await screen.findByText('System'))
+      await user().click(screen.getByRole('button', { name: /جستجو در فروشگاه/i }))
+      await user().click(await screen.findByText('سوالات متداول'))
 
-      expect(themeMock.setTheme).toHaveBeenCalledWith('system')
+      expect(routerMock.push).toHaveBeenCalledWith('/faq')
    })
 
-   it('switches to the light theme', async () => {
-      render(<CommandMenu />)
-
-      await user().click(screen.getByRole('button', { name: /search/i }))
-      await user().click(await screen.findByText('Light'))
-
-      expect(themeMock.setTheme).toHaveBeenCalledWith('light')
-   })
+   /* The storefront palette no longer carries theme actions; those live in the
+      admin navbar and are covered by the theme-toggle suites. */
 })
 
 describe('toaster', () => {
@@ -257,6 +251,6 @@ describe('storefront user nav items', () => {
       await user().click(screen.getByRole('button'))
 
       await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(2))
-      expect(screen.getAllByText('Orders').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('سفارش‌های من').length).toBeGreaterThan(0)
    })
 })

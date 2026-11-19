@@ -52,24 +52,26 @@ describe('cart Receipt', () => {
 
       render(<Receipt />)
 
-      expect(screen.getByText('$200.00')).toBeInTheDocument()
-      expect(screen.getByText('$20.00')).toBeInTheDocument()
-      expect(screen.getByText('$16.20')).toBeInTheDocument()
-      expect(screen.getByText('$196.20')).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /checkout/i })).toHaveAttribute('href', '/login')
-      expect(screen.getByRole('button', { name: 'Checkout' })).toBeEnabled()
+      /* Totals are Toman-formatted with Persian digits and rounded to whole
+         units, matching the storefront's pricing display. */
+      expect(screen.getByText('۲۰۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۲۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۱۶ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۱۹۶ تومان')).toBeInTheDocument()
+      expect(screen.getByRole('link')).toHaveAttribute('href', '/login')
+      expect(screen.getByRole('button', { name: 'ادامه فرایند خرید' })).toBeEnabled()
    })
 
    it('renders zero totals for an unknown cart', () => {
       render(<Receipt />)
 
-      expect(screen.getAllByText('$0.00').length).toBeGreaterThanOrEqual(4)
+      expect(screen.getAllByText('۰ تومان').length).toBeGreaterThanOrEqual(4)
    })
 
    it('links guests to checkout and members to payment', () => {
       render(<Receipt />)
 
-      expect(screen.getByRole('link', { name: /checkout/i })).toHaveAttribute('href', '/login')
+      expect(screen.getByRole('link')).toHaveAttribute('href', '/login')
    })
 
    it('marks the card as loading while the cart is in flight', () => {
@@ -77,7 +79,7 @@ describe('cart Receipt', () => {
 
       render(<Receipt />)
 
-      expect(screen.getByText('Receipt')).toBeInTheDocument()
+      expect(screen.getByText('خلاصه سفارش')).toBeInTheDocument()
    })
 })
 
@@ -92,7 +94,7 @@ describe('cart Item', () => {
       render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
 
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
@@ -160,7 +162,7 @@ describe('CartGrid', () => {
 
       render(<CartGrid />)
 
-      expect(screen.getByText('Your Cart is empty...')).toBeInTheDocument()
+      expect(screen.getByText('سبد خرید شما خالی است.')).toBeInTheDocument()
    })
 
    it('lists one row per cart line', () => {
@@ -186,7 +188,7 @@ describe('product page CartButton', () => {
 
       render(<ButtonComponent product={product} />)
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
@@ -241,7 +243,7 @@ describe('product page CartButton', () => {
 
       render(<ButtonComponent product={product} />)
       await act(async () => {
-         fireEvent.click(screen.getByRole('button', { name: /add to cart/i }))
+         fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
       })
 
       expect(errorSpy).toHaveBeenCalled()

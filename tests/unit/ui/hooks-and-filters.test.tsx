@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { AvailableToggle, BrandCombobox, CategoriesCombobox, SortBy } from '@/app/(store)/(routes)/products/components/options'
+import { AvailableToggle, CategoriesCombobox, SortBy } from '@/app/(store)/(routes)/products/components/options'
 import { DataTable } from '@/components/ui/data-table'
 import { DataTable as AdminDataTable } from '@/components/admin/ui/data-table'
 import { reducer, toast, useToast } from '@/components/ui/use-toast'
@@ -44,20 +44,22 @@ describe('catalog filter controls', () => {
       render(<SortBy initialData="featured" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(await screen.findByText('Most Expensive'))
+      await user().click(await screen.findByText('گران‌ترین'))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/products?sort=most_expensive', {
          scroll: false,
       })
    })
 
-   it('SortBy clears the filter when the same value is chosen', async () => {
+   it('SortBy ignores a re-pick of the active ordering', async () => {
       render(<SortBy initialData="featured" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(await screen.findByText('Featured'))
+      /* The redesigned Select is controlled by the synced state, so picking the
+         option that is already active never fires onValueChange. */
+      await user().click(await screen.findByRole('option', { name: 'پیشنهادی' }))
 
-      expect(routerMock.replace).toHaveBeenCalledWith('/products', { scroll: false })
+      expect(routerMock.replace).not.toHaveBeenCalled()
    })
 
    it('SortBy falls back to featured without a parameter', () => {
@@ -74,7 +76,7 @@ describe('catalog filter controls', () => {
          />
       )
 
-      expect(screen.getByText('Select category...')).toBeInTheDocument()
+      expect(screen.getByText('همه دسته‌ها')).toBeInTheDocument()
 
       await user().click(screen.getByRole('combobox'))
       await user().click(await screen.findByText('Shoes'))
@@ -106,27 +108,8 @@ describe('catalog filter controls', () => {
       expect(routerMock.replace).toHaveBeenCalledWith('/products', { scroll: false })
    })
 
-   it('BrandCombobox narrows the catalogue', async () => {
-      render(<BrandCombobox initialBrand="" brands={[{ id: 'b1', title: 'Acme' }]} />)
-
-      expect(screen.getByText('Select brand...')).toBeInTheDocument()
-
-      await user().click(screen.getByRole('combobox'))
-      await user().click(await screen.findByText('Acme'))
-
-      expect(routerMock.replace).toHaveBeenCalledWith('/products?brand=Acme', { scroll: false })
-   })
-
-   it('BrandCombobox shows the active brand and clears it', async () => {
-      render(<BrandCombobox initialBrand="acme" brands={[{ id: 'b1', title: 'acme' }]} />)
-
-      expect(screen.getByRole('combobox')).toHaveTextContent('acme')
-
-      await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('acme').at(-1)!)
-
-      expect(routerMock.replace).toHaveBeenCalledWith('/products', { scroll: false })
-   })
+   /* The accessories-only storefront drops brand filtering entirely, so the
+      storefront BrandCombobox no longer exists. */
 
    it('AvailableToggle only includes available products', async () => {
       render(<AvailableToggle initialData="false" />)

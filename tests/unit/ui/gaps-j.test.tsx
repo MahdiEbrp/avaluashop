@@ -26,27 +26,29 @@ vi.mock('react-hot-toast', () => ({
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 describe('storefront nav menu', () => {
-   it('opens the categories flyout and lists every entry', async () => {
+   it('lists every flat storefront link', async () => {
       render(<NavMenu />)
 
-      expect(screen.getByRole('link', { name: 'Products' })).toBeInTheDocument()
-
-      /* The radix navigation menu opens on focus, not on a synthetic pointer. */
-      fireEvent.click(screen.getByRole('button', { name: 'Categories' }))
-
-      expect(await screen.findByText('Introduction')).toBeInTheDocument()
-      expect(screen.getByText('Installation')).toBeInTheDocument()
+      /* The accessories-only nav drops the categories flyout entirely: three
+         plain links to the catalogue and the two brand pages. */
+      expect(screen.getByRole('link', { name: 'همه اکسسوری‌ها' })).toHaveAttribute(
+         'href',
+         '/products'
+      )
+      expect(screen.getByRole('link', { name: 'درباره آوالوا' })).toHaveAttribute(
+         'href',
+         '/about'
+      )
+      expect(screen.getByRole('link', { name: 'تماس با ما' })).toHaveAttribute(
+         'href',
+         '/contact'
+      )
    })
 
-   it('renders a list item with its description', async () => {
+   it('renders no dropdown trigger inside the nav menu', async () => {
       render(<NavMenu />)
 
-      fireEvent.click(screen.getByRole('button', { name: 'Categories' }))
-
-      expect(await screen.findByText('Installation')).toBeInTheDocument()
-      expect(
-         screen.getByText(/How to install dependencies and structure your app/i)
-      ).toBeInTheDocument()
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
    })
 })
 
