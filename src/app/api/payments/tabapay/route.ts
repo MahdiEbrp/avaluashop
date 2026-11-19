@@ -30,9 +30,12 @@ export async function POST(req: Request) {
 
       const existingPayment = await prisma.payment.findFirst({
          where: { orderId: order.id, status: 'Processing' },
-         select: { id: true },
+         select: { id: true, refId: true, paymentUrl: true },
       })
       if (existingPayment) {
+         if (existingPayment.paymentUrl && !existingPayment.refId.startsWith('pending:')) {
+            return NextResponse.json({ paymentUrl: existingPayment.paymentUrl })
+         }
          return NextResponse.json({ message: 'PAYMENT_ALREADY_INITIALIZED' }, { status: 409 })
       }
 
@@ -71,7 +74,7 @@ export async function POST(req: Request) {
 
       await prisma.payment.update({
          where: { id: payment.id },
-         data: { refId: result.token },
+         data: { refId: result.token, paymentUrl: result.paymentUrl },
       })
 
       return NextResponse.json({ paymentUrl: result.paymentUrl })
