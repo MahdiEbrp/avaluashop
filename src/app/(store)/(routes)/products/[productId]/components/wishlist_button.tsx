@@ -8,121 +8,57 @@ import { useEffect, useState } from 'react'
 
 export default function WishlistButton({ product }) {
    const { authenticated } = useAuthenticated()
-
    const [wishlist, setWishlist] = useState(null)
    const [fetchingWishlist, setFetchingWishlist] = useState(true)
 
    useEffect(() => {
       async function getWishlist() {
          try {
-            const response = await fetch(`/api/wishlist`, {
-               cache: 'no-store',
-               method: 'GET',
-            })
-
-            const json = await response.json()
-
-            setWishlist(json)
+            const response = await fetch('/api/wishlist', { cache: 'no-store', method: 'GET' })
+            setWishlist(await response.json())
             setFetchingWishlist(false)
          } catch (error) {
             console.error({ error })
          }
       }
-
       if (authenticated) void getWishlist()
    }, [authenticated])
 
    function isProductInWishlist() {
       for (let i = 0; i < wishlist?.length; i++) {
-         if (wishlist[i]?.id === product?.id) {
-            return true
-         }
+         if (wishlist[i]?.id === product?.id) return true
       }
       return false
    }
 
-   async function onAddToWishlist() {
+   async function updateWishlist(connect: boolean) {
       try {
          setFetchingWishlist(true)
-
-         const response = await fetch(`/api/wishlist`, {
-            method: 'POST',
-            body: JSON.stringify({ productId: product?.id, connect: true }),
+         const response = await fetch('/api/wishlist', {
+            method: connect ? 'POST' : 'DELETE',
+            body: JSON.stringify({ productId: product?.id, connect }),
             cache: 'no-store',
-            headers: {
-               'Content-Type': 'application/json-string',
-            },
+            headers: { 'Content-Type': 'application/json-string' },
          })
-
-         const json = await response.json()
-
-         setWishlist(json)
-         setFetchingWishlist(false)
+         setWishlist(await response.json())
       } catch (error) {
          console.error({ error })
+      } finally {
+         setFetchingWishlist(false)
       }
    }
 
-   async function onRemoveFromWishlist() {
-      try {
-         setFetchingWishlist(true)
+   if (!authenticated) return null
+   if (fetchingWishlist) return <Button disabled><Spinner /></Button>
 
-         const response = await fetch(`/api/wishlist`, {
-            method: 'DELETE',
-            body: JSON.stringify({ productId: product.id, connect: false }),
-            cache: 'no-store',
-            headers: {
-               'Content-Type': 'application/json-string',
-            },
-         })
-
-         const json = await response.json()
-
-         setWishlist(json)
-         setFetchingWishlist(false)
-      } catch (error) {
-         console.error({ error })
-      }
-   }
-
-   if (!authenticated) {
-      return
-   }
-
-   if (fetchingWishlist)
-      return (
-         <Button disabled>
-            <Spinner />
-         </Button>
-      )
-
-   if (!isProductInWishlist()) {
-      return (
-         <Button
-            className="flex gap-2"
-            onClick={() => {
-               void onAddToWishlist()
-            }}
-         >
-            <HeartIcon className="h-4" /> Add to Wishlist
-         </Button>
-      )
-   }
-
-   /* The `!isProductInWishlist()` guard above returns for one case and falls
-      through for the other, so this arm is exhaustive at runtime. */
-   /* v8 ignore next */
-   if (isProductInWishlist()) {
-      return (
-         <Button
-            variant="outline"
-            className="flex gap-2"
-            onClick={() => {
-               void onRemoveFromWishlist()
-            }}
-         >
-            <HeartIcon className="h-4" /> Remove from Wishlist
-         </Button>
-      )
-   }
+   return (
+      <Button
+         variant={isProductInWishlist() ? 'outline' : 'secondary'}
+         className="flex gap-2"
+         onClick={() => void updateWishlist(!isProductInWishlist())}
+      >
+         <HeartIcon className="h-4 w-4" />
+         {isProductInWishlist() ? 'حذف از علاقه‌مندی‌ها' : 'افزودن به علاقه‌مندی‌ها'}
+      </Button>
+   )
 }
