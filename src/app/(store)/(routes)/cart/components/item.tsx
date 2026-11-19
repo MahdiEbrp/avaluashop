@@ -17,243 +17,109 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 
+const toman = new Intl.NumberFormat('fa-IR')
+const formatPrice = (value: number) => `${toman.format(value)} تومان`
+
 export const Item = ({ cartItem }) => {
    const { authenticated } = useAuthenticated()
    const { cart, dispatchCart } = useCartContext()
    const [fetchingCart, setFetchingCart] = useState(false)
-
    const { product, productId } = cartItem
 
    async function getProduct() {
       try {
-         const response = await fetch(`/api/product`, {
+         const response = await fetch('/api/product', {
             method: 'POST',
             body: JSON.stringify({ productId }),
             cache: 'no-store',
-            headers: {
-               'Content-Type': 'application/json-string',
-            },
+            headers: { 'Content-Type': 'application/json-string' },
          })
-
          return await response.json()
       } catch (error) {
          console.error({ error })
       }
    }
 
-   async function onAddToCart() {
+   async function updateCart(delta: number) {
       try {
          setFetchingCart(true)
+         const count = getCountInCart({ cartItems: cart?.items, productId })
 
          if (authenticated) {
-            const response = await fetch(`/api/cart`, {
+            const response = await fetch('/api/cart', {
                method: 'POST',
-               body: JSON.stringify({
-                  productId,
-                  count:
-                     getCountInCart({ cartItems: cart?.items, productId }) + 1,
-               }),
+               body: JSON.stringify({ productId, count: count + delta }),
                cache: 'no-store',
-               headers: {
-                  'Content-Type': 'application/json-string',
-               },
+               headers: { 'Content-Type': 'application/json-string' },
             })
-
-            const json = await response.json()
-
-            dispatchCart(json)
-         }
-
-         const localCart = getLocalCart()
-
-         if (
-            !authenticated &&
-            getCountInCart({ cartItems: cart?.items, productId }) > 0
-         ) {
-            adjustLocalCartCount(localCart, productId, 1)
-
+            dispatchCart(await response.json())
+         } else {
+            const localCart = getLocalCart()
+            if (delta > 0 && count > 0) {
+               adjustLocalCartCount(localCart, productId, delta)
+            } else if (delta > 0) {
+               localCart.items.push({ productId, product: await getProduct(), count: 1 })
+            } else if (count > 1) {
+               adjustLocalCartCount(localCart, productId, delta)
+            } else {
+               const index = findLocalCartIndexById(localCart, productId)
+               if (index >= 0) localCart.items.splice(index, 1)
+            }
             dispatchCart(localCart)
          }
-
-         if (
-            !authenticated &&
-            getCountInCart({ cartItems: cart?.items, productId }) < 1
-         ) {
-            localCart.items.push({
-               productId,
-               product: await getProduct(),
-               count: 1,
-            })
-
-            dispatchCart(localCart)
-         }
-
-         setFetchingCart(false)
       } catch (error) {
          console.error({ error })
-      }
-   }
-
-   async function onRemoveFromCart() {
-      try {
-         setFetchingCart(true)
-
-         if (authenticated) {
-            const response = await fetch(`/api/cart`, {
-               method: 'POST',
-               body: JSON.stringify({
-                  productId,
-                  count:
-                     getCountInCart({ cartItems: cart?.items, productId }) - 1,
-               }),
-               cache: 'no-store',
-               headers: {
-                  'Content-Type': 'application/json-string',
-               },
-            })
-
-            const json = await response.json()
-            dispatchCart(json)
-         }
-
-         const localCart = getLocalCart()
-         const index = findLocalCartIndexById(localCart, productId)
-
-         if (
-            !authenticated &&
-            getCountInCart({ cartItems: cart?.items, productId }) > 1
-         ) {
-            adjustLocalCartCount(localCart, product?.id, -1)
-
-            dispatchCart(localCart)
-         }
-
-         if (
-            !authenticated &&
-            getCountInCart({ cartItems: cart?.items, productId }) === 1
-         ) {
-            localCart.items.splice(index, 1)
-
-            dispatchCart(localCart)
-         }
-
+      } finally {
          setFetchingCart(false)
-      } catch (error) {
-         console.error({ error })
       }
    }
 
-   function CartButton() {
-      const count = getCountInCart({
-         cartItems: cart?.items,
-         productId,
-      })
+   const count = getCountInCart({ cartItems: cart?.items, productId })
+   const price = product?.price - (product?.discount || 0)
 
-      if (fetchingCart)
-         return (
-            <Button disabled>
-               <Spinner />
-            </Button>
-         )
-
-      if (count === 0) {
-         return (
-            <Button
-               onClick={() => {
-                  void onAddToCart()
-               }}
-            >
-               🛒 Add to Cart
-            </Button>
-         )
-      }
-
-      if (count > 0) {
-         return (
-            <>
-               <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                     void onRemoveFromCart()
-                  }}
-               >
-                  {count === 1 ? (
-                     <X className="h-4" />
-                  ) : (
-                     <MinusIcon className="h-4" />
-                  )}
-               </Button>
-               <Button disabled variant="ghost" size="icon">
-                  {count}
-               </Button>
-               <Button
-                  disabled={productId == ''}
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                     void onAddToCart()
-                  }}
-               >
-                  <PlusIcon className="h-4" />
-               </Button>
-            </>
-         )
-      }
-   }
-
-   function Price() {
-      if (product?.discount > 0) {
-         const price = product?.price - product?.discount
-         const percentage = (product?.discount / product?.price) * 100
-         return (
-            <div className="flex gap-2 items-center">
-               <Badge className="flex gap-4" variant="destructive">
-                  <div className="line-through">${product?.price}</div>
-                  <div>%{percentage.toFixed(2)}</div>
-               </Badge>
-               <h2 className="">${price.toFixed(2)}</h2>
-            </div>
-         )
-      }
-
-      return <h2>${product?.price}</h2>
-   }
    return (
-      <Card>
+      <Card dir="rtl">
          <CardHeader className="p-0 md:hidden">
             <div className="relative h-32 w-full">
                <Link href={`/products/${String(product?.id)}`}>
-                  <Image
-                     className="rounded-t-lg object-cover"
-                     src={product?.images[0]}
-                     alt="product image"
-                     fill
-                     sizes="(min-width: 1000px) 30vw, 50vw"
-                  />
+                  <Image className="rounded-t-lg object-cover" src={product?.images[0]} alt={product?.title || 'تصویر محصول'} fill sizes="50vw" />
                </Link>
             </div>
          </CardHeader>
          <CardContent className="grid grid-cols-6 gap-4 p-3">
-            <div className="relative w-full col-span-2 hidden md:inline-flex">
+            <div className="relative col-span-2 hidden w-full md:inline-flex">
                <Link href={`/products/${String(product?.id)}`}>
-                  <Image
-                     className="rounded-lg object-cover"
-                     src={product?.images[0]}
-                     alt="item image"
-                     fill
-                  />
+                  <Image className="rounded-lg object-cover" src={product?.images[0]} alt={product?.title || 'تصویر محصول'} fill />
                </Link>
             </div>
-            <div className="col-span-4 block space-y-2">
+            <div className="col-span-4 block space-y-3 text-right">
                <Link href={`/products/${String(product?.id)}`}>
-                  <h2>{product?.title}</h2>
+                  <h2 className="font-semibold">{product?.title}</h2>
                </Link>
-               <p className="text-xs text-muted-foreground text-justify">
-                  {product?.description}
-               </p>
-               {Price()}
-               {CartButton()}
+               {product?.description ? <p className="text-xs leading-6 text-muted-foreground">{product.description}</p> : null}
+               <div className="flex items-center gap-2">
+                  {product?.discount > 0 ? (
+                     <>
+                        <Badge variant="destructive" className="line-through">{formatPrice(product?.price)}</Badge>
+                        <strong>{formatPrice(price)}</strong>
+                     </>
+                  ) : <strong>{formatPrice(product?.price)}</strong>}
+               </div>
+               {fetchingCart ? (
+                  <Button disabled><Spinner /></Button>
+               ) : count === 0 ? (
+                  <Button onClick={() => void updateCart(1)}>افزودن به سبد خرید</Button>
+               ) : (
+                  <div className="flex items-center gap-2">
+                     <Button variant="outline" size="icon" aria-label="کاهش تعداد" onClick={() => void updateCart(-1)}>
+                        {count === 1 ? <X className="h-4" /> : <MinusIcon className="h-4" />}
+                     </Button>
+                     <Button disabled variant="ghost" size="icon">{count}</Button>
+                     <Button variant="outline" size="icon" aria-label="افزایش تعداد" onClick={() => void updateCart(1)}>
+                        <PlusIcon className="h-4" />
+                     </Button>
+                  </div>
+               )}
             </div>
          </CardContent>
       </Card>
