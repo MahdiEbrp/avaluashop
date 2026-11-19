@@ -92,7 +92,7 @@ export async function POST(req: Request) {
          })
       }
 
-      if (error instanceof Error && error.message === 'PAYMENT_AMOUNT_OUT_OF_RANGE') {
+      if (error instanceof Error && error.message === 'TABAPAY_AMOUNT_OUT_OF_RANGE') {
          return NextResponse.json({ message: error.message }, { status: 400 })
       }
       if (error instanceof Error && error.message === 'PAYMENT_PROVIDER_DISABLED') {
