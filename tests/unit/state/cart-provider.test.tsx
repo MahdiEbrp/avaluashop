@@ -126,13 +126,17 @@ describe('CartContextProvider — signed in', () => {
 })
 
 describe('CartContextProvider — user without a cart row', () => {
-   it('reports an unknown cart while the profile is still empty', () => {
+   it('reports an empty cart for a signed-in shopper who never added anything', () => {
       userState.user = { id: 'u2', cart: null }
 
       renderCart()
 
-      expect(screen.getByTestId('cart')).toHaveTextContent('null')
-      expect(screen.getByTestId('loading')).toHaveTextContent('true')
+      /* A missing cart row is a normal empty cart, not an unknown one; the
+         checkout page reads `cart.items` and must not sit at `null`. */
+      expect(screen.getByTestId('cart')).toHaveTextContent(
+         JSON.stringify({ userId: 'u2', items: [] })
+      )
+      expect(screen.getByTestId('loading')).toHaveTextContent('false')
    })
 })
 
