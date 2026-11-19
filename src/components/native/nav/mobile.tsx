@@ -3,13 +3,17 @@
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { docsConfig } from '@/config/docs'
-import Config from '@/config/site'
-import { cn } from '@/lib/utils'
-import { ViewIcon } from 'lucide-react'
-import Link, { LinkProps } from 'next/link'
-import { useRouter } from 'next/navigation'
+import { MenuIcon } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
+
+const links = [
+   { title: 'صفحه اصلی', href: '/' },
+   { title: 'فروشگاه اکسسوری', href: '/products' },
+   { title: 'درباره آوالوا', href: '/about' },
+   { title: 'تماس با ما', href: '/contact' },
+   { title: 'سوالات متداول', href: '/faq' },
+]
 
 export function MobileNav() {
    const [open, setOpen] = useState(false)
@@ -17,88 +21,32 @@ export function MobileNav() {
    return (
       <Sheet open={open} onOpenChange={setOpen}>
          <SheetTrigger asChild>
-            <Button variant="bare" className="mr-2 px-0 md:hidden">
-               <ViewIcon className="h-5" />
-               <span className="sr-only">Toggle Menu</span>
+            <Button
+               variant="outline"
+               size="icon"
+               className="me-2 h-10 w-10 shrink-0 rounded-xl md:hidden"
+               aria-label="باز کردن منو"
+            >
+               <MenuIcon className="h-5 w-5" />
             </Button>
          </SheetTrigger>
-         <SheetContent side="left" className="pr-0">
-            <MobileLink
-               href="/"
-               className="flex items-center"
-               onOpenChange={setOpen}
-            >
-               <div className="relative z-20 flex items-center text-lg font-medium">
-                  <svg
-                     xmlns="http://www.w3.org/2000/svg"
-                     viewBox="0 0 24 24"
-                     fill="none"
-                     stroke="currentColor"
-                     strokeWidth="2"
-                     strokeLinecap="round"
-                     strokeLinejoin="round"
-                     className="mr-2 h-6 w-6"
-                  >
-                     <path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3" />
-                  </svg>
-                  {Config.name}
-               </div>
-            </MobileLink>
-            <ScrollArea className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
-               <div className="flex flex-col space-y-3">
-                  {docsConfig.mainNav?.map(
-                     (item) =>
-                        item.href && (
-                           <MobileLink
-                              key={item.href}
-                              href={item.href}
-                              onOpenChange={setOpen}
-                           >
-                              {item.title}
-                           </MobileLink>
-                        )
-                  )}
-               </div>
-               <div className="flex flex-col space-y-2">
-                  {docsConfig.sidebarNav.map((item, index) => (
-                     <div key={index} className="flex flex-col space-y-3 pt-6">
-                        <h4 className="font-medium">{item.title}</h4>
-                     </div>
+         <SheetContent side="right" dir="rtl" className="w-[ min(86vw, 360px) ]">
+            <div className="mb-6 text-right text-lg font-bold">{'آوالوا'}</div>
+            <ScrollArea className="h-[calc(100vh-7rem)] pe-3">
+               <nav className="flex flex-col gap-1 text-right">
+                  {links.map((item) => (
+                     <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className="rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                     >
+                        {item.title}
+                     </Link>
                   ))}
-               </div>
+               </nav>
             </ScrollArea>
          </SheetContent>
       </Sheet>
-   )
-}
-
-interface MobileLinkProps extends LinkProps {
-   onOpenChange?: (open: boolean) => void
-   children: React.ReactNode
-   className?: string
-}
-
-function MobileLink({
-   href,
-   onOpenChange,
-   className,
-   children,
-   ...props
-}: Readonly<MobileLinkProps>) {
-   const router = useRouter()
-   return (
-      <Link
-         href={href}
-         onClick={() => {
-            router.push(
-               typeof href === 'string' ? href : (href.pathname ?? '/')
-            )
-            onOpenChange?.(false)
-         }}
-         className={cn(className)}
-         {...props}
-      >
-         {children}
-      </Link>
    )
 }
