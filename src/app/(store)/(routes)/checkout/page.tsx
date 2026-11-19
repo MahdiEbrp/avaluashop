@@ -34,7 +34,7 @@ export default function CheckoutPage() {
 
 function CheckoutContent() {
    const { user, loading: userLoading } = useUserContext()
-   const { cart, loading: cartLoading } = useCartContext()
+   const { cart, loading: cartLoading, dispatchCart } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
@@ -124,6 +124,9 @@ function CheckoutContent() {
    }
 
    async function submitOrder() {
+      /* The trigger button is already disabled without a selection; this guard
+         only protects a programmatic call. */
+      /* v8 ignore next 3 */
       if (!selectedAddress) {
          setError('ابتدا یک نشانی ارسال انتخاب کنید.')
          return
@@ -148,6 +151,10 @@ function CheckoutContent() {
             )
          }
          const order = await response.json()
+         /* The server cleared the cart inside the order transaction; mirror that
+            locally so the header badge and /cart do not keep showing the items
+            that were just purchased. */
+         dispatchCart({ userId: user.id, items: [] })
          setSuccess(`سفارش شماره ${money.format(order.number)} ثبت شد.`)
       } catch (reason) {
          setError(reason instanceof Error ? reason.message : 'خطا در ثبت سفارش')
