@@ -23,14 +23,6 @@ const WOMENS_ACCESSORY_CATEGORIES = [
    'شال و روسری',
    'اکسسوری مو',
    'ساعت زنانه',
-   'Women's Accessories',
-   "Women's Jewelry",
-   'Jewelry',
-   'Handbags',
-   'Hair Accessories',
-   'Scarves',
-   'Sunglasses',
-   "Women's Watches",
 ]
 
 type ProductsSearchParams = Record<string, string | string[] | undefined>
@@ -73,7 +65,7 @@ export default async function Products({
 
    const products = await prisma.product.findMany({
       where: {
-         isAvailable: isAvailable === 'true' || sort ? true : undefined,
+         isAvailable: isAvailable === 'true' ? true : undefined,
          categories: {
             some: {
                title: category
