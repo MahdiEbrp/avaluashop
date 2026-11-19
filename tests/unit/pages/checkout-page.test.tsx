@@ -133,7 +133,7 @@ describe('checkout — address selection', () => {
 
       expect(await screen.findByText('هنوز نشانی‌ای ثبت نکرده‌اید.')).toBeInTheDocument()
       /* With no address there is nothing to submit against. */
-      expect(screen.getByRole('button', { name: 'ثبت سفارش' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeDisabled()
    })
 
    it('surfaces a failed address lookup', async () => {
@@ -242,25 +242,29 @@ describe('checkout — order summary', () => {
       await screen.findByRole('radio')
 
       expect(
-         screen.getByText(/درگاه پرداخت هنوز به این فروشگاه متصل نشده است/)
+         screen.getByText(/پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود/)
       ).toBeInTheDocument()
    })
 })
 
 describe('checkout — submitting the order', () => {
-   it('posts the selected address and confirms the order number', async () => {
+   it('creates the order, initializes Tabapay, and redirects to the payment page', async () => {
       const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
          if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/sandbox/pay/token' })
+         }
          return jsonResponse([address])
       })
       vi.stubGlobal('fetch', fetchMock)
+      const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {})
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
 
-      await user().click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
-      await waitFor(() =>
+      await waitFor(() => {
          expect(fetchMock).toHaveBeenCalledWith(
             '/api/orders',
             expect.objectContaining({
@@ -268,12 +272,17 @@ describe('checkout — submitting the order', () => {
                body: JSON.stringify({ addressId: 'ad1' }),
             })
          )
-      )
-      expect(await screen.findByText('سفارش شما ثبت شد')).toBeInTheDocument()
-      expect(screen.getByText(/سفارش شماره ۴۲ ثبت شد/)).toBeInTheDocument()
-      /* The server emptied the cart in the order transaction, so the client
-         copy is cleared too rather than waiting for a reload. */
-      expect(dispatchCart).toHaveBeenCalledWith({ userId: 'u1', items: [] })
+         expect(fetchMock).toHaveBeenCalledWith(
+            '/api/payments/tabapay',
+            expect.objectContaining({
+               method: 'POST',
+               body: JSON.stringify({ orderId: 'o1' }),
+            })
+         )
+         expect(assign).toHaveBeenCalledWith('https://api.tabapay.ir/sandbox/pay/token')
+      })
+      expect(screen.queryByText('پرداخت تأیید شد')).not.toBeInTheDocument()
+      expect(dispatchCart).not.toHaveBeenCalled()
    })
 
    it('explains a stock conflict in plain Persian', async () => {
@@ -290,7 +299,7 @@ describe('checkout — submitting the order', () => {
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
 
-      await user().click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
          'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.'
@@ -310,7 +319,7 @@ describe('checkout — submitting the order', () => {
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
 
-      await user().click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Internal error')
    })
@@ -343,7 +352,7 @@ describe('checkout — switching the selected address', () => {
 
       /* The button is disabled without an address, so the guard is only
          reachable by invoking the handler directly. Submit the form region. */
-      fireEvent.click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      fireEvent.click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(fetchMock).not.toHaveBeenCalledWith('/api/orders', expect.anything())
       expect(screen.queryByText('سفارش شما ثبت شد')).not.toBeInTheDocument()
@@ -380,7 +389,7 @@ describe('checkout — defensive branches', () => {
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
 
-      await user().click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('ثبت سفارش انجام نشد.')
    })
@@ -395,7 +404,7 @@ describe('checkout — defensive branches', () => {
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
 
-      await user().click(screen.getByRole('button', { name: 'ثبت سفارش' }))
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('خطا در ثبت سفارش')
    })
