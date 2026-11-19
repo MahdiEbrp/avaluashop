@@ -6,7 +6,7 @@ import {
 import { verifyTabapayPayment } from '@/lib/payments/tabapay'
 import { NextResponse } from 'next/server'
 
-function checkoutRedirect(result: 'success' | 'failed' | 'pending') {
+function checkoutRedirect(result: 'success' | 'failed' | 'pending', orderId?: string) {
    const appUrl =
       process.env.APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -16,10 +16,9 @@ function checkoutRedirect(result: 'success' | 'failed' | 'pending') {
       return new NextResponse('Payment status is being checked', { status: 503 })
    }
 
-   return NextResponse.redirect(
-      new URL(`/checkout?payment=${result}`, appUrl),
-      { status: 303 }
-   )
+   const redirectUrl = new URL(`/checkout?payment=${result}`, appUrl)
+   if (orderId) redirectUrl.searchParams.set('orderId', orderId)
+   return NextResponse.redirect(redirectUrl, { status: 303 })
 }
 
 export async function GET(request: Request) {
@@ -38,7 +37,7 @@ export async function GET(request: Request) {
 
       if (!payment) return checkoutRedirect('failed')
       if (payment.status === 'Paid' && payment.isSuccessful) {
-         return checkoutRedirect('success')
+         return checkoutRedirect('success', payment.orderId)
       }
       if (payment.status !== 'Processing') {
          return checkoutRedirect('failed')
