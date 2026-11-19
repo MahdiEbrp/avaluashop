@@ -13,11 +13,11 @@ export const CartGrid = () => {
 
    if (isVariableValid(cart?.items) && cart?.items?.length === 0) {
       return (
-         <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3" dir="rtl">
             <div className="md:col-span-2">
                <Card>
                   <CardContent className="p-4">
-                     <p>Your Cart is empty...</p>
+                     <p>سبد خرید شما خالی است.</p>
                   </CardContent>
                </Card>
             </div>
@@ -27,7 +27,7 @@ export const CartGrid = () => {
    }
 
    return (
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3" dir="rtl">
          <div className="md:col-span-2">
             {isVariableValid(cart?.items)
                ? cart?.items?.map((cartItem, index) => (
