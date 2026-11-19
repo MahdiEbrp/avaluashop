@@ -63,7 +63,7 @@ export async function createTabapayPayment(input: {
       callbackURL: `${config.appUrl}/api/payments/tabapay/callback`,
       description: `Avaluona Shop order #${input.orderNumber}`,
       additionalData: JSON.stringify({ orderNumber: input.orderNumber }),
-      ...(input.mobile && /^09\\d{9}$/.test(input.mobile) ? { mobile: input.mobile } : {}),
+      ...(input.mobile && /^09\d{9}.test(input.mobile) ? { mobile: input.mobile } : {}),
    })
 
    if (
