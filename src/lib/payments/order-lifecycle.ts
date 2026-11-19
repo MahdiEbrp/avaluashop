@@ -1,0 +1,67 @@
+import prisma from '@/lib/prisma'
+
+export async function releasePendingOrder(orderId: string, paymentId?: string) {
+   return prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+         where: { id: orderId },
+         include: { orderItems: true },
+      })
+
+      if (!order || order.isPaid || order.status !== 'PendingPayment') return false
+
+      if (paymentId) {
+         const payment = await tx.payment.updateMany({
+            where: { id: paymentId, status: 'Processing' },
+            data: { status: 'Failed' },
+         })
+         if (payment.count !== 1) return false
+      }
+
+      const cancelled = await tx.order.updateMany({
+         where: { id: orderId, status: 'PendingPayment', isPaid: false },
+         data: { status: 'Cancelled' },
+      })
+      if (cancelled.count !== 1) return false
+
+      for (const item of order.orderItems) {
+         await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.count } },
+         })
+      }
+
+      return true
+   })
+}
+
+export async function completePendingOrder(orderId: string, paymentId: string) {
+   return prisma.$transaction(async (tx) => {
+      const paid = await tx.payment.updateMany({
+         where: { id: paymentId, status: 'Processing' },
+         data: { status: 'Paid', isSuccessful: true },
+      })
+
+      if (paid.count === 0) {
+         const existing = await tx.payment.findUnique({ where: { id: paymentId } })
+         if (existing?.status === 'Paid') return false
+         throw new Error('PAYMENT_STATE_CONFLICT')
+      }
+
+      const completed = await tx.order.updateMany({
+         where: { id: orderId, status: 'PendingPayment', isPaid: false },
+         data: { isPaid: true, status: 'Processing' },
+      })
+
+      if (completed.count !== 1) throw new Error('ORDER_STATE_CONFLICT')
+
+      const order = await tx.order.findUnique({
+         where: { id: orderId },
+         select: { userId: true },
+      })
+      if (order) {
+         await tx.cartItem.deleteMany({ where: { cartId: order.userId } })
+      }
+
+      return true
+   })
+}
