@@ -16,7 +16,7 @@ function getConfig() {
    if (!merchantKey) throw new Error('TABAPAY_NOT_CONFIGURED')
 
    const sandbox = process.env.TABAPAY_SANDBOX !== 'false'
-   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL
+   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL
    if (!appUrl) throw new Error('APP_URL_NOT_CONFIGURED')
 
    const baseUrl = 'https://api.tabapay.ir/v1'
@@ -63,7 +63,7 @@ export async function createTabapayPayment(input: {
       callbackURL: `${config.appUrl}/api/payments/tabapay/callback`,
       description: `Avaluona Shop order #${input.orderNumber}`,
       additionalData: JSON.stringify({ orderNumber: input.orderNumber }),
-      ...(input.mobile ? { mobile: input.mobile } : {}),
+      ...(input.mobile && /^09\\d{9}$/.test(input.mobile) ? { mobile: input.mobile } : {}),
    })
 
    if (
