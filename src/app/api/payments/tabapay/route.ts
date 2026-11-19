@@ -47,7 +47,13 @@ export async function POST(req: Request) {
             websiteUrl: 'https://tabapay.ir',
             isActive: true,
          },
-         update: { isActive: true },
+         update: {},
+      })
+      if (!provider.isActive) {
+         return NextResponse.json({ message: 'PAYMENT_PROVIDER_DISABLED' }, { status: 503 })
+      }
+
+      /*
       })
 
       const placeholder = `pending:${crypto.randomUUID()}`
