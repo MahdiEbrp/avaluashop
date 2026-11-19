@@ -16,25 +16,13 @@ const WOMENS_ACCESSORY_CATEGORIES = [
    'شال و روسری',
    'اکسسوری مو',
    'ساعت زنانه',
-   'Women's Accessories',
-   "Women's Jewelry",
-   'Jewelry',
-   'Handbags',
-   'Hair Accessories',
-   'Scarves',
-   'Sunglasses',
-   "Women's Watches",
 ]
 
 export default async function Index() {
    const products = await prisma.product.findMany({
       where: {
          isAvailable: true,
-         categories: {
-            some: {
-               title: { in: WOMENS_ACCESSORY_CATEGORIES },
-            },
-         },
+         categories: { some: { title: { in: WOMENS_ACCESSORY_CATEGORIES } } },
       },
       include: { brand: true, categories: true },
       orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
