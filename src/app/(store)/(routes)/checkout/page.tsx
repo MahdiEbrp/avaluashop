@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CartContextProvider, useCartContext } from '@/state/Cart'
 import { UserContextProvider, useUserContext } from '@/state/User'
+import { redirectToPayment } from '@/lib/payments/redirect'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
@@ -177,7 +178,7 @@ function CheckoutContent() {
          }
          const { paymentUrl } = await paymentResponse.json()
          if (typeof paymentUrl !== 'string') throw new Error('نشانی درگاه نامعتبر است.')
-         window.location.assign(paymentUrl)
+         redirectToPayment(paymentUrl)
       } catch (reason) {
          setError(reason instanceof Error ? reason.message : 'خطا در ثبت سفارش')
       } finally {
