@@ -96,10 +96,17 @@ export async function verifyTabapayPayment(input: {
       amount: String(input.amountRial),
    })
 
-   return (
-      result.status === 'success' &&
-      result.responseCode === 1 &&
-      result.token === input.token &&
-      Number(result.amount) === input.amountRial
-   )
+   if (result.status === 'success' && result.responseCode === 1) {
+      if (
+         result.token !== input.token ||
+         Number(result.amount) !== input.amountRial
+      ) {
+         // A success response with mismatched identity/amount needs manual
+         // reconciliation; never release stock as if this were a failed payment.
+         throw new Error('TABAPAY_VERIFICATION_MISMATCH')
+      }
+      return true
+   }
+
+   return false
 }
