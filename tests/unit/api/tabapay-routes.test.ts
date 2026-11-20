@@ -7,6 +7,8 @@ import {
 import {
    createTabapayPayment,
    verifyTabapayPayment,
+   validateTabapayConfiguration,
+   isTabapayAmountValid,
 } from '@/lib/payments/tabapay'
 import { get, json, prismaMock, silenceConsole, USER } from './helpers'
 
@@ -14,6 +16,8 @@ vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule
 vi.mock('@/lib/payments/tabapay', () => ({
    createTabapayPayment: vi.fn(),
    verifyTabapayPayment: vi.fn(),
+   validateTabapayConfiguration: vi.fn(),
+   isTabapayAmountValid: vi.fn(() => true),
 }))
 vi.mock('@/lib/payments/order-lifecycle', () => ({
    completePendingOrder: vi.fn(),
@@ -32,6 +36,8 @@ const order = {
 
 beforeEach(() => {
    process.env.APP_URL = 'https://avaluashop.vercel.app'
+   vi.mocked(validateTabapayConfiguration).mockReturnValue({} as never)
+   vi.mocked(isTabapayAmountValid).mockReturnValue(true)
    silenceConsole()
    prismaMock.order.findFirst.mockResolvedValue(order)
    prismaMock.payment.findFirst.mockResolvedValue(null)
@@ -62,6 +68,7 @@ describe('POST /api/payments/tabapay', () => {
       await expect(response.json()).resolves.toEqual({
          paymentUrl: 'https://api.tabapay.ir/pay/tabapay-token',
       })
+      expect(prismaMock.$queryRaw).toHaveBeenCalled()
       expect(createTabapayPayment).toHaveBeenCalledWith({
          amountRial: 120_000,
          orderNumber: 42,
@@ -119,6 +126,40 @@ describe('POST /api/payments/tabapay', () => {
       expect((await tabapayPOST(json({ orderId: 'order-1' }, USER))).status).toBe(409)
    })
 
+   it('re-checks the order under the lock when it changed after the snapshot', async () => {
+      /* The snapshot check is only a fast path. Another request can pay or
+         cancel the order between that read and the advisory lock, so the
+         transaction must re-read and refuse rather than create a payment. */
+      prismaMock.order.findFirst
+         .mockResolvedValueOnce(order)
+         .mockResolvedValueOnce({ ...order, isPaid: true })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'ORDER_NOT_PAYABLE' })
+      expect(prismaMock.order.findFirst).toHaveBeenCalledTimes(2)
+      expect(prismaMock.payment.create).not.toHaveBeenCalled()
+   })
+
+   it('answers 503 and releases when the gateway loses its configuration mid-request', async () => {
+      /* Configuration can disappear between the pre-check and the locked
+         section; the row is not created yet, so only the order is released. */
+      vi.mocked(validateTabapayConfiguration).mockImplementation(() => {
+         throw new Error('TABAPAY_NOT_CONFIGURED')
+      })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(503)
+      await expect(response.json()).resolves.toEqual({
+         message: 'TABAPAY_NOT_CONFIGURED',
+      })
+      expect(releasePendingOrder).toHaveBeenCalledWith('order-1')
+      expect(prismaMock.payment.create).not.toHaveBeenCalled()
+      expect(createTabapayPayment).not.toHaveBeenCalled()
+   })
+
    it('refuses a half-initialized payment instead of starting a second one', async () => {
       prismaMock.payment.findFirst.mockResolvedValue({
          id: 'payment-1',
@@ -128,7 +169,7 @@ describe('POST /api/payments/tabapay', () => {
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(409)
+      expect(response.status).toBe(202)
       await expect(response.json()).resolves.toEqual({
          message: 'PAYMENT_ALREADY_INITIALIZED',
       })
@@ -145,7 +186,10 @@ describe('POST /api/payments/tabapay', () => {
       /* A `pending:` refId is a row that never finished initializing. */
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(409)
+      expect(response.status).toBe(202)
+      await expect(response.json()).resolves.toEqual({
+         message: 'PAYMENT_ALREADY_INITIALIZED',
+      })
    })
 
    it('answers 503 when the provider is switched off', async () => {
@@ -163,9 +207,7 @@ describe('POST /api/payments/tabapay', () => {
    })
 
    it('answers 400 when the amount is outside the gateway limits', async () => {
-      vi.mocked(createTabapayPayment).mockRejectedValue(
-         new Error('TABAPAY_AMOUNT_OUT_OF_RANGE')
-      )
+      vi.mocked(isTabapayAmountValid).mockReturnValue(false)
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
@@ -173,10 +215,37 @@ describe('POST /api/payments/tabapay', () => {
       await expect(response.json()).resolves.toEqual({
          message: 'TABAPAY_AMOUNT_OUT_OF_RANGE',
       })
+      expect(createTabapayPayment).not.toHaveBeenCalled()
    })
 
-   it('releases the reservation when the gateway fails', async () => {
+   it('keeps the reservation when the gateway create result is ambiguous', async () => {
       vi.mocked(createTabapayPayment).mockRejectedValue(new Error('TABAPAY_HTTP_ERROR'))
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(202)
+      await expect(response.json()).resolves.toEqual({
+         message: 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION',
+      })
+      expect(releasePendingOrder).not.toHaveBeenCalled()
+   })
+
+   it('releases the reservation after an explicit gateway rejection', async () => {
+      vi.mocked(createTabapayPayment).mockRejectedValue(
+         new Error('TABAPAY_CREATE_REJECTED:MERCHANT_INACTIVE')
+      )
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(502)
+      expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
+   })
+
+   it('tolerates the compensating release failing after an explicit rejection', async () => {
+      vi.mocked(createTabapayPayment).mockRejectedValue(
+         new Error('TABAPAY_CREATE_REJECTED:MERCHANT_INACTIVE')
+      )
+      vi.mocked(releasePendingOrder).mockRejectedValue(new Error('release down'))
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
@@ -187,13 +256,14 @@ describe('POST /api/payments/tabapay', () => {
       expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
    })
 
-   it('still answers 502 when the compensating release also fails', async () => {
+   it('does not release stock after a gateway timeout, even if reconciliation is needed', async () => {
       vi.mocked(createTabapayPayment).mockRejectedValue(new Error('TABAPAY_HTTP_ERROR'))
       vi.mocked(releasePendingOrder).mockRejectedValue(new Error('release down'))
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(502)
+      expect(response.status).toBe(202)
+      expect(releasePendingOrder).not.toHaveBeenCalled()
    })
 
    it('does not attempt a release when the request never named an order', async () => {
@@ -223,6 +293,26 @@ describe('POST /api/payments/tabapay', () => {
       await expect(response.json()).resolves.toEqual({
          paymentUrl: 'https://api.tabapay.ir/pay/existing-token',
       })
+      expect(createTabapayPayment).not.toHaveBeenCalled()
+   })
+
+   it('reuses an existing redirect even if gateway configuration is now missing', async () => {
+      prismaMock.payment.findFirst.mockResolvedValue({
+         id: 'payment-1',
+         refId: 'existing-token',
+         paymentUrl: 'https://api.tabapay.ir/pay/existing-token',
+      })
+      vi.mocked(validateTabapayConfiguration).mockImplementation(() => {
+         throw new Error('TABAPAY_NOT_CONFIGURED')
+      })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+         paymentUrl: 'https://api.tabapay.ir/pay/existing-token',
+      })
+      expect(releasePendingOrder).not.toHaveBeenCalled()
       expect(createTabapayPayment).not.toHaveBeenCalled()
    })
 })
@@ -393,7 +483,7 @@ describe('GET /api/payments/tabapay/callback', () => {
 
       const response = await tabapayCallbackGET(callback())
 
-      expect(response.headers.get('location')).toContain('/checkout?payment=pending')
+      expect(response.headers.get('location')).toContain('/checkout?payment=pending&orderId=order-1')
       expect(releasePendingOrder).not.toHaveBeenCalled()
       expect(completePendingOrder).not.toHaveBeenCalled()
    })

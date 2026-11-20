@@ -1,4 +1,8 @@
-import { createTabapayPayment, verifyTabapayPayment } from '@/lib/payments/tabapay'
+import {
+   createTabapayPayment,
+   verifyTabapayPayment,
+   validateTabapayConfiguration,
+} from '@/lib/payments/tabapay'
 
 const merchantKey = 'test-merchant-key'
 
@@ -185,6 +189,31 @@ describe('Tabapay adapter', () => {
       ).rejects.toThrow('MERCHANT_INACTIVE')
    })
 
+   it('reports an unconfirmed create result separately from an explicit rejection', async () => {
+      /* `responseCode` 0 means the gateway neither confirmed nor rejected, so
+         the caller keeps the reservation instead of releasing stock. */
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({ status: 'success', responseCode: 0, token: 't1' }),
+               { status: 200 }
+            )
+         )
+      )
+
+      await expect(
+         createTabapayPayment({ amountRial: 250_000, orderNumber: 1 })
+      ).rejects.toThrow('TABAPAY_CREATE_UNCONFIRMED')
+   })
+
+   it('exposes configuration validation without contacting the gateway', () => {
+      expect(() => validateTabapayConfiguration()).not.toThrow()
+
+      delete process.env.TABAPAY_MERCHANT_KEY
+      expect(() => validateTabapayConfiguration()).toThrow('TABAPAY_NOT_CONFIGURED')
+   })
+
    it('falls back to a generic message when creation fails without one', async () => {
       vi.stubGlobal(
          'fetch',
@@ -295,7 +324,7 @@ describe('Tabapay adapter', () => {
       ).rejects.toThrow('TABAPAY_VERIFICATION_MISMATCH')
    })
 
-   it('returns false for an explicit unsuccessful transaction', async () => {
+   it('keeps ambiguous verification responses pending for reconciliation', async () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(async () =>
@@ -303,6 +332,27 @@ describe('Tabapay adapter', () => {
                JSON.stringify({
                   responseCode: -101,
                   status: 'error',
+                  token: 'tabapay-token-1',
+                  amount: 100_000,
+               }),
+               { status: 200 }
+            )
+         )
+      )
+
+      await expect(
+         verifyTabapayPayment({ token: 'tabapay-token-1', amountRial: 100_000 })
+      ).rejects.toThrow('TABAPAY_VERIFICATION_UNCONFIRMED')
+   })
+
+   it('returns false for an explicit unsuccessful transaction', async () => {
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({
+                  responseCode: -101,
+                  status: 'failed',
                   token: 'tabapay-token-1',
                   amount: 100_000,
                }),

@@ -370,7 +370,8 @@ describe('POST /api/orders', () => {
 
    it('checks a discount code when one is supplied', async () => {
       stubSuccess()
-      prismaMock.discountCode.findFirst.mockResolvedValue({ id: 'd1' })
+      prismaMock.discountCode.findFirst.mockResolvedValue({ id: 'd1', percent: 10, maxDiscountAmount: 20 })
+      prismaMock.discountCode.updateMany.mockResolvedValue({ count: 1 })
 
       await ordersPOST(json({ addressId: 'ad1', discountCode: 'SAVE10' }, USER))
 
@@ -382,12 +383,29 @@ describe('POST /api/orders', () => {
             startDate: { lte: expect.any(Date) },
             endDate: { gte: expect.any(Date) },
          },
-         select: { id: true },
+         select: { id: true, percent: true, maxDiscountAmount: true },
+      })
+      expect(prismaMock.discountCode.updateMany).toHaveBeenCalledWith({
+         where: {
+            id: 'd1',
+            stock: { gte: 1 },
+            startDate: { lte: expect.any(Date) },
+            endDate: { gte: expect.any(Date) },
+         },
+         data: { stock: { decrement: 1 } },
+      })
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({
+            discountCodeId: 'd1',
+            discount: 30,
+            tax: 19.8,
+            payable: 239.8,
+         }),
       })
    })
 
    it('rejects an expired or unknown discount code', async () => {
-      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      stubSuccess()
       prismaMock.discountCode.findFirst.mockResolvedValue(null)
 
       const response = await ordersPOST(
@@ -396,7 +414,55 @@ describe('POST /api/orders', () => {
 
       expect(response.status).toBe(400)
       await expect(response.text()).resolves.toBe('Discount code is invalid or expired')
-      expect(prismaMock.cart.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('refuses the order when the coupon runs out mid-checkout', async () => {
+      /* Two shoppers racing for the last use of a code: the conditional
+         decrement matches no row, so the whole transaction must roll back
+         rather than let the second shopper keep an unearned discount. */
+      stubSuccess()
+      prismaMock.discountCode.findFirst.mockResolvedValue({
+         id: 'd1',
+         percent: 10,
+         maxDiscountAmount: 20,
+      })
+      prismaMock.discountCode.updateMany.mockResolvedValue({ count: 0 })
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', discountCode: 'SAVE10' }, USER)
+      )
+
+      expect(response.status).toBe(400)
+      await expect(response.text()).resolves.toBe('Discount code is invalid or expired')
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+      /* Stock reserved for the abandoned attempt must not leak. */
+      expect(prismaMock.product.updateMany).not.toHaveBeenCalled()
+   })
+
+   it('awards a zero discount rather than failing when the coupon grants nothing', async () => {
+      /* A coupon with a zero cap still has to produce a coherent order. */
+      stubSuccess()
+      prismaMock.discountCode.findFirst.mockResolvedValue({
+         id: 'd1',
+         percent: 50,
+         maxDiscountAmount: 0,
+      })
+      prismaMock.discountCode.updateMany.mockResolvedValue({ count: 1 })
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', discountCode: 'ZERO' }, USER)
+      )
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({
+            discountCodeId: 'd1',
+            discount: 10,
+            tax: 21.6,
+            payable: 261.6,
+         }),
+      })
    })
 
    it('keeps the cart intact until the payment callback is verified', async () => {

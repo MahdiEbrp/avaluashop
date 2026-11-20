@@ -38,9 +38,11 @@ function CheckoutContent() {
    const { cart, loading: cartLoading } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
+   const [discountCode, setDiscountCode] = useState('')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
+   const [paymentPending, setPaymentPending] = useState(false)
    const [error, setError] = useState('')
    const [success, setSuccess] = useState('')
    const [showAddressForm, setShowAddressForm] = useState(false)
@@ -97,6 +99,7 @@ function CheckoutContent() {
       if (paymentResult === 'failed') {
          setError('پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.')
       } else if (paymentResult === 'pending') {
+         setPaymentPending(true)
          setError('تأیید پرداخت هنوز قطعی نیست. لطفاً از ثبت دوباره سفارش خودداری کنید و وضعیت تراکنش را با پشتیبانی بررسی کنید.')
       }
    }, [])
@@ -191,14 +194,16 @@ function CheckoutContent() {
          const response = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ addressId: selectedAddress }),
+            body: JSON.stringify({ addressId: selectedAddress, discountCode: discountCode.trim() || undefined }),
          })
          if (!response.ok) {
             const message = await response.text()
             throw new Error(
                response.status === 409
                   ? 'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.'
-                  : message || 'ثبت سفارش انجام نشد.'
+                  : message === 'Discount code is invalid or expired'
+                    ? 'کد تخفیف نامعتبر یا منقضی شده است.'
+                    : message || 'ثبت سفارش انجام نشد.'
             )
          }
          const order = await response.json()
@@ -207,15 +212,24 @@ function CheckoutContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId: order.id }),
          })
+         const paymentBody = await paymentResponse.json().catch(() => ({}))
+         if (paymentResponse.status === 202) {
+            setPaymentPending(true)
+            setError('وضعیت ایجاد تراکنش هنوز مشخص نیست. سفارش و موجودی آن برای بررسی حفظ شده است؛ لطفاً سفارش دیگری ثبت نکنید و وضعیت را از پشتیبانی پیگیری کنید.')
+            return
+         }
          if (!paymentResponse.ok) {
-            const paymentError = await paymentResponse.json().catch(() => ({}))
             throw new Error(
-               paymentError.message === 'PAYMENT_AMOUNT_OUT_OF_RANGE'
+               paymentBody.message === 'TABAPAY_AMOUNT_OUT_OF_RANGE'
                   ? 'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
-                  : 'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+                  : paymentBody.message === 'TABAPAY_NOT_CONFIGURED'
+                    ? 'درگاه پرداخت موقتاً آماده نیست. سفارش لغو شده و می‌توانید بعداً دوباره تلاش کنید.'
+                    : 'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
             )
          }
-         const { paymentUrl } = await paymentResponse.json()
+         /* The body was already consumed for the 202 check above; reading it a
+            second time throws and would abort the redirect entirely. */
+         const { paymentUrl } = paymentBody
          if (typeof paymentUrl !== 'string') throw new Error('نشانی درگاه نامعتبر است.')
          redirectToPayment(paymentUrl)
       } catch (reason) {
@@ -345,14 +359,25 @@ function CheckoutContent() {
                      ))}
                   </div>
                   <div className="space-y-2 border-t pt-3 text-sm">
+                     <div className="space-y-1">
+                        <Label htmlFor="discountCode">کد تخفیف</Label>
+                        <Input
+                           id="discountCode"
+                           value={discountCode}
+                           onChange={(event) => setDiscountCode(event.target.value)}
+                           placeholder="در صورت داشتن کد وارد کنید"
+                           autoComplete="off"
+                        />
+                        <p className="text-xs text-muted-foreground">اعتبار کد و مقدار تخفیف هنگام ثبت سفارش در سرور بررسی می‌شود.</p>
+                     </div>
                      <div className="flex justify-between"><span>جمع کالاها</span><span>{toman(totals.subtotal)}</span></div>
                      <div className="flex justify-between"><span>تخفیف محصولات</span><span>{toman(totals.productDiscount)}</span></div>
                      <div className="flex justify-between"><span>مالیات</span><span>{toman(totals.tax)}</span></div>
                      <div className="flex justify-between font-bold"><span>مبلغ نهایی</span><span>{toman(totals.payable)}</span></div>
                      <p className="text-xs text-muted-foreground">هزینه ارسال در این نسخه محاسبه نشده و مبلغ پرداختی نهایی ممکن است پس از تکمیل تنظیمات ارسال تغییر کند.</p>
                   </div>
-                  <Button className="w-full" onClick={submitOrder} disabled={submitting || !selectedAddress}>
-                     {submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
+                  <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || !selectedAddress}>
+                     {paymentPending ? 'در انتظار بررسی تراکنش' : submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
                   </Button>
                   <p className="text-xs text-muted-foreground">پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود.</p>
                </CardContent>

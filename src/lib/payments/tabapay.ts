@@ -28,6 +28,14 @@ function getConfig() {
    }
 }
 
+export function validateTabapayConfiguration() {
+   return getConfig()
+}
+
+export function isTabapayAmountValid(amountRial: number) {
+   return Number.isSafeInteger(amountRial) && amountRial >= 100_000 && amountRial <= 500_000_000
+}
+
 async function postForm(url: string, fields: Record<string, string>) {
    const { merchantKey } = getConfig()
    const form = new FormData()
@@ -50,11 +58,7 @@ export async function createTabapayPayment(input: {
    mobile?: string
 }) {
    const config = getConfig()
-   if (
-      !Number.isSafeInteger(input.amountRial) ||
-      input.amountRial < 100_000 ||
-      input.amountRial > 500_000_000
-   ) {
+   if (!isTabapayAmountValid(input.amountRial)) {
       throw new Error('TABAPAY_AMOUNT_OUT_OF_RANGE')
    }
 
@@ -68,13 +72,16 @@ export async function createTabapayPayment(input: {
          : {}),
    })
 
+   if (result.status === 'failed') {
+      throw new Error(`TABAPAY_CREATE_REJECTED:${result.message || 'TABAPAY_CREATE_FAILED'}`)
+   }
    if (
       result.status !== 'success' ||
       result.responseCode !== 1 ||
       !result.token ||
       !result.url
    ) {
-      throw new Error(result.message || 'TABAPAY_CREATE_FAILED')
+      throw new Error('TABAPAY_CREATE_UNCONFIRMED')
    }
 
    const paymentUrl = new URL(result.url)
@@ -103,12 +110,17 @@ export async function verifyTabapayPayment(input: {
          result.token !== input.token ||
          Number(result.amount) !== input.amountRial
       ) {
-         // A success response with mismatched identity/amount needs manual
-         // reconciliation; never release stock as if this were a failed payment.
          throw new Error('TABAPAY_VERIFICATION_MISMATCH')
       }
       return true
    }
 
-   return false
+   // Only a provider response explicitly marked "failed" is definitive.
+   // "error", missing fields, malformed JSON and transport failures are
+   // ambiguous and must not release a stock reservation.
+   if (result.status === 'failed' && typeof result.responseCode === 'number') {
+      return false
+   }
+
+   throw new Error('TABAPAY_VERIFICATION_UNCONFIRMED')
 }
