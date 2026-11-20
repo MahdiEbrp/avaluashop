@@ -134,8 +134,10 @@ export async function POST(req: Request) {
             if (updated.count !== 1) throw new Error('INSUFFICIENT_STOCK')
          }
 
+         /* Only methods that can actually be priced: a carrier-calculated row
+            has no quote yet, so counting it would block every order. */
          const activeMethodCount = await tx.shippingMethod.count({
-            where: { isActive: true },
+            where: { isActive: true, type: { not: 'CarrierCalculated' } },
          })
 
          let shippingMethod: {
@@ -151,7 +153,17 @@ export async function POST(req: Request) {
          let shippingAmount = 0
 
          if (activeMethodCount > 0 && !shippingMethodId) {
-            throw new Error('SHIPPING_METHOD_REQUIRED')
+            /* Distinguish "you forgot to pick one" from "we do not deliver to
+               this city", which is a dead end the customer must be told about. */
+            const candidates = await tx.shippingMethod.findMany({
+               where: { isActive: true, type: { not: 'CarrierCalculated' } },
+               select: { type: true, amount: true, freeAbove: true, allowedCities: true },
+            })
+            const deliverable = candidates.some(
+               (candidate) => quoteShipping(candidate, address.city, 0).available
+            )
+
+            throw new Error(deliverable ? 'SHIPPING_METHOD_REQUIRED' : 'SHIPPING_NOT_AVAILABLE_FOR_CITY')
          }
 
          if (shippingMethodId) {
@@ -230,6 +242,9 @@ export async function POST(req: Request) {
       }
       if (error instanceof Error && error.message === 'SHIPPING_METHOD_UNAVAILABLE') {
          return NextResponse.json({ message: 'SHIPPING_METHOD_UNAVAILABLE' }, { status: 409 })
+      }
+      if (error instanceof Error && error.message === 'SHIPPING_NOT_AVAILABLE_FOR_CITY') {
+         return NextResponse.json({ message: 'SHIPPING_NOT_AVAILABLE_FOR_CITY' }, { status: 409 })
       }
       console.error('[ORDERS_POST]', error)
       return new NextResponse('Internal error', { status: 500 })

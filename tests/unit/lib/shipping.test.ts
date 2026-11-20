@@ -1,4 +1,11 @@
-import { calculateDiscountedSubtotal, calculateOrderTotals, quoteShipping } from '@/lib/shipping'
+import {
+   calculateDiscountedSubtotal,
+   editableMethodType,
+   calculateOrderTotals,
+   normalizeCity,
+   parseAllowedCities,
+   quoteShipping,
+} from '@/lib/shipping'
 
 describe('quoteShipping', () => {
    const flat = {
@@ -88,10 +95,120 @@ describe('calculateOrderTotals', () => {
       expect(result.payable).toBe(240)
    })
 
+   it('treats a non-finite shipping fee as zero', () => {
+      const result = calculateOrderTotals(items, null, { enabled: true, rate: 0.09 }, Number.NaN)
+      expect(result.shipping).toBe(0)
+      expect(result.payable).toBe(261.6)
+   })
+
    it('clamps invalid negative shipping and tax rates', () => {
       const result = calculateOrderTotals(items, null, { enabled: true, rate: -1 }, -10)
       expect(result.tax).toBe(0)
       expect(result.shipping).toBe(0)
       expect(result.payable).toBe(240)
+   })
+})
+
+describe('normalizeCity', () => {
+   it('folds the Arabic letters Iranians actually type', () => {
+      expect(normalizeCity('كرج')).toBe(normalizeCity('کرج'))
+      expect(normalizeCity('اصفهان')).toBe(normalizeCity('اصفهان'))
+      expect(normalizeCity('أباد')).toBe(normalizeCity('اباد'))
+      expect(normalizeCity('خانة')).toBe(normalizeCity('خانه'))
+   })
+
+   it('removes ZWNJ and tatweel', () => {
+      expect(normalizeCity('می‌اندآب')).toBe(normalizeCity('میاندآب'))
+      expect(normalizeCity('تـــهران')).toBe(normalizeCity('تهران'))
+   })
+
+   it('converts Persian and Arabic-Indic digits to ASCII', () => {
+      expect(normalizeCity('منطقه ۱')).toBe('منطقه 1')
+      expect(normalizeCity('منطقه ٢')).toBe('منطقه 2')
+   })
+
+   it('collapses whitespace and tolerates junk input', () => {
+      expect(normalizeCity('  تهران   نو ')).toBe('تهران نو')
+      expect(normalizeCity(null)).toBe('')
+      // eslint-disable-next-line unicorn/no-useless-undefined -- the parameter accepts undefined
+      expect(normalizeCity(undefined)).toBe('')
+   })
+})
+
+describe('parseAllowedCities', () => {
+   it('accepts every separator an Iranian keyboard produces', () => {
+      expect(parseAllowedCities('تهران، کرج,اصفهان;شیراز')).toEqual([
+         'تهران',
+         'کرج',
+         'اصفهان',
+         'شیراز',
+      ])
+   })
+
+   it('splits on newlines and drops duplicates and blanks', () => {
+      expect(parseAllowedCities('تهران\n کرج \nتهران\n\n')).toEqual(['تهران', 'کرج'])
+   })
+
+   it('returns an empty list for empty input', () => {
+      expect(parseAllowedCities('  ')).toEqual([])
+   })
+})
+
+describe('quoteShipping edge cases', () => {
+   const flat = { type: 'FlatRate' as const, amount: 35, freeAbove: null, allowedCities: [] }
+
+   it('serves every city when the allow-list is empty', () => {
+      expect(quoteShipping(flat, 'هر شهری', 0)).toEqual({ available: true, amount: 35 })
+   })
+
+   it('never quotes a carrier-calculated method before the carrier API exists', () => {
+      expect(quoteShipping({ ...flat, type: 'CarrierCalculated' }, 'تهران', 0)).toEqual({
+         available: false,
+         amount: 0,
+         reason: 'CARRIER_QUOTE_UNAVAILABLE',
+      })
+   })
+
+   it('refuses a city outside the allow-list', () => {
+      expect(quoteShipping({ ...flat, allowedCities: ['تهران'] }, 'کرج', 0)).toEqual({
+         available: false,
+         amount: 0,
+         reason: 'CITY_NOT_SUPPORTED',
+      })
+   })
+
+   it('charges the base rate for FreeAbove without a threshold', () => {
+      expect(quoteShipping({ ...flat, type: 'FreeAbove' }, 'تهران', 1_000_000)).toEqual({
+         available: true,
+         amount: 35,
+      })
+   })
+
+   it('treats a non-finite amount as zero', () => {
+      expect(quoteShipping({ ...flat, amount: Number.NaN }, 'تهران', 0)).toEqual({
+         available: true,
+         amount: 0,
+      })
+   })
+
+   it('clamps a negative amount', () => {
+      expect(quoteShipping({ ...flat, amount: -5 }, 'تهران', 0)).toEqual({
+         available: true,
+         amount: 0,
+      })
+   })
+})
+
+describe('editableMethodType', () => {
+   it('maps a carrier-priced method to a flat rate', () => {
+      expect(editableMethodType('CarrierCalculated')).toBe('FlatRate')
+   })
+
+   it('passes every hand-priced type through unchanged', () => {
+      expect(['FlatRate', 'Free', 'FreeAbove'].map((type) => editableMethodType(type as 'Free'))).toEqual([
+         'FlatRate',
+         'Free',
+         'FreeAbove',
+      ])
    })
 })

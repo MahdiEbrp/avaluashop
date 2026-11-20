@@ -343,12 +343,79 @@ describe('POST /api/orders', () => {
    it('requires a shipping method when active methods are configured', async () => {
       stubSuccess()
       prismaMock.shippingMethod.count.mockResolvedValue(1)
+      /* A method that could serve this address, so the customer only forgot
+         to choose one. */
+      prismaMock.shippingMethod.findMany.mockResolvedValue([
+         { type: 'FlatRate', amount: 30_000, freeAbove: null, allowedCities: [] },
+      ])
 
       const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_REQUIRED' })
       expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('rejects a shipping selection that no longer exists', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.findFirst.mockResolvedValue(null)
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', shippingMethodId: 'gone' }, USER)
+      )
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_UNAVAILABLE' })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('rejects a selection that does not serve the delivery city', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.findFirst.mockResolvedValue({
+         id: 'sm1',
+         title: 'فقط تهران',
+         type: 'FlatRate',
+         amount: 30_000,
+         freeAbove: null,
+         allowedCities: ['تهران'],
+         carrierId: null,
+         carrier: null,
+      })
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', shippingMethodId: 'sm1' }, USER)
+      )
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_UNAVAILABLE' })
+   })
+
+   it('reports an undeliverable city separately from a missing selection', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.count.mockResolvedValue(1)
+      prismaMock.shippingMethod.findMany.mockResolvedValue([
+         { type: 'FlatRate', amount: 30_000, freeAbove: null, allowedCities: ['تهران'] },
+      ])
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({
+         message: 'SHIPPING_NOT_AVAILABLE_FOR_CITY',
+      })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('ignores carrier-calculated methods when deciding whether a selection is needed', async () => {
+      /* A store whose only active row is unpriceable must still be able to
+         take orders, otherwise every checkout is blocked. */
+      stubSuccess()
+      prismaMock.shippingMethod.count.mockResolvedValue(0)
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalled()
    })
 
    it('uses the selected shipping quote and database tax settings', async () => {
