@@ -14,12 +14,13 @@ type TabapayResponse = {
    hashedCardNumber?: string
 }
 
-async function getConfig() {
+async function getConfig(requireActive = true) {
    const provider = await prisma.paymentProvider.findUnique({
       where: { code: 'tabapay' },
       select: { isActive: true, settings: true, credentialsEncrypted: true },
    })
-   if (!provider?.isActive) throw new Error('PAYMENT_PROVIDER_DISABLED')
+   if (!provider) throw new Error('TABAPAY_NOT_CONFIGURED')
+   if (requireActive && !provider.isActive) throw new Error('PAYMENT_PROVIDER_DISABLED')
    if (!provider.credentialsEncrypted) throw new Error('TABAPAY_NOT_CONFIGURED')
 
    const merchantKey = decryptSettingSecret(provider.credentialsEncrypted)
@@ -110,7 +111,9 @@ export async function verifyTabapayPayment(input: {
    token: string
    amountRial: number
 }) {
-   const config = await getConfig()
+   // A provider may be disabled for new orders while an existing payment
+   // still needs verification; disabling must not strand a callback.
+   const config = await getConfig(false)
    const result = await postForm(config.verifyUrl, config.merchantKey, {
       token: input.token,
       amount: String(input.amountRial),
