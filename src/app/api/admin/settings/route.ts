@@ -103,7 +103,7 @@ export async function PUT(req: Request) {
             where: { title: 'Tabapay' },
             create: {
                code: 'tabapay',
-               title: 'TabaPay',
+               title: 'Tabapay',
                description: 'درگاه پرداخت تاباپی',
                websiteUrl: 'https://tabapay.ir',
                isActive: input.gatewayActive,
