@@ -176,6 +176,16 @@ model Order {
   orderItems OrderItem[]
   refund     Refund?
 
+  shippingMethod   ShippingMethod? @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
+  shippingMethodId String?
+  shippingCarrier  ShippingCarrier? @relation(fields: [shippingCarrierId], references: [id], onDelete: SetNull)
+  shippingCarrierId String?
+
+  shippingMethodName  String?
+  shippingCarrierName String?
+  shippingTrackingNumber String?
+  taxRateSnapshot Float?
+
   discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
   discountCodeId String?
   address        Address?      @relation(fields: [addressId], references: [id])
@@ -190,6 +200,8 @@ model Order {
   @@index([addressId])
   @@index([discountCodeId])
   @@index([createdAt])
+  @@index([shippingMethodId])
+  @@index([shippingCarrierId])
 }
 
 model OrderItem {
@@ -316,11 +328,82 @@ enum PaymentStatusEnum {
 model PaymentProvider {
   id          String  @id @default(cuid())
   title       String  @unique
+  code        String? @unique
   description String?
   websiteUrl  String?
   isActive    Boolean @default(false)
+  settings    Json?
+  /// Encrypted server-side credentials. Never expose this field through public/admin read APIs.
+  credentialsEncrypted String? @db.Text
+  credentialsUpdatedAt DateTime?
 
   orders Payment[]
+}
+
+enum ShippingMethodType {
+  FlatRate
+  Free
+  FreeAbove
+  CarrierCalculated
+}
+
+enum ShippingCarrierCode {
+  Post
+  Tipax
+  Chapar
+}
+
+model ShippingMethod {
+  id          String @id @default(cuid())
+  title       String
+  description String?
+  type        ShippingMethodType @default(FlatRate)
+  amount      Float @default(0)
+  freeAbove   Float?
+  isActive    Boolean @default(true)
+  sortOrder   Int @default(0)
+  allowedCities String[] @default([])
+
+  carrier   ShippingCarrier? @relation(fields: [carrierId], references: [id], onDelete: SetNull)
+  carrierId String?
+  orders    Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@index([carrierId])
+}
+
+model ShippingCarrier {
+  id      String @id @default(cuid())
+  code    ShippingCarrierCode @unique
+  title   String
+  isActive Boolean @default(false)
+  settings Json?
+  /// Encrypted server-side API credentials. Never return this field in API responses.
+  credentialsEncrypted String? @db.Text
+  credentialsUpdatedAt DateTime?
+
+  methods ShippingMethod[]
+  orders  Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaxRate {
+  id                String @id @default(cuid())
+  title             String
+  rate              Float
+  appliesToShipping Boolean @default(true)
+  isActive          Boolean @default(true)
+  priority          Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, priority])
 }
 
 model Error {
