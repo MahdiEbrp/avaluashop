@@ -43,21 +43,6 @@ export async function POST(req: Request) {
       })
       if (!address) return new NextResponse('Shipping address not found', { status: 404 })
 
-      if (discountCode) {
-         const validCode = await prisma.discountCode.findFirst({
-            where: {
-               code: discountCode,
-               stock: { gte: 1 },
-               startDate: { lte: new Date() },
-               endDate: { gte: new Date() },
-            },
-            select: { id: true },
-         })
-         if (!validCode) {
-            return new NextResponse('Discount code is invalid or expired', { status: 400 })
-         }
-      }
-
       const cart = await prisma.cart.findUnique({
          where: { userId },
          include: { items: { include: { product: true } } },
@@ -80,11 +65,38 @@ export async function POST(req: Request) {
          }
       }
 
-      const { total, tax, discount, payable } = calculateCosts(cart)
+      const now = new Date()
 
-      // Inventory is reserved atomically while payment is pending. It is
-      // restored by the payment lifecycle if Tabapay rejects or fails.
+      // Inventory and coupon usage are reserved in the same transaction as
+      // the order. Any validation or stock failure rolls both reservations back.
       const order = await prisma.$transaction(async (tx) => {
+         let coupon: { id: string; percent: number; maxDiscountAmount: number } | null = null
+
+         if (discountCode) {
+            coupon = await tx.discountCode.findFirst({
+               where: {
+                  code: discountCode,
+                  stock: { gte: 1 },
+                  startDate: { lte: now },
+                  endDate: { gte: now },
+               },
+               select: { id: true, percent: true, maxDiscountAmount: true },
+            })
+
+            if (!coupon) throw new Error('INVALID_DISCOUNT_CODE')
+
+            const reservedCoupon = await tx.discountCode.updateMany({
+               where: {
+                  id: coupon.id,
+                  stock: { gte: 1 },
+                  startDate: { lte: now },
+                  endDate: { gte: now },
+               },
+               data: { stock: { decrement: 1 } },
+            })
+            if (reservedCoupon.count !== 1) throw new Error('INVALID_DISCOUNT_CODE')
+         }
+
          for (const item of cart.items) {
             const updated = await tx.product.updateMany({
                where: {
@@ -97,6 +109,8 @@ export async function POST(req: Request) {
             if (updated.count !== 1) throw new Error('INSUFFICIENT_STOCK')
          }
 
+         const { total, tax, discount, payable } = calculateCosts(cart, coupon)
+
          return tx.order.create({
             data: {
                userId,
@@ -106,6 +120,7 @@ export async function POST(req: Request) {
                payable,
                discount,
                shipping: 0,
+               discountCodeId: coupon?.id,
                addressId,
                orderItems: {
                   create: cart.items.map((item) => ({
@@ -128,28 +143,44 @@ export async function POST(req: Request) {
             { status: 409 }
          )
       }
+      if (error instanceof Error && error.message === 'INVALID_DISCOUNT_CODE') {
+         return new NextResponse('Discount code is invalid or expired', { status: 400 })
+      }
       console.error('[ORDERS_POST]', error)
       return new NextResponse('Internal error', { status: 500 })
    }
 }
 
-function calculateCosts(cart: {
-   items: Array<{
-      count: number
-      product: { price: number; discount: number }
-   }>
-}) {
+function calculateCosts(
+   cart: {
+      items: Array<{
+         count: number
+         product: { price: number; discount: number }
+      }>
+   },
+   coupon: { percent: number; maxDiscountAmount: number } | null
+) {
    let total = 0
-   let discount = 0
+   let productDiscount = 0
 
    for (const item of cart.items) {
       total += item.count * item.product.price
-      discount += item.count * item.product.discount
+      productDiscount += item.count * item.product.discount
    }
 
-   const afterDiscount = Math.max(0, total - discount)
-   const tax = afterDiscount * 0.09
-   const payable = afterDiscount + tax
+   const afterProductDiscount = Math.max(0, total - productDiscount)
+   const percent = coupon ? Math.min(100, Math.max(0, coupon.percent)) : 0
+   const couponDiscount = coupon
+      ? Math.min(
+           afterProductDiscount,
+           Math.max(0, afterProductDiscount * (percent / 100)),
+           Math.max(0, coupon.maxDiscountAmount)
+        )
+      : 0
+   const discount = productDiscount + couponDiscount
+   const taxable = Math.max(0, afterProductDiscount - couponDiscount)
+   const tax = taxable * 0.09
+   const payable = taxable + tax
 
    return {
       total: Number(total.toFixed(2)),
