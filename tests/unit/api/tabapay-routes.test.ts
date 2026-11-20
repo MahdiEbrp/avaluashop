@@ -243,6 +243,26 @@ describe('POST /api/payments/tabapay', () => {
       })
       expect(createTabapayPayment).not.toHaveBeenCalled()
    })
+
+   it('reuses an existing redirect even if gateway configuration is now missing', async () => {
+      prismaMock.payment.findFirst.mockResolvedValue({
+         id: 'payment-1',
+         refId: 'existing-token',
+         paymentUrl: 'https://api.tabapay.ir/pay/existing-token',
+      })
+      vi.mocked(validateTabapayConfiguration).mockImplementation(() => {
+         throw new Error('TABAPAY_NOT_CONFIGURED')
+      })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+         paymentUrl: 'https://api.tabapay.ir/pay/existing-token',
+      })
+      expect(releasePendingOrder).not.toHaveBeenCalled()
+      expect(createTabapayPayment).not.toHaveBeenCalled()
+   })
 })
 
 describe('GET /api/payments/tabapay/callback', () => {
