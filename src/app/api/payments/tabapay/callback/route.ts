@@ -24,6 +24,7 @@ function checkoutRedirect(result: 'success' | 'failed' | 'pending', orderId?: st
 export async function GET(request: Request) {
    const url = new URL(request.url)
    const token = url.searchParams.get('token')
+   let pendingOrderId: string | undefined
 
    if (!token || token.length > 128) {
       return checkoutRedirect('failed')
@@ -36,11 +37,12 @@ export async function GET(request: Request) {
       })
 
       if (!payment) return checkoutRedirect('failed')
+      pendingOrderId = payment.orderId
       if (payment.status === 'Paid' && payment.isSuccessful) {
          return checkoutRedirect('success', payment.orderId)
       }
       if (payment.status !== 'Processing') {
-         return checkoutRedirect('failed')
+         return checkoutRedirect('failed', payment.orderId)
       }
 
       const amountRial = Math.round(payment.payable * 10)
@@ -48,17 +50,14 @@ export async function GET(request: Request) {
 
       if (!verified) {
          await releasePendingOrder(payment.orderId, payment.id)
-         return checkoutRedirect('failed')
+         return checkoutRedirect('failed', payment.orderId)
       }
 
       await completePendingOrder(payment.orderId, payment.id)
-      /* The checkout page only shows the verified receipt after it re-reads the
-         order through the authenticated API, so the reference is required. */
       return checkoutRedirect('success', payment.orderId)
    } catch (error) {
       console.error('[TABAPAY_CALLBACK]', error)
-      // A network/verification error is not proof of payment failure.
-      // Keep the order pending so it can be safely checked again.
-      return checkoutRedirect('pending')
+      // Unknown provider outcomes are never treated as payment failure.
+      return checkoutRedirect('pending', pendingOrderId)
    }
 }
