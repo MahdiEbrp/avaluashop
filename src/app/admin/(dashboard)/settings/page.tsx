@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type Settings = {
    taxEnabled: boolean
@@ -35,7 +35,7 @@ export default function SettingsPage() {
    const [saving, setSaving] = useState(false)
    const [message, setMessage] = useState('')
 
-   async function load() {
+   const load = useCallback(async () => {
       setLoading(true)
       try {
          const [settingsResponse, methodsResponse] = await Promise.all([
@@ -51,9 +51,9 @@ export default function SettingsPage() {
       } finally {
          setLoading(false)
       }
-   }
+   }, [])
 
-   useEffect(() => { void load() }, [])
+   useEffect(() => { void load() }, [load])
 
    async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
       event.preventDefault()
