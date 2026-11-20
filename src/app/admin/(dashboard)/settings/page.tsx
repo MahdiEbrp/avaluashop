@@ -68,7 +68,7 @@ export default function SettingsPage() {
                taxEnabled: settings.taxEnabled,
                taxRate: settings.taxRate / 100,
                taxLabel: settings.taxLabel,
-               currency: settings.currency,
+               currency: 'IRT',
                gatewayActive: settings.gateway.isActive,
                sandbox: settings.gateway.sandbox,
                merchantKey,
@@ -157,12 +157,7 @@ export default function SettingsPage() {
                   <label className="space-y-1 text-sm">عنوان مالیات
                      <input className={inputClass} value={settings.taxLabel} onChange={(event) => setSettings({ ...settings, taxLabel: event.target.value })} />
                   </label>
-                  <label className="space-y-1 text-sm">واحد پول
-                     <select className={inputClass} value={settings.currency} onChange={(event) => setSettings({ ...settings, currency: event.target.value as 'IRR' | 'IRT' })}>
-                        <option value="IRR">ریال</option>
-                        <option value="IRT">تومان</option>
-                     </select>
-                  </label>
+                  <p className="text-sm text-muted-foreground">واحد داخلی فروشگاه: تومان</p>
                </div>
             </section>
             <hr />
