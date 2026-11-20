@@ -317,7 +317,7 @@ enum PaymentStatusEnum {
 
 model PaymentProvider {
   id                   String  @id @default(cuid())
-  code                 String  @unique @default("tabapay")
+  code                 String? @unique
   title                String  @unique
   description          String?
   websiteUrl           String?
