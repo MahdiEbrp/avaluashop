@@ -72,13 +72,16 @@ export async function createTabapayPayment(input: {
          : {}),
    })
 
+   if (result.status === 'failed') {
+      throw new Error(`TABAPAY_CREATE_REJECTED:${result.message || 'TABAPAY_CREATE_FAILED'}`)
+   }
    if (
       result.status !== 'success' ||
       result.responseCode !== 1 ||
       !result.token ||
       !result.url
    ) {
-      throw new Error(result.message || 'TABAPAY_CREATE_FAILED')
+      throw new Error('TABAPAY_CREATE_UNCONFIRMED')
    }
 
    const paymentUrl = new URL(result.url)
