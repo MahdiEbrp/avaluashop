@@ -17,7 +17,7 @@ export async function releasePendingOrder(orderId: string, paymentId?: string) {
 
       if (paymentId) {
          const payment = await tx.payment.updateMany({
-            where: { id: paymentId, status: 'Processing' },
+            where: { id: paymentId, orderId, status: 'Processing' },
             data: { status: 'Failed' },
          })
          if (payment.count !== 1) throw new Error('PAYMENT_STATE_CONFLICT')
