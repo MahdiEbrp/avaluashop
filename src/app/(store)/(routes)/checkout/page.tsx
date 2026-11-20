@@ -227,7 +227,9 @@ function CheckoutContent() {
                     : 'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
             )
          }
-         const { paymentUrl } = await paymentResponse.json()
+         /* The body was already consumed for the 202 check above; reading it a
+            second time throws and would abort the redirect entirely. */
+         const { paymentUrl } = paymentBody
          if (typeof paymentUrl !== 'string') throw new Error('نشانی درگاه نامعتبر است.')
          redirectToPayment(paymentUrl)
       } catch (reason) {

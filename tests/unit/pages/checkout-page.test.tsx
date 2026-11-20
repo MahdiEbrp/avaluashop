@@ -680,6 +680,72 @@ describe('checkout — gateway initialization', () => {
       expect(redirectToPayment).not.toHaveBeenCalled()
    })
 
+   it('tells the shopper when a coupon is invalid or exhausted', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') {
+            return new Response('Discount code is invalid or expired', { status: 400 })
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'کد تخفیف نامعتبر یا منقضی شده است.'
+      )
+      expect(redirectToPayment).not.toHaveBeenCalled()
+   })
+
+   it('stops repeat submission when the gateway outcome is still unknown', async () => {
+      /* A 202 means a transaction may exist. Submitting again could create a
+         second order for the same cart, so the button must be locked. */
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ message: 'PAYMENT_ALREADY_INITIALIZED' }, 202)
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         /وضعیت ایجاد تراکنش هنوز مشخص نیست/
+      )
+      expect(redirectToPayment).not.toHaveBeenCalled()
+      expect(
+         screen.getByRole('button', { name: 'در انتظار بررسی تراکنش' })
+      ).toBeDisabled()
+   })
+
+   it('explains a gateway that is temporarily not configured', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ message: 'TABAPAY_NOT_CONFIGURED' }, 503)
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+         'درگاه پرداخت موقتاً آماده نیست. سفارش لغو شده و می‌توانید بعداً دوباره تلاش کنید.'
+      )
+   })
+
    it('tolerates a gateway error body that is not JSON', async () => {
       const fetchMock = vi.fn(async (url: string) => {
          if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
