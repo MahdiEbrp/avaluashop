@@ -65,23 +65,24 @@ export async function POST(req: Request) {
             return { kind: 'amount-invalid' as const }
          }
 
-         try {
-            validateTabapayConfiguration()
-         } catch {
-            return { kind: 'not-configured' as const }
-         }
-
          const provider = await tx.paymentProvider.upsert({
-            where: { title: 'Tabapay' },
+            where: { code: 'tabapay' },
             create: {
+               code: 'tabapay',
                title: 'Tabapay',
                description: 'Tabapay Iranian payment gateway',
                websiteUrl: 'https://tabapay.ir',
-               isActive: true,
+               isActive: false,
             },
             update: {},
          })
          if (!provider.isActive) return { kind: 'disabled' as const }
+
+         try {
+            await validateTabapayConfiguration()
+         } catch {
+            return { kind: 'not-configured' as const }
+         }
 
          const payment = await tx.payment.create({
             data: {
