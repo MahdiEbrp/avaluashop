@@ -318,6 +318,27 @@ describe('Tabapay adapter', () => {
       ).resolves.toBe(true)
    })
 
+   it('can verify an in-flight payment after the gateway is disabled for new orders', async () => {
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
+         isActive: false,
+         settings: { sandbox: true },
+         credentialsEncrypted: 'encrypted-secret',
+      } as never)
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () => new Response(JSON.stringify({
+            responseCode: 1,
+            status: 'success',
+            token: 'tabapay-token-1',
+            amount: 100_000,
+         }), { status: 200 }))
+      )
+
+      await expect(
+         verifyTabapayPayment({ token: 'tabapay-token-1', amountRial: 100_000 })
+      ).resolves.toBe(true)
+   })
+
    it('treats a successful but mismatched verification as a reconciliation case', async () => {
       vi.stubGlobal(
          'fetch',
