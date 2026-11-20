@@ -370,7 +370,8 @@ describe('POST /api/orders', () => {
 
    it('checks a discount code when one is supplied', async () => {
       stubSuccess()
-      prismaMock.discountCode.findFirst.mockResolvedValue({ id: 'd1' })
+      prismaMock.discountCode.findFirst.mockResolvedValue({ id: 'd1', percent: 10, maxDiscountAmount: 20 })
+      prismaMock.discountCode.updateMany.mockResolvedValue({ count: 1 })
 
       await ordersPOST(json({ addressId: 'ad1', discountCode: 'SAVE10' }, USER))
 
@@ -382,7 +383,24 @@ describe('POST /api/orders', () => {
             startDate: { lte: expect.any(Date) },
             endDate: { gte: expect.any(Date) },
          },
-         select: { id: true },
+         select: { id: true, percent: true, maxDiscountAmount: true },
+      })
+      expect(prismaMock.discountCode.updateMany).toHaveBeenCalledWith({
+         where: {
+            id: 'd1',
+            stock: { gte: 1 },
+            startDate: { lte: expect.any(Date) },
+            endDate: { gte: expect.any(Date) },
+         },
+         data: { stock: { decrement: 1 } },
+      })
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({
+            discountCodeId: 'd1',
+            discount: 30,
+            tax: 19.8,
+            payable: 239.8,
+         }),
       })
    })
 
@@ -396,7 +414,7 @@ describe('POST /api/orders', () => {
 
       expect(response.status).toBe(400)
       await expect(response.text()).resolves.toBe('Discount code is invalid or expired')
-      expect(prismaMock.cart.findUnique).not.toHaveBeenCalled()
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
    })
 
    it('keeps the cart intact until the payment callback is verified', async () => {
