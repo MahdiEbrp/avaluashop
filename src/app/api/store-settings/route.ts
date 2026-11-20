@@ -8,7 +8,7 @@ export async function GET() {
          taxEnabled: settings?.taxEnabled ?? true,
          taxRate: settings?.taxEnabled === false ? 0 : settings?.taxRate ?? 0.09,
          taxLabel: settings?.taxLabel ?? 'مالیات بر ارزش افزوده',
-         currency: settings?.currency ?? 'IRR',
+         currency: settings?.currency ?? 'IRT',
       })
    } catch (error) {
       console.error('[STORE_SETTINGS_GET]', error)
