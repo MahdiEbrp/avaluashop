@@ -38,6 +38,7 @@ function CheckoutContent() {
    const { cart, loading: cartLoading } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
+   const [discountCode, setDiscountCode] = useState('')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
@@ -192,14 +193,16 @@ function CheckoutContent() {
          const response = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ addressId: selectedAddress }),
+            body: JSON.stringify({ addressId: selectedAddress, discountCode: discountCode.trim() || undefined }),
          })
          if (!response.ok) {
             const message = await response.text()
             throw new Error(
                response.status === 409
                   ? 'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.'
-                  : message || 'ثبت سفارش انجام نشد.'
+                  : message === 'Discount code is invalid or expired'
+                    ? 'کد تخفیف نامعتبر یا منقضی شده است.'
+                    : message || 'ثبت سفارش انجام نشد.'
             )
          }
          const order = await response.json()
@@ -353,6 +356,17 @@ function CheckoutContent() {
                      ))}
                   </div>
                   <div className="space-y-2 border-t pt-3 text-sm">
+                     <div className="space-y-1">
+                        <Label htmlFor="discountCode">کد تخفیف</Label>
+                        <Input
+                           id="discountCode"
+                           value={discountCode}
+                           onChange={(event) => setDiscountCode(event.target.value)}
+                           placeholder="در صورت داشتن کد وارد کنید"
+                           autoComplete="off"
+                        />
+                        <p className="text-xs text-muted-foreground">اعتبار کد و مقدار تخفیف هنگام ثبت سفارش در سرور بررسی می‌شود.</p>
+                     </div>
                      <div className="flex justify-between"><span>جمع کالاها</span><span>{toman(totals.subtotal)}</span></div>
                      <div className="flex justify-between"><span>تخفیف محصولات</span><span>{toman(totals.productDiscount)}</span></div>
                      <div className="flex justify-between"><span>مالیات</span><span>{toman(totals.tax)}</span></div>
