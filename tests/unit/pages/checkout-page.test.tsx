@@ -88,6 +88,12 @@ afterEach(() => {
    vi.restoreAllMocks()
 })
 
+/* Summary rows are the source of truth for money; matching a bare number
+   collides with the method labels. */
+function summaryRow(label: string) {
+   return screen.getByText(label).parentElement?.textContent ?? ''
+}
+
 describe('checkout — gating states', () => {
    it('shows the loading copy while the profile or cart is in flight', () => {
       userState.loading = true
@@ -188,6 +194,7 @@ describe('checkout — address selection', () => {
       )
       /* The saved address is appended and becomes the selection. */
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       expect(screen.queryByText('هنوز نشانی‌ای ثبت نکرده‌اید.')).not.toBeInTheDocument()
    })
 
@@ -303,6 +310,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -340,6 +348,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -360,6 +369,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -497,7 +507,7 @@ describe('checkout — returning from the gateway', () => {
 
       await act(async () => {
          reject(new Error('late failure'))
-         await pending.catch(() => undefined)
+         await pending.catch(() => { /* rejection already asserted */ })
       })
 
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -564,6 +574,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -593,6 +604,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       await user().type(screen.getByLabelText('کد تخفیف'), 'SAVE10')
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -617,6 +629,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -638,6 +651,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/وضعیت ایجاد تراکنش هنوز مشخص نیست/)
@@ -655,6 +669,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -673,6 +688,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -691,6 +707,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -714,6 +731,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -738,6 +756,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -758,6 +777,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -796,6 +816,7 @@ describe('checkout — defensive branches', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -811,6 +832,7 @@ describe('checkout — defensive branches', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -868,5 +890,436 @@ describe('checkout — defensive branches', () => {
       fireEvent.submit(screen.getByRole('button', { name: 'ذخیره نشانی' }).closest('form')!)
 
       expect(await screen.findByRole('alert')).toHaveTextContent('خطا در ذخیره نشانی')
+   })
+})
+
+describe('checkout — shipping methods', () => {
+   const settings = { taxEnabled: true, taxRate: 0.09, taxLabel: 'مالیات بر ارزش افزوده' }
+
+   const flat = {
+      id: 'sm1',
+      code: 'post-pishtaz',
+      title: 'پست پیشتاز',
+      description: null,
+      type: 'FlatRate',
+      amount: 45_000,
+      freeAbove: null,
+      available: true,
+      unavailableReason: null,
+   }
+
+   const freeAbove = {
+      ...flat,
+      id: 'sm2',
+      code: 'free-above',
+      title: 'ارسال رایگان بالای ۲۰۰',
+      type: 'FreeAbove',
+      amount: 45_000,
+      freeAbove: 200,
+   }
+
+   const cityBlocked = {
+      ...flat,
+      id: 'sm3',
+      code: 'tehran-only',
+      title: 'فقط تهران',
+      available: false,
+      unavailableReason: 'CITY_NOT_SUPPORTED',
+   }
+
+   const carrier = {
+      ...flat,
+      id: 'sm4',
+      code: 'tipax',
+      title: 'تیپاکس',
+      type: 'CarrierCalculated',
+      available: false,
+      unavailableReason: 'CARRIER_QUOTE_UNAVAILABLE',
+   }
+
+   function stubShipping(
+      methods: unknown,
+      options: { settingsBody?: unknown; shippingStatus?: number; orders?: () => Promise<Response> } = {}
+   ) {
+      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+         if (url.startsWith('/api/shipping-methods')) {
+            return options.shippingStatus
+               ? new Response('down', { status: options.shippingStatus })
+               : jsonResponse(methods)
+         }
+         if (url === '/api/store-settings') return jsonResponse(options.settingsBody ?? settings)
+         if (url === '/api/orders') return options.orders ? await options.orders() : jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/sandbox/pay/token' })
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+   }
+
+
+   /* The summary rows are the source of truth for money; matching on a bare
+      number collides with the method labels. */
+   function summary(label: string) {
+      const row = screen.getByText(label).parentElement as HTMLElement | null
+      return row?.textContent ?? ''
+   }
+
+   async function ready() {
+      await waitFor(() =>
+         expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled()
+      )
+   }
+
+   it('lists the methods for the selected city and preselects the first usable one', async () => {
+      stubShipping([flat, freeAbove, cityBlocked, carrier])
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('radio', { name: /پست پیشتاز/ })).toBeChecked()
+      expect(screen.getByRole('radio', { name: /ارسال رایگان بالای ۲۰۰/ })).not.toBeChecked()
+      expect(screen.getByText('برای شهر انتخاب‌شده ارائه نمی‌شود.')).toBeInTheDocument()
+      expect(screen.getByText('استعلام آنلاین این شرکت هنوز متصل نشده است.')).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: /فقط تهران/ })).toBeDisabled()
+   })
+
+   it('adds the shipping cost and the database tax rate to the total', async () => {
+      stubShipping([flat])
+
+      render(<CheckoutPage />)
+
+      await ready()
+
+      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      /* 250 - 10 = 240 taxable; tax 9% = 21.6; payable 240 + 21.6 + 45,000. */
+      expect(summary('مالیات بر ارزش افزوده')).toContain('۲۲')
+      expect(summary('مبلغ نهایی تقریبی')).toContain('۴۵٬۲۶۲')
+   })
+
+   it('charges nothing once the free-above threshold is met', async () => {
+      stubShipping([freeAbove])
+
+      render(<CheckoutPage />)
+
+      /* Wait for the quote: the submit button is briefly enabled before the
+         address arrives and the shipping fetch starts. */
+      expect(
+         await screen.findByRole('radio', { name: /ارسال رایگان بالای ۲۰۰/ })
+      ).toBeChecked()
+      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۰'))
+      expect(summary('مبلغ نهایی تقریبی')).toContain('۲۶۲')
+   })
+
+   it('re-quotes when another method is selected', async () => {
+      stubShipping([flat, { ...flat, id: 'sm9', code: 'free', title: 'رایگان', type: 'Free', amount: 0 }])
+
+      render(<CheckoutPage />)
+
+      await ready()
+      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+
+      fireEvent.click(screen.getByRole('radio', { name: /رایگان/ }))
+
+      await waitFor(() => expect(summary('مبلغ نهایی تقریبی')).toContain('۲۶۲'))
+   })
+
+   it('sends the selected method id with the order', async () => {
+      const fetchMock = stubShipping([flat])
+
+      render(<CheckoutPage />)
+
+      await ready()
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      await waitFor(() => expect(redirectToPayment).toHaveBeenCalled())
+      const orderCall = fetchMock.mock.calls.find(([url]) => url === '/api/orders')
+      const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string }
+      expect(payload.shippingMethodId).toBe('sm1')
+   })
+
+   it('lets an order through when the store has no shipping methods', async () => {
+      stubShipping([])
+
+      render(<CheckoutPage />)
+
+      expect(
+         await screen.findByText(/روش ارسالی تعریف نشده است/)
+      ).toBeInTheDocument()
+      await ready()
+   })
+
+   it('blocks checkout when no method serves the delivery city', async () => {
+      stubShipping([cityBlocked])
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByText(/روش ارسال فعالی وجود ندارد/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeDisabled()
+   })
+
+   it('stops checkout when the shipping quote itself cannot be fetched', async () => {
+      stubShipping([flat], { shippingStatus: 500 })
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByText(/در دسترس نیستند/)).toBeInTheDocument()
+      const alerts = await screen.findAllByRole('alert')
+      expect(
+         alerts.some((alert) => alert.textContent?.includes('هزینه ارسال یا تنظیمات مالیات'))
+      ).toBe(true)
+      expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeDisabled()
+   })
+
+   it('treats a non-array shipping payload as no methods', async () => {
+      stubShipping({ nope: true })
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByText(/روش ارسالی تعریف نشده است/)).toBeInTheDocument()
+   })
+
+   it('ignores malformed entries in the shipping payload', async () => {
+      stubShipping([{ id: 5 }, flat])
+
+      render(<CheckoutPage />)
+
+      expect(await screen.findByRole('radio', { name: /پست پیشتاز/ })).toBeChecked()
+   })
+
+   it('falls back to the default tax settings when the payload is unusable', async () => {
+      stubShipping([flat], { settingsBody: { taxEnabled: 'yes', taxRate: 'nine', taxLabel: 7 } })
+
+      render(<CheckoutPage />)
+
+      await ready()
+      /* Default 9% on 240 rounds to 22. */
+      expect(summary('مالیات بر ارزش افزوده')).toContain('۲۲')
+   })
+
+   it('hides the tax row when tax is disabled in the store settings', async () => {
+      stubShipping([flat], {
+         settingsBody: { taxEnabled: false, taxRate: 0.09, taxLabel: 'مالیات' },
+      })
+
+      render(<CheckoutPage />)
+
+      await screen.findByRole('radio', { name: /پست پیشتاز/ })
+      /* The label is the operator's own text; the amount must be zero. */
+      expect(summary('مالیات')).toContain('۰')
+   })
+
+   it.each([
+      ['SHIPPING_METHOD_REQUIRED', 'لطفاً روش ارسال را انتخاب کنید.'],
+      [
+         'SHIPPING_METHOD_UNAVAILABLE',
+         'روش ارسال انتخاب‌شده برای این نشانی در دسترس نیست. دوباره انتخاب کنید.',
+      ],
+      ['SHIPPING_NOT_AVAILABLE_FOR_CITY', 'به این نشانی ارسال نداریم. نشانی دیگری انتخاب کنید.'],
+   ])('explains %s from a JSON body', async (code, text) => {
+      stubShipping([flat], {
+         orders: async () => jsonResponse({ message: code }, code === 'SHIPPING_METHOD_REQUIRED' ? 400 : 409),
+      })
+
+      render(<CheckoutPage />)
+
+      await ready()
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent(text)
+      /* The old code showed the raw JSON body instead. */
+      expect(alert.textContent).not.toContain('{')
+   })
+
+   it('does not mistake a shipping conflict for a stock conflict', async () => {
+      stubShipping([flat], {
+         orders: async () => jsonResponse({ message: 'SHIPPING_METHOD_UNAVAILABLE' }, 409),
+      })
+
+      render(<CheckoutPage />)
+
+      await ready()
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      const alert = await screen.findByRole('alert')
+      expect(alert).not.toHaveTextContent('موجودی یکی از محصولات تغییر کرده است.')
+   })
+
+   it('reports a malformed order payload in Persian', async () => {
+      stubShipping([flat], { orders: async () => jsonResponse({ message: 'INVALID_ORDER_REQUEST' }, 400) })
+
+      render(<CheckoutPage />)
+
+      await ready()
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('اطلاعات سفارش کامل نیست.')
+   })
+})
+
+describe('checkout — shipping edge cases', () => {
+   const settings = { taxEnabled: true, taxRate: 0.09, taxLabel: 'مالیات بر ارزش افزوده' }
+
+   const flat = {
+      id: 'sm1',
+      code: 'post-pishtaz',
+      title: 'پست پیشتاز',
+      description: 'تحویل ۲ تا ۳ روز کاری',
+      type: 'FlatRate',
+      amount: 45_000,
+      freeAbove: null,
+      available: true,
+      unavailableReason: null,
+   }
+
+   function stub(methods: unknown, extra: { settingsBody?: unknown; pendingShipping?: boolean } = {}) {
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url.startsWith('/api/shipping-methods')) {
+            if (extra.pendingShipping) return await new Promise<Response>(() => { /* never settles */ })
+            return jsonResponse(methods)
+         }
+         if (url === '/api/store-settings') return jsonResponse(extra.settingsBody ?? settings)
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+   }
+
+   it('renders a method description and an unset free-above threshold', async () => {
+      stub([
+         flat,
+         { ...flat, id: 'sm2', code: 'above', title: 'آستانه‌دار', type: 'FreeAbove', freeAbove: null },
+      ])
+
+      render(<CheckoutPage />)
+
+      const descriptions = await screen.findAllByText('تحویل ۲ تا ۳ روز کاری')
+      expect(descriptions.length).toBe(2)
+      expect(screen.getByText(/از ۰ تومان رایگان/)).toBeInTheDocument()
+
+      /* Without a threshold the method never becomes free on its own. */
+      fireEvent.click(screen.getByRole('radio', { name: /آستانه‌دار/ }))
+
+      await waitFor(() => expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+   })
+
+   it('ignores malformed entries in the quote payload', async () => {
+      stub([null, 'ناقص', { id: 42, available: true }, { id: 'no-flag' }, flat])
+
+      render(<CheckoutPage />)
+
+      /* Only the well-formed method survives the filter. */
+      expect(await screen.findByRole('radio', { name: /پست پیشتاز/ })).toBeInTheDocument()
+      expect(screen.queryAllByRole('radio', { name: /ناقص|no-flag/ })).toHaveLength(0)
+      /* One address plus one shipping method: the junk entries are gone. */
+      expect(screen.getAllByRole('radio')).toHaveLength(2)
+   })
+
+   it('keeps the chosen method when the address changes but the quote is still valid', async () => {
+      const other = { ...address, id: 'ad2', address: 'خیابان دوم' }
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return jsonResponse([flat])
+         if (url === '/api/store-settings') return jsonResponse(settings)
+         return jsonResponse([address, other])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+
+      await screen.findByRole('radio', { name: /پست پیشتاز/ })
+      fireEvent.click(screen.getByRole('radio', { name: /خیابان دوم/ }))
+
+      await waitFor(() =>
+         expect(screen.getByRole('radio', { name: /پست پیشتاز/ })).toBeChecked()
+      )
+   })
+
+   it('applies each documented fallback when the settings payload is unusable', async () => {
+      stub([flat], { settingsBody: { taxEnabled: 'yes', taxRate: 'nine', taxLabel: 7 } })
+
+      render(<CheckoutPage />)
+
+      /* The default label proves the fallback ran, not just the initial state. */
+      expect(await screen.findByText('مالیات بر ارزش افزوده')).toBeInTheDocument()
+      expect(screen.getByText('۲۲ تومان')).toBeInTheDocument()
+   })
+
+   it('does not update state when the quote resolves after unmount', async () => {
+      let release: ((value: Response) => void) | null = null
+      const pending = new Promise<Response>((resolve) => {
+         release = resolve
+      })
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return await pending
+         if (url === '/api/store-settings') return jsonResponse(settings)
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { unmount } = render(<CheckoutPage />)
+      await screen.findByText('نشانی تحویل سفارش')
+
+      unmount()
+      release?.(Response.json([flat]))
+      await pending
+
+      /* The effect bails out quietly instead of touching unmounted state. */
+      expect(screen.queryByText('پست پیشتاز')).not.toBeInTheDocument()
+   })
+
+   it('does not report a quote failure after unmount', async () => {
+      let reject: ((reason: unknown) => void) | null = null
+      const pending = new Promise<Response>((_resolve, reject_) => {
+         reject = reject_
+      })
+      const fetchMock = vi.fn(async (url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return await pending
+         if (url === '/api/store-settings') return jsonResponse(settings)
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      const { unmount } = render(<CheckoutPage />)
+      await screen.findByText('نشانی تحویل سفارش')
+
+      unmount()
+      reject?.(new Error('شبکه قطع است'))
+      await pending.catch(() => {
+         /* the rejection itself is the point */
+      })
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+   })
+
+   it('reports a non-Error quote failure with a generic message', async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+         // eslint-disable-next-line @typescript-eslint/only-throw-error -- covering the non-Error rejection path
+         if (url.startsWith('/api/shipping-methods')) throw 'قطعی موقت'
+         if (url === '/api/store-settings') return jsonResponse(settings)
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+
+      const alerts = await screen.findAllByRole('alert')
+      expect(
+         alerts.some((alert) => alert.textContent?.includes('دریافت تنظیمات خرید انجام نشد.'))
+      ).toBe(true)
+   })
+
+   it('charges the flat amount when a free-above threshold is not reached', async () => {
+      stub([
+         flat,
+         { ...flat, id: 'sm3', code: 'above-big', title: 'بالای یک میلیون', type: 'FreeAbove', freeAbove: 1_000_000 },
+      ])
+
+      render(<CheckoutPage />)
+
+      fireEvent.click(await screen.findByRole('radio', { name: /بالای یک میلیون/ }))
+
+      await waitFor(() => expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      expect(summaryRow('مبلغ نهایی تقریبی')).toContain('۴۵٬۲۶۲')
    })
 })

@@ -221,7 +221,26 @@ describe('GET /api/orders', () => {
       await expect(response.json()).resolves.toEqual([{ id: 'o1' }])
       expect(prismaMock.order.findMany).toHaveBeenCalledWith({
          where: { userId: 'user-1' },
-         include: { address: true, payments: true, refund: true, orderItems: true },
+         include: {
+            address: true,
+            payments: true,
+            refund: true,
+            orderItems: true,
+            shippingMethod: {
+               select: {
+                  id: true,
+                  code: true,
+                  title: true,
+                  description: true,
+                  type: true,
+                  amount: true,
+                  freeAbove: true,
+               },
+            },
+            shippingCarrier: {
+               select: { id: true, code: true, title: true },
+            },
+         },
       })
    })
 
@@ -260,6 +279,12 @@ describe('POST /api/orders', () => {
       expect((await ordersPOST(json({ addressId: 'ad1' }))).status).toBe(401)
    })
 
+   it('rejects a JSON null body with 400', async () => {
+      const response = await ordersPOST(json(null, USER))
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
+   })
+
    it('requires a shipping address', async () => {
       const response = await ordersPOST(json({}, USER))
 
@@ -277,7 +302,7 @@ describe('POST /api/orders', () => {
       /* Ownership is part of the query, not a post-hoc check. */
       expect(prismaMock.address.findFirst).toHaveBeenCalledWith({
          where: { id: 'someone-elses', userId: 'user-1' },
-         select: { id: true },
+         select: { id: true, city: true },
       })
       expect(prismaMock.order.create).not.toHaveBeenCalled()
    })
@@ -297,12 +322,159 @@ describe('POST /api/orders', () => {
             total: 250,
             discount: 10,
             tax: 21.6,
+            taxRateSnapshot: 0.09,
             payable: 261.6,
             shipping: 0,
          }),
       })
       expect(prismaMock.notification.createMany).not.toHaveBeenCalled()
       expect(prismaMock.cartItem.deleteMany).not.toHaveBeenCalled()
+   })
+
+   it('rejects a malformed JSON body', async () => {
+      const request = new Request('http://localhost/api/orders', {
+         method: 'POST',
+         headers: { ...USER, 'content-type': 'application/json' },
+         body: '{',
+      })
+      expect((await ordersPOST(request)).status).toBe(400)
+   })
+
+   it('requires a shipping method when active methods are configured', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.count.mockResolvedValue(1)
+      /* A method that could serve this address, so the customer only forgot
+         to choose one. */
+      prismaMock.shippingMethod.findMany.mockResolvedValue([
+         { type: 'FlatRate', amount: 30_000, freeAbove: null, allowedCities: [] },
+      ])
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_REQUIRED' })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('rejects a shipping selection that no longer exists', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.findFirst.mockResolvedValue(null)
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', shippingMethodId: 'gone' }, USER)
+      )
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_UNAVAILABLE' })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('rejects a selection that does not serve the delivery city', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.findFirst.mockResolvedValue({
+         id: 'sm1',
+         title: 'فقط تهران',
+         type: 'FlatRate',
+         amount: 30_000,
+         freeAbove: null,
+         allowedCities: ['تهران'],
+         carrierId: null,
+         carrier: null,
+      })
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', shippingMethodId: 'sm1' }, USER)
+      )
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_UNAVAILABLE' })
+   })
+
+   it('reports an undeliverable city separately from a missing selection', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.count.mockResolvedValue(1)
+      prismaMock.shippingMethod.findMany.mockResolvedValue([
+         { type: 'FlatRate', amount: 30_000, freeAbove: null, allowedCities: ['تهران'] },
+      ])
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({
+         message: 'SHIPPING_NOT_AVAILABLE_FOR_CITY',
+      })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
+   })
+
+   it('ignores carrier-calculated methods when deciding whether a selection is needed', async () => {
+      /* A store whose only active row is unpriceable must still be able to
+         take orders, otherwise every checkout is blocked. */
+      stubSuccess()
+      prismaMock.shippingMethod.count.mockResolvedValue(0)
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalled()
+   })
+
+   it('uses the selected shipping quote and database tax settings', async () => {
+      stubSuccess()
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1', city: 'تهران' })
+      prismaMock.shippingMethod.count.mockResolvedValue(1)
+      prismaMock.shippingMethod.findFirst.mockResolvedValue({
+         id: 'sm1',
+         title: 'پست پیشتاز',
+         type: 'FlatRate',
+         amount: 25,
+         freeAbove: null,
+         allowedCities: ['تهران'],
+         carrierId: null,
+         carrier: null,
+      })
+      prismaMock.storeSetting.findUnique.mockResolvedValue({ taxEnabled: true, taxRate: 0.1 })
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         shippingMethodId: 'sm1',
+      }, USER))
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({
+            shippingMethodId: 'sm1',
+            shippingMethodName: 'پست پیشتاز',
+            shipping: 25,
+            taxRateSnapshot: 0.1,
+            tax: 24,
+            payable: 289,
+         }),
+      })
+   })
+
+   it('rejects a shipping method not serving the selected city', async () => {
+      stubSuccess()
+      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1', city: 'کرج' })
+      prismaMock.shippingMethod.count.mockResolvedValue(1)
+      prismaMock.shippingMethod.findFirst.mockResolvedValue({
+         id: 'sm1',
+         title: 'ارسال تهران',
+         type: 'FlatRate',
+         amount: 25,
+         freeAbove: null,
+         allowedCities: ['تهران'],
+         carrierId: null,
+         carrier: null,
+      })
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         shippingMethodId: 'sm1',
+      }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_UNAVAILABLE' })
+      expect(prismaMock.order.create).not.toHaveBeenCalled()
    })
 
    it('reserves stock for every line inside the transaction', async () => {

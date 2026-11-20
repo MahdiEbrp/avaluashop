@@ -40,6 +40,8 @@ export interface PrismaMock {
    provider: TableMock
    paymentProvider: TableMock
    storeSetting: TableMock
+   shippingMethod: TableMock
+   shippingCarrier: TableMock
    $queryRaw: MockFn
    $transaction: MockFn
    $connect: MockFn
@@ -70,6 +72,8 @@ const TABLES = [
    'provider',
    'paymentProvider',
    'storeSetting',
+   'shippingMethod',
+   'shippingCarrier',
 ]
 
 const CRUD = [
@@ -110,6 +114,7 @@ export function createPrismaMock(): PrismaMock {
 
       for (const method of CRUD) {
          delegate[method] = vi.fn(async () => {
+            if (method === 'findMany') return []
             if (method.startsWith('find')) return null
             if (method === 'count') return 0
             return null
@@ -137,6 +142,7 @@ export function resetPrismaMock() {
 
       for (const method of CRUD) {
          delegate[method].mockImplementation(async () => {
+            if (method === 'findMany') return []
             if (method.startsWith('find')) return null
             if (method === 'count') return 0
             return null

@@ -10,9 +10,8 @@ import { UserContextProvider, useUserContext } from '@/state/User'
 import { redirectToPayment } from '@/lib/payments/redirect'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
 
-type Address = {
+interface Address {
    id: string
    address: string
    city: string
@@ -20,8 +19,131 @@ type Address = {
    postalCode: string
 }
 
+interface ShippingMethod {
+   id: string
+   code: string
+   title: string
+   description: string | null
+   type: 'FlatRate' | 'Free' | 'FreeAbove' | 'CarrierCalculated'
+   amount: number
+   freeAbove: number | null
+   available: boolean
+   unavailableReason: string | null
+}
+
+interface CartLine {
+   count: number
+   product: { price: number; discount: number }
+}
+
+interface StoreSettings {
+   taxEnabled: boolean
+   taxRate: number
+   taxLabel: string
+}
+
+/* React 19 deprecates FormEvent; only preventDefault is used here. */
+interface SubmitEvent {
+   preventDefault: () => void
+}
+
+/* The orders route answers in two shapes: plain text for the legacy errors and
+   JSON for the shipping ones. Reading only one of them showed raw JSON (or the
+   wrong message) to the customer. */
+const ORDER_MESSAGES: Record<string, string> = {
+   'Discount code is invalid or expired': 'کد تخفیف نامعتبر یا منقضی شده است.',
+   SHIPPING_METHOD_REQUIRED: 'لطفاً روش ارسال را انتخاب کنید.',
+   SHIPPING_METHOD_UNAVAILABLE:
+      'روش ارسال انتخاب‌شده برای این نشانی در دسترس نیست. دوباره انتخاب کنید.',
+   SHIPPING_NOT_AVAILABLE_FOR_CITY: 'به این نشانی ارسال نداریم. نشانی دیگری انتخاب کنید.',
+   INVALID_ORDER_REQUEST: 'اطلاعات سفارش کامل نیست.',
+   INSUFFICIENT_STOCK: 'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.',
+}
+
+async function orderErrorMessage(response: Response) {
+   const raw = await response.text()
+   let code = raw.trim()
+
+   try {
+      const parsed = JSON.parse(raw) as { message?: unknown }
+      if (typeof parsed?.message === 'string') code = parsed.message
+   } catch {
+      /* Plain-text body; `code` already holds it. */
+   }
+
+   if (ORDER_MESSAGES[code]) return ORDER_MESSAGES[code]
+
+   /* Still map an unexplained 409 to the stock message, but only after the
+      known codes have had their chance. */
+   if (response.status === 409) {
+      return 'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.'
+   }
+
+   return code || 'ثبت سفارش انجام نشد.'
+}
+
 const money = new Intl.NumberFormat('fa-IR')
 const toman = (value: number) => `${money.format(Math.round(value))} تومان`
+
+/* A method the shopper cannot use costs nothing; a free-above method is free
+   once the discounted subtotal clears its threshold. */
+function shippingFee(method: ShippingMethod | undefined, afterDiscount: number) {
+   if (!method?.available) return 0
+   if (method.type === 'Free') return 0
+   if (method.type === 'FreeAbove') {
+      const threshold = method.freeAbove ?? Infinity
+      return afterDiscount >= threshold ? 0 : method.amount
+   }
+   return method.amount
+}
+
+
+function isShippingMethod(value: unknown): value is ShippingMethod {
+   if (typeof value !== 'object' || value === null) return false
+   const candidate = value as Partial<ShippingMethod>
+   return typeof candidate.id === 'string' && typeof candidate.available === 'boolean'
+}
+
+function methodNote(method: ShippingMethod) {
+   if (!method.available) {
+      return method.unavailableReason === 'CITY_NOT_SUPPORTED'
+         ? 'برای شهر انتخاب‌شده ارائه نمی‌شود.'
+         : 'استعلام آنلاین این شرکت هنوز متصل نشده است.'
+   }
+   if (method.type === 'Free') return 'رایگان'
+   if (method.type === 'FreeAbove') {
+      return `از ${money.format(method.freeAbove ?? 0)} تومان رایگان؛ در غیر این صورت ${toman(method.amount)}`
+   }
+   return toman(method.amount)
+}
+
+type ShippingSectionState = 'loading' | 'failed' | 'none' | 'blocked' | 'list'
+
+function shippingSectionState(
+   loading: boolean,
+   failed: boolean,
+   methods: ShippingMethod[]
+): ShippingSectionState {
+   if (loading) return 'loading'
+   if (failed) return 'failed'
+   if (methods.length === 0) return 'none'
+   if (methods.some((method) => method.available)) return 'list'
+   return 'blocked'
+}
+
+function submitLabel(submitting: boolean, paymentPending: boolean) {
+   if (paymentPending) return 'در انتظار بررسی تراکنش'
+   if (submitting) return 'در حال انتقال به درگاه...'
+   return 'پرداخت و ثبت سفارش'
+}
+
+function paymentErrorMessage(code: unknown) {
+   if (code === 'TABAPAY_AMOUNT_OUT_OF_RANGE') return 'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
+   if (code === 'TABAPAY_NOT_CONFIGURED') {
+      return 'درگاه پرداخت موقتاً آماده نیست. سفارش لغو شده و می‌توانید بعداً دوباره تلاش کنید.'
+   }
+   return 'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
+}
 
 export default function CheckoutPage() {
    return (
@@ -38,6 +160,15 @@ function CheckoutContent() {
    const { cart, loading: cartLoading } = useCartContext()
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
+   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([])
+   const [selectedShippingMethod, setSelectedShippingMethod] = useState('')
+   const [shippingLoading, setShippingLoading] = useState(true)
+   const [shippingLoadFailed, setShippingLoadFailed] = useState(false)
+   const [storeSettings, setStoreSettings] = useState<StoreSettings>({
+      taxEnabled: true,
+      taxRate: 0.09,
+      taxLabel: 'مالیات بر ارزش افزوده',
+   })
    const [discountCode, setDiscountCode] = useState('')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
@@ -54,7 +185,7 @@ function CheckoutContent() {
    })
 
    useEffect(() => {
-      const params = new URLSearchParams(window.location.search)
+      const params = new URLSearchParams(globalThis.location.search)
       const paymentResult = params.get('payment')
 
       if (paymentResult === 'success') {
@@ -70,7 +201,7 @@ function CheckoutContent() {
                if (!response.ok) throw new Error('دریافت وضعیت سفارش انجام نشد.')
                return response.json()
             })
-            .then((orders: Array<{ id: string; number: number; isPaid: boolean }>) => {
+            .then((orders: { id: string; number: number; isPaid: boolean }[]) => {
                const confirmedOrder = orders.find((order) => order.id === orderId)
                if (!confirmedOrder?.isPaid) {
                   throw new Error('وضعیت پرداخت این سفارش هنوز در سامانه تأیید نشده است.')
@@ -81,11 +212,11 @@ function CheckoutContent() {
                   )
                }
             })
-            .catch((reason) => {
+            .catch((error_: unknown) => {
                if (!cancelled) {
                   setError(
-                     reason instanceof Error
-                        ? reason.message
+                     error_ instanceof Error
+                        ? error_.message
                         : 'بررسی وضعیت پرداخت انجام نشد.'
                   )
                }
@@ -119,10 +250,10 @@ function CheckoutContent() {
          .then((items: Address[]) => {
             if (cancelled) return
             setAddresses(items)
-            if (items.length) setSelectedAddress(items[0].id)
+            if (items.length > 0) setSelectedAddress(items[0].id)
          })
-         .catch((reason) => {
-            if (!cancelled) setError(reason.message || 'خطا در دریافت نشانی‌ها')
+         .catch((error_: unknown) => {
+            if (!cancelled) setError(error_ instanceof Error ? error_.message : 'خطا در دریافت نشانی‌ها')
          })
          .finally(() => {
             if (!cancelled) setLoadingAddresses(false)
@@ -133,8 +264,68 @@ function CheckoutContent() {
       }
    }, [user])
 
+   useEffect(() => {
+      const address = addresses.find((item) => item.id === selectedAddress)
+      if (!user || !address) {
+         // eslint-disable-next-line react-hooks/set-state-in-effect -- reset loading when no destination is selected
+         setShippingLoading(false)
+         return
+      }
+
+      let cancelled = false
+      setShippingLoading(true)
+      setShippingLoadFailed(false)
+
+      Promise.all([
+         fetch(`/api/shipping-methods?city=${encodeURIComponent(address.city)}`, { cache: 'no-store' }),
+         fetch('/api/store-settings', { cache: 'no-store' }),
+      ])
+         .then(async ([shippingResponse, settingsResponse]) => {
+            if (!shippingResponse.ok || !settingsResponse.ok) {
+               throw new Error('دریافت هزینه ارسال یا تنظیمات مالیات انجام نشد.')
+            }
+            const [rawMethods, settings] = await Promise.all([
+               shippingResponse.json() as Promise<unknown>,
+               settingsResponse.json() as Promise<StoreSettings>,
+            ])
+            if (cancelled) return
+            const methods = Array.isArray(rawMethods) ? rawMethods.filter(isShippingMethod) : []
+            setShippingMethods(methods)
+            setSelectedShippingMethod((current) =>
+               methods.some((method) => method.id === current && method.available)
+                  ? current
+                  : methods.find((method) => method.available)?.id ?? ''
+            )
+            setStoreSettings({
+               taxEnabled: typeof settings.taxEnabled === 'boolean' ? settings.taxEnabled : true,
+               taxRate: typeof settings.taxRate === 'number' ? settings.taxRate : 0.09,
+               taxLabel: typeof settings.taxLabel === 'string' ? settings.taxLabel : 'مالیات بر ارزش افزوده',
+            })
+         })
+         .catch((error_: unknown) => {
+            if (!cancelled) {
+               setShippingLoadFailed(true)
+               setError(error_ instanceof Error ? error_.message : 'دریافت تنظیمات خرید انجام نشد.')
+            }
+         })
+         .finally(() => {
+            if (!cancelled) setShippingLoading(false)
+         })
+
+      return () => {
+         cancelled = true
+      }
+   }, [user, addresses, selectedAddress])
+
+   const sectionState = shippingSectionState(
+      shippingLoading,
+      shippingLoadFailed,
+      shippingMethods
+   )
+
    const totals = useMemo(() => {
-      const items = cart?.items ?? []
+      /* The cart API sends plain numbers; the context type is loose. */
+      const items: CartLine[] = cart?.items ?? []
       const subtotal = items.reduce(
          (sum, item) => sum + item.count * item.product.price,
          0
@@ -144,16 +335,19 @@ function CheckoutContent() {
          0
       )
       const afterDiscount = Math.max(0, subtotal - productDiscount)
-      const tax = afterDiscount * 0.09
+      const method = shippingMethods.find((item) => item.id === selectedShippingMethod)
+      const shipping = shippingFee(method, afterDiscount)
+      const tax = storeSettings.taxEnabled ? afterDiscount * storeSettings.taxRate : 0
       return {
          subtotal,
          productDiscount,
+         shipping,
          tax,
-         payable: afterDiscount + tax,
+         payable: afterDiscount + tax + shipping,
       }
-   }, [cart])
+   }, [cart, shippingMethods, selectedShippingMethod, storeSettings])
 
-   async function saveAddress(event: FormEvent<HTMLFormElement>) {
+   async function saveAddress(event: SubmitEvent) {
       event.preventDefault()
       setSavingAddress(true)
       setError('')
@@ -170,8 +364,8 @@ function CheckoutContent() {
          setSelectedAddress(address.id)
          setShowAddressForm(false)
          setForm({ city: '', address: '', phone: '', postalCode: '' })
-      } catch (reason) {
-         setError(reason instanceof Error ? reason.message : 'خطا در ذخیره نشانی')
+      } catch (error_: unknown) {
+         setError(error_ instanceof Error ? error_.message : 'خطا در ذخیره نشانی')
       } finally {
          setSavingAddress(false)
       }
@@ -194,18 +388,13 @@ function CheckoutContent() {
          const response = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ addressId: selectedAddress, discountCode: discountCode.trim() || undefined }),
+            body: JSON.stringify({
+               addressId: selectedAddress,
+               shippingMethodId: selectedShippingMethod || undefined,
+               discountCode: discountCode.trim() || undefined,
+            }),
          })
-         if (!response.ok) {
-            const message = await response.text()
-            throw new Error(
-               response.status === 409
-                  ? 'موجودی یکی از محصولات تغییر کرده است. سبد خرید را بررسی کنید.'
-                  : message === 'Discount code is invalid or expired'
-                    ? 'کد تخفیف نامعتبر یا منقضی شده است.'
-                    : message || 'ثبت سفارش انجام نشد.'
-            )
-         }
+         if (!response.ok) throw new Error(await orderErrorMessage(response))
          const order = await response.json()
          const paymentResponse = await fetch('/api/payments/tabapay', {
             method: 'POST',
@@ -219,21 +408,15 @@ function CheckoutContent() {
             return
          }
          if (!paymentResponse.ok) {
-            throw new Error(
-               paymentBody.message === 'TABAPAY_AMOUNT_OUT_OF_RANGE'
-                  ? 'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
-                  : paymentBody.message === 'TABAPAY_NOT_CONFIGURED'
-                    ? 'درگاه پرداخت موقتاً آماده نیست. سفارش لغو شده و می‌توانید بعداً دوباره تلاش کنید.'
-                    : 'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
-            )
+            throw new Error(paymentErrorMessage(paymentBody.message))
          }
          /* The body was already consumed for the 202 check above; reading it a
             second time throws and would abort the redirect entirely. */
          const { paymentUrl } = paymentBody
          if (typeof paymentUrl !== 'string') throw new Error('نشانی درگاه نامعتبر است.')
          redirectToPayment(paymentUrl)
-      } catch (reason) {
-         setError(reason instanceof Error ? reason.message : 'خطا در ثبت سفارش')
+      } catch (error_: unknown) {
+         setError(error_ instanceof Error ? error_.message : 'خطا در ثبت سفارش')
       } finally {
          setSubmitting(false)
       }
@@ -291,8 +474,9 @@ function CheckoutContent() {
 
          {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">{error}</div>}
 
-         <div className="grid gap-5 md:grid-cols-[1.4fr_1fr]">
-            <Card>
+         <div className="grid gap-5 md:grid-cols-3">
+            <div className="space-y-5 md:col-span-2">
+               <Card>
                <CardHeader><h2 className="font-bold">نشانی تحویل سفارش</h2></CardHeader>
                <CardContent className="space-y-4">
                   {addresses.length > 0 ? (
@@ -304,7 +488,7 @@ function CheckoutContent() {
                                  name="shipping-address"
                                  value={address.id}
                                  checked={selectedAddress === address.id}
-                                 onChange={() => setSelectedAddress(address.id)}
+                                 onChange={() => { setSelectedAddress(address.id) }}
                                  className="mt-1"
                               />
                               <span className="space-y-1 text-sm">
@@ -317,37 +501,74 @@ function CheckoutContent() {
                      </div>
                   ) : <p className="text-sm text-muted-foreground">هنوز نشانی‌ای ثبت نکرده‌اید.</p>}
 
-                  <Button type="button" variant="outline" onClick={() => setShowAddressForm((value) => !value)}>
+                  <Button type="button" variant="outline" onClick={() => { setShowAddressForm((value) => !value) }}>
                      {showAddressForm ? 'بستن فرم نشانی' : 'افزودن نشانی جدید'}
                   </Button>
 
                   {showAddressForm && (
-                     <form onSubmit={saveAddress} className="space-y-3 rounded-lg border p-4">
+                     <form onSubmit={(event) => { void saveAddress(event) }} className="space-y-3 rounded-lg border p-4">
                         <div className="space-y-1">
                            <Label htmlFor="city">شهر</Label>
-                           <Input id="city" required value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} />
+                           <Input id="city" required value={form.city} onChange={(event) => { setForm({ ...form, city: event.target.value }) }} />
                         </div>
                         <div className="space-y-1">
                            <Label htmlFor="address">نشانی کامل</Label>
-                           <Textarea id="address" required value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
+                           <Textarea id="address" required value={form.address} onChange={(event) => { setForm({ ...form, address: event.target.value }) }} />
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                            <div className="space-y-1">
                               <Label htmlFor="phone">شماره تماس</Label>
-                              <Input id="phone" required inputMode="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+                              <Input id="phone" required inputMode="tel" value={form.phone} onChange={(event) => { setForm({ ...form, phone: event.target.value }) }} />
                            </div>
                            <div className="space-y-1">
                               <Label htmlFor="postalCode">کد پستی</Label>
-                              <Input id="postalCode" required inputMode="numeric" value={form.postalCode} onChange={(event) => setForm({ ...form, postalCode: event.target.value })} />
+                              <Input id="postalCode" required inputMode="numeric" value={form.postalCode} onChange={(event) => { setForm({ ...form, postalCode: event.target.value }) }} />
                            </div>
                         </div>
                         <Button type="submit" disabled={savingAddress}>{savingAddress ? 'در حال ذخیره...' : 'ذخیره نشانی'}</Button>
                      </form>
                   )}
                </CardContent>
-            </Card>
+               </Card>
 
-            <Card>
+               <Card>
+                  <CardHeader><h2 className="font-bold">روش ارسال</h2></CardHeader>
+                  <CardContent className="space-y-3">
+                     {sectionState === 'loading' && (
+                        <p className="text-sm text-muted-foreground">در حال بررسی روش‌های ارسال...</p>
+                     )}
+                     {sectionState === 'failed' && (
+                        <p role="alert" className="text-sm text-destructive">روش‌های ارسال در دسترس نیستند. لطفاً صفحه را تازه‌سازی کنید.</p>
+                     )}
+                     {sectionState === 'none' && (
+                        <p className="text-sm text-muted-foreground">روش ارسالی تعریف نشده است؛ هزینه ارسال فعلاً صفر محاسبه می‌شود.</p>
+                     )}
+                     {sectionState === 'list' && shippingMethods.map((method) => (
+                           <label key={method.id} className={`flex items-start gap-3 rounded-lg border p-3 ${method.available ? 'cursor-pointer' : 'opacity-50'}`}>
+                              <input
+                                 type="radio"
+                                 name="shipping-method"
+                                 value={method.id}
+                                 checked={selectedShippingMethod === method.id}
+                                 disabled={!method.available}
+                                 onChange={() => { setSelectedShippingMethod(method.id) }}
+                                 className="mt-1"
+                              />
+                              <span className="min-w-0 flex-1 space-y-1 text-sm">
+                                 <span className="block font-semibold">{method.title}</span>
+                                 {method.description && <span className="block text-muted-foreground">{method.description}</span>}
+                                 <span className="block text-muted-foreground">{methodNote(method)}</span>
+                              </span>
+                           </label>
+                     ))}
+                     {sectionState === 'blocked' && (
+                        <p className="text-sm text-muted-foreground">برای شهر این نشانی روش ارسال فعالی وجود ندارد.</p>
+                     )}
+                  </CardContent>
+               </Card>
+            </div>
+
+            <Card className="md:col-span-1">
                <CardHeader><h2 className="font-bold">خلاصه سفارش</h2></CardHeader>
                <CardContent className="space-y-4">
                   <div className="space-y-3">
@@ -364,7 +585,7 @@ function CheckoutContent() {
                         <Input
                            id="discountCode"
                            value={discountCode}
-                           onChange={(event) => setDiscountCode(event.target.value)}
+                           onChange={(event) => { setDiscountCode(event.target.value) }}
                            placeholder="در صورت داشتن کد وارد کنید"
                            autoComplete="off"
                         />
@@ -372,12 +593,13 @@ function CheckoutContent() {
                      </div>
                      <div className="flex justify-between"><span>جمع کالاها</span><span>{toman(totals.subtotal)}</span></div>
                      <div className="flex justify-between"><span>تخفیف محصولات</span><span>{toman(totals.productDiscount)}</span></div>
-                     <div className="flex justify-between"><span>مالیات</span><span>{toman(totals.tax)}</span></div>
-                     <div className="flex justify-between font-bold"><span>مبلغ نهایی</span><span>{toman(totals.payable)}</span></div>
-                     <p className="text-xs text-muted-foreground">هزینه ارسال در این نسخه محاسبه نشده و مبلغ پرداختی نهایی ممکن است پس از تکمیل تنظیمات ارسال تغییر کند.</p>
+                     <div className="flex justify-between"><span>هزینه ارسال</span><span>{toman(totals.shipping)}</span></div>
+                     <div className="flex justify-between"><span>{storeSettings.taxLabel}</span><span>{toman(totals.tax)}</span></div>
+                     <div className="flex justify-between font-bold"><span>مبلغ نهایی تقریبی</span><span>{toman(totals.payable)}</span></div>
+                     <p className="text-xs text-muted-foreground">مبلغ نهایی، تخفیف کد و هزینه ارسال دوباره در سرور اعتبارسنجی و محاسبه می‌شوند.</p>
                   </div>
-                  <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || !selectedAddress}>
-                     {paymentPending ? 'در انتظار بررسی تراکنش' : submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
+                  <Button className="w-full" onClick={() => { void submitOrder() }} disabled={submitting || paymentPending || !selectedAddress || shippingLoading || shippingLoadFailed || (shippingMethods.length > 0 && !selectedShippingMethod)}>
+                     {submitLabel(submitting, paymentPending)}
                   </Button>
                   <p className="text-xs text-muted-foreground">پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود.</p>
                </CardContent>

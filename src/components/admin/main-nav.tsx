@@ -17,6 +17,7 @@ export function MainNav({
       { href: '/admin/orders', label: 'Orders' },
       { href: '/admin/payments', label: 'Payments' },
       { href: '/admin/settings', label: 'Settings' },
+      { href: '/admin/shipping', label: 'Shipping' },
       { href: '/admin/users', label: 'Users' },
       { href: '/admin/brands', label: 'Brands' },
       { href: '/codes', label: 'Codes' },

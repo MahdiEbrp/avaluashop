@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma'
+import { calculateDiscountedSubtotal, calculateOrderTotals, quoteShipping } from '@/lib/shipping'
 import { NextResponse } from 'next/server'
 
 export async function GET(req: Request) {
@@ -13,6 +14,20 @@ export async function GET(req: Request) {
             payments: true,
             refund: true,
             orderItems: true,
+            shippingMethod: {
+               select: {
+                  id: true,
+                  code: true,
+                  title: true,
+                  description: true,
+                  type: true,
+                  amount: true,
+                  freeAbove: true,
+               },
+            },
+            shippingCarrier: {
+               select: { id: true, code: true, title: true },
+            },
          },
       })
 
@@ -28,10 +43,21 @@ export async function POST(req: Request) {
       const userId = req.headers.get('X-USER-ID')
       if (!userId) return new NextResponse('Unauthorized', { status: 401 })
 
-      const body = await req.json()
+      let body: { addressId?: unknown; discountCode?: unknown; shippingMethodId?: unknown }
+      try {
+         body = await req.json()
+      } catch {
+         return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
+      }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+         return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
+      }
+
       const addressId = typeof body.addressId === 'string' ? body.addressId : null
       const discountCode =
          typeof body.discountCode === 'string' ? body.discountCode.trim() : ''
+      const shippingMethodId =
+         typeof body.shippingMethodId === 'string' ? body.shippingMethodId : null
 
       if (!addressId) {
          return new NextResponse('A valid shipping address is required', { status: 400 })
@@ -39,7 +65,7 @@ export async function POST(req: Request) {
 
       const address = await prisma.address.findFirst({
          where: { id: addressId, userId },
-         select: { id: true },
+         select: { id: true, city: true },
       })
       if (!address) return new NextResponse('Shipping address not found', { status: 404 })
 
@@ -67,8 +93,7 @@ export async function POST(req: Request) {
 
       const now = new Date()
 
-      // Inventory and coupon usage are reserved in the same transaction as
-      // the order. Any validation or stock failure rolls both reservations back.
+      // Inventory, coupon usage, shipping quote and order totals are committed atomically.
       const order = await prisma.$transaction(async (tx) => {
          let coupon: { id: string; percent: number; maxDiscountAmount: number } | null = null
 
@@ -109,17 +134,83 @@ export async function POST(req: Request) {
             if (updated.count !== 1) throw new Error('INSUFFICIENT_STOCK')
          }
 
-         const { total, tax, discount, payable } = calculateCosts(cart, coupon)
+         /* Only methods that can actually be priced: a carrier-calculated row
+            has no quote yet, so counting it would block every order. */
+         const activeMethodCount = await tx.shippingMethod.count({
+            where: { isActive: true, type: { not: 'CarrierCalculated' } },
+         })
+
+         let shippingMethod: {
+            id: string
+            title: string
+            type: 'FlatRate' | 'Free' | 'FreeAbove' | 'CarrierCalculated'
+            amount: number
+            freeAbove: number | null
+            allowedCities: string[]
+            carrierId: string | null
+            carrier: { title: string } | null
+         } | null = null
+         let shippingAmount = 0
+
+         if (activeMethodCount > 0 && !shippingMethodId) {
+            /* Distinguish "you forgot to pick one" from "we do not deliver to
+               this city", which is a dead end the customer must be told about. */
+            const candidates = await tx.shippingMethod.findMany({
+               where: { isActive: true, type: { not: 'CarrierCalculated' } },
+               select: { type: true, amount: true, freeAbove: true, allowedCities: true },
+            })
+            const deliverable = candidates.some(
+               (candidate) => quoteShipping(candidate, address.city, 0).available
+            )
+
+            throw new Error(deliverable ? 'SHIPPING_METHOD_REQUIRED' : 'SHIPPING_NOT_AVAILABLE_FOR_CITY')
+         }
+
+         if (shippingMethodId) {
+            shippingMethod = await tx.shippingMethod.findFirst({
+               where: { id: shippingMethodId, isActive: true },
+               include: { carrier: { select: { title: true } } },
+            })
+            if (!shippingMethod) throw new Error('SHIPPING_METHOD_UNAVAILABLE')
+
+            const discountedSubtotal = calculateDiscountedSubtotal(cart.items, coupon)
+            const quote = quoteShipping(
+               shippingMethod,
+               address.city,
+               discountedSubtotal.subtotalAfterDiscount
+            )
+            if (!quote.available) throw new Error('SHIPPING_METHOD_UNAVAILABLE')
+            shippingAmount = quote.amount
+         }
+
+         const store = await tx.storeSetting.findUnique({
+            where: { id: 'default' },
+            select: { taxEnabled: true, taxRate: true },
+         })
+         const taxEnabled = store?.taxEnabled ?? true
+         const taxRate = store?.taxRate ?? 0.09
+
+         const costs = calculateOrderTotals(
+            cart.items,
+            coupon,
+            { enabled: taxEnabled, rate: taxRate },
+            shippingAmount
+         )
 
          return tx.order.create({
             data: {
                userId,
                status: 'PendingPayment',
-               total,
-               tax,
-               payable,
-               discount,
-               shipping: 0,
+               total: costs.total,
+               tax: costs.tax,
+               taxRateSnapshot: costs.taxRateSnapshot,
+               payable: costs.payable,
+               discount: costs.discount,
+               shipping: costs.shipping,
+               shippingMethodId: shippingMethod?.id,
+               shippingMethodName: shippingMethod?.title,
+               shippingCarrierId: shippingMethod?.carrierId,
+               shippingCarrierName: shippingMethod?.carrier?.title,
                discountCodeId: coupon?.id,
                addressId,
                orderItems: {
@@ -146,47 +237,16 @@ export async function POST(req: Request) {
       if (error instanceof Error && error.message === 'INVALID_DISCOUNT_CODE') {
          return new NextResponse('Discount code is invalid or expired', { status: 400 })
       }
+      if (error instanceof Error && error.message === 'SHIPPING_METHOD_REQUIRED') {
+         return NextResponse.json({ message: 'SHIPPING_METHOD_REQUIRED' }, { status: 400 })
+      }
+      if (error instanceof Error && error.message === 'SHIPPING_METHOD_UNAVAILABLE') {
+         return NextResponse.json({ message: 'SHIPPING_METHOD_UNAVAILABLE' }, { status: 409 })
+      }
+      if (error instanceof Error && error.message === 'SHIPPING_NOT_AVAILABLE_FOR_CITY') {
+         return NextResponse.json({ message: 'SHIPPING_NOT_AVAILABLE_FOR_CITY' }, { status: 409 })
+      }
       console.error('[ORDERS_POST]', error)
       return new NextResponse('Internal error', { status: 500 })
-   }
-}
-
-function calculateCosts(
-   cart: {
-      items: Array<{
-         count: number
-         product: { price: number; discount: number }
-      }>
-   },
-   coupon: { percent: number; maxDiscountAmount: number } | null
-) {
-   let total = 0
-   let rawProductDiscount = 0
-
-   for (const item of cart.items) {
-      total += item.count * item.product.price
-      rawProductDiscount += item.count * item.product.discount
-   }
-
-   const productDiscount = Math.min(total, Math.max(0, rawProductDiscount))
-   const afterProductDiscount = Math.max(0, total - productDiscount)
-   const percent = coupon ? Math.min(100, Math.max(0, coupon.percent)) : 0
-   const couponDiscount = coupon
-      ? Math.min(
-           afterProductDiscount,
-           Math.max(0, afterProductDiscount * (percent / 100)),
-           Math.max(0, coupon.maxDiscountAmount)
-        )
-      : 0
-   const discount = productDiscount + couponDiscount
-   const taxable = Math.max(0, afterProductDiscount - couponDiscount)
-   const tax = taxable * 0.09
-   const payable = taxable + tax
-
-   return {
-      total: Number(total.toFixed(2)),
-      discount: Number(discount.toFixed(2)),
-      tax: Number(tax.toFixed(2)),
-      payable: Number(payable.toFixed(2)),
    }
 }
