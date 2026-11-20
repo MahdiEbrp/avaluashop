@@ -69,7 +69,7 @@ export async function PUT(req: Request) {
 
    try {
       const input = updateSchema.parse(await req.json())
-      const existingGateway = await prisma.paymentProvider.findUnique({
+      const existingGateway = await prisma.paymentProvider.findFirst({
          where: { OR: [{ code: 'tabapay' }, { title: 'Tabapay' }] },
          select: { id: true, credentialsEncrypted: true },
       })
