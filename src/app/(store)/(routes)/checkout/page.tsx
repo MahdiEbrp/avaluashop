@@ -99,6 +99,7 @@ function CheckoutContent() {
       if (paymentResult === 'failed') {
          setError('پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.')
       } else if (paymentResult === 'pending') {
+         setPaymentPending(true)
          setError('تأیید پرداخت هنوز قطعی نیست. لطفاً از ثبت دوباره سفارش خودداری کنید و وضعیت تراکنش را با پشتیبانی بررسی کنید.')
       }
    }, [])
