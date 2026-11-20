@@ -167,6 +167,8 @@ model Order {
   shipping Float @default(100)
   payable  Float @default(100)
   tax      Float @default(100)
+  taxRate  Float @default(0.09)
+  shippingMethodName String?
   discount Float @default(0)
 
   isPaid      Boolean @default(false)
@@ -314,13 +316,40 @@ enum PaymentStatusEnum {
 }
 
 model PaymentProvider {
-  id          String  @id @default(cuid())
-  title       String  @unique
-  description String?
-  websiteUrl  String?
-  isActive    Boolean @default(false)
+  id                   String  @id @default(cuid())
+  code                 String  @unique @default("tabapay")
+  title                String  @unique
+  description          String?
+  websiteUrl           String?
+  isActive             Boolean @default(false)
+  settings             Json?
+  credentialsEncrypted String?
 
   orders Payment[]
+}
+
+/// Store-wide tax and currency defaults. The singleton row uses id="default".
+model StoreSetting {
+  id        String   @id @default("default")
+  taxEnabled Boolean @default(true)
+  taxRate   Float    @default(0.09)
+  taxLabel  String   @default("مالیات بر ارزش افزوده")
+  currency  String   @default("IRR")
+  updatedAt DateTime @updatedAt
+}
+
+/// Configurable shipping options managed from the admin dashboard.
+model ShippingMethod {
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  title                 String
+  description           String?
+  cost                  Float    @default(0)
+  freeShippingThreshold Float?
+  isActive              Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model Error {
