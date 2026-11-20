@@ -161,13 +161,14 @@ function calculateCosts(
    coupon: { percent: number; maxDiscountAmount: number } | null
 ) {
    let total = 0
-   let productDiscount = 0
+   let rawProductDiscount = 0
 
    for (const item of cart.items) {
       total += item.count * item.product.price
-      productDiscount += item.count * item.product.discount
+      rawProductDiscount += item.count * item.product.discount
    }
 
+   const productDiscount = Math.min(total, Math.max(0, rawProductDiscount))
    const afterProductDiscount = Math.max(0, total - productDiscount)
    const percent = coupon ? Math.min(100, Math.max(0, coupon.percent)) : 0
    const couponDiscount = coupon
