@@ -302,7 +302,7 @@ describe('Tabapay adapter', () => {
             new Response(
                JSON.stringify({
                   responseCode: -101,
-                  status: 'error',
+                  status: 'failed',
                   token: 'tabapay-token-1',
                   amount: 100_000,
                }),
