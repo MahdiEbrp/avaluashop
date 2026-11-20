@@ -66,7 +66,7 @@ export async function POST(req: Request) {
          }
 
          const provider = await tx.paymentProvider.upsert({
-            where: { code: 'tabapay' },
+            where: { title: 'Tabapay' },
             create: {
                code: 'tabapay',
                title: 'Tabapay',
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
                websiteUrl: 'https://tabapay.ir',
                isActive: false,
             },
-            update: {},
+            update: { code: 'tabapay' },
          })
          if (!provider.isActive) return { kind: 'disabled' as const }
 
