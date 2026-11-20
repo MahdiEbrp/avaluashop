@@ -41,6 +41,7 @@ function CheckoutContent() {
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
+   const [paymentPending, setPaymentPending] = useState(false)
    const [error, setError] = useState('')
    const [success, setSuccess] = useState('')
    const [showAddressForm, setShowAddressForm] = useState(false)
@@ -207,12 +208,19 @@ function CheckoutContent() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId: order.id }),
          })
+         const paymentBody = await paymentResponse.json().catch(() => ({}))
+         if (paymentResponse.status === 202) {
+            setPaymentPending(true)
+            setError('وضعیت ایجاد تراکنش هنوز مشخص نیست. سفارش و موجودی آن برای بررسی حفظ شده است؛ لطفاً سفارش دیگری ثبت نکنید و وضعیت را از پشتیبانی پیگیری کنید.')
+            return
+         }
          if (!paymentResponse.ok) {
-            const paymentError = await paymentResponse.json().catch(() => ({}))
             throw new Error(
-               paymentError.message === 'PAYMENT_AMOUNT_OUT_OF_RANGE'
+               paymentBody.message === 'TABAPAY_AMOUNT_OUT_OF_RANGE'
                   ? 'مبلغ سفارش خارج از محدوده مجاز درگاه است.'
-                  : 'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+                  : paymentBody.message === 'TABAPAY_NOT_CONFIGURED'
+                    ? 'درگاه پرداخت موقتاً آماده نیست. سفارش لغو شده و می‌توانید بعداً دوباره تلاش کنید.'
+                    : 'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
             )
          }
          const { paymentUrl } = await paymentResponse.json()
@@ -351,8 +359,8 @@ function CheckoutContent() {
                      <div className="flex justify-between font-bold"><span>مبلغ نهایی</span><span>{toman(totals.payable)}</span></div>
                      <p className="text-xs text-muted-foreground">هزینه ارسال در این نسخه محاسبه نشده و مبلغ پرداختی نهایی ممکن است پس از تکمیل تنظیمات ارسال تغییر کند.</p>
                   </div>
-                  <Button className="w-full" onClick={submitOrder} disabled={submitting || !selectedAddress}>
-                     {submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
+                  <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || !selectedAddress}>
+                     {paymentPending ? 'در انتظار بررسی تراکنش' : submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
                   </Button>
                   <p className="text-xs text-muted-foreground">پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود.</p>
                </CardContent>
