@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       const addressId = typeof body.addressId === 'string' ? body.addressId : null
       const discountCode =
          typeof body.discountCode === 'string' ? body.discountCode.trim() : ''
+      const shippingMethodId =
+         typeof body.shippingMethodId === 'string' ? body.shippingMethodId : null
 
       if (!addressId) {
          return new NextResponse('A valid shipping address is required', { status: 400 })
@@ -66,6 +68,23 @@ export async function POST(req: Request) {
       }
 
       const now = new Date()
+      const storeSettings = await prisma.storeSetting.findUnique({ where: { id: 'default' } })
+      const shippingMethods = await prisma.shippingMethod.findMany({ where: { isActive: true } })
+      if (shippingMethods.length > 0 && !shippingMethodId) {
+         return new NextResponse('A shipping method is required', { status: 400 })
+      }
+      const shippingMethod = shippingMethodId
+         ? shippingMethods.find((method) => method.id === shippingMethodId)
+         : null
+      if (shippingMethodId && !shippingMethod) {
+         return new NextResponse('Shipping method not found', { status: 400 })
+      }
+      const shippingCost = shippingMethod
+         ? shippingMethod.freeShippingThreshold !== null && shippingMethod.freeShippingThreshold !== undefined && cart.items.reduce((sum, item) => sum + item.count * Math.max(0, item.product.price - item.product.discount), 0) >= shippingMethod.freeShippingThreshold
+            ? 0
+            : shippingMethod.cost
+         : 0
+      const taxRate = storeSettings?.taxEnabled === false ? 0 : Math.min(1, Math.max(0, storeSettings?.taxRate ?? 0.09))
 
       // Inventory and coupon usage are reserved in the same transaction as
       // the order. Any validation or stock failure rolls both reservations back.
@@ -109,7 +128,7 @@ export async function POST(req: Request) {
             if (updated.count !== 1) throw new Error('INSUFFICIENT_STOCK')
          }
 
-         const { total, tax, discount, payable } = calculateCosts(cart, coupon)
+         const { total, tax, discount, payable } = calculateCosts(cart, coupon, taxRate, shippingCost)
 
          return tx.order.create({
             data: {
@@ -119,7 +138,9 @@ export async function POST(req: Request) {
                tax,
                payable,
                discount,
-               shipping: 0,
+               shipping: shippingCost,
+               taxRate,
+               shippingMethodName: shippingMethod?.title,
                discountCodeId: coupon?.id,
                addressId,
                orderItems: {
@@ -158,7 +179,9 @@ function calculateCosts(
          product: { price: number; discount: number }
       }>
    },
-   coupon: { percent: number; maxDiscountAmount: number } | null
+   coupon: { percent: number; maxDiscountAmount: number } | null,
+   taxRate: number,
+   shipping: number
 ) {
    let total = 0
    let rawProductDiscount = 0
@@ -180,8 +203,8 @@ function calculateCosts(
       : 0
    const discount = productDiscount + couponDiscount
    const taxable = Math.max(0, afterProductDiscount - couponDiscount)
-   const tax = taxable * 0.09
-   const payable = taxable + tax
+   const tax = taxable * taxRate
+   const payable = taxable + tax + shipping
 
    return {
       total: Number(total.toFixed(2)),
