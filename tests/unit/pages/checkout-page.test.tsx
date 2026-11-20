@@ -696,7 +696,7 @@ describe('checkout — gateway initialization', () => {
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
-         'اتصال به درگاه پرداخت انجام نشد. لطفاً دوباره تلاش کنید.'
+         'اتصال به درگاه پرداخت انجام نشد. اگر سفارش ثبت شده، پیش از تلاش مجدد وضعیت آن را بررسی کنید.'
       )
    })
 })
