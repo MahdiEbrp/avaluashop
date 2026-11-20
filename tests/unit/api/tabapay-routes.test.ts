@@ -134,7 +134,7 @@ describe('POST /api/payments/tabapay', () => {
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(409)
+      expect(response.status).toBe(202)
       await expect(response.json()).resolves.toEqual({
          message: 'PAYMENT_ALREADY_INITIALIZED',
       })
