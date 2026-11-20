@@ -66,7 +66,7 @@ export async function POST(req: Request) {
          }
 
          try {
-            validateTabapayConfiguration()
+            await validateTabapayConfiguration()
          } catch {
             return { kind: 'not-configured' as const }
          }
