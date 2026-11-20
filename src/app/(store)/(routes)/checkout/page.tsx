@@ -51,6 +51,7 @@ function CheckoutContent() {
    const [selectedShippingMethod, setSelectedShippingMethod] = useState('')
    const [taxRate, setTaxRate] = useState(0.09)
    const [taxLabel, setTaxLabel] = useState('مالیات بر ارزش افزوده')
+   const [loadingCheckoutSettings, setLoadingCheckoutSettings] = useState(true)
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
@@ -135,6 +136,8 @@ function CheckoutContent() {
          setTaxLabel(settings.taxLabel)
       }).catch((reason) => {
          if (!cancelled) setError(reason instanceof Error ? reason.message : 'خطا در دریافت تنظیمات خرید')
+      }).finally(() => {
+         if (!cancelled) setLoadingCheckoutSettings(false)
       })
       return () => { cancelled = true }
    }, [])
@@ -436,7 +439,7 @@ function CheckoutContent() {
                      <div className="flex justify-between font-bold"><span>مبلغ نهایی</span><span>{toman(totals.payable)}</span></div>
    
                   </div>
-                  <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || !selectedAddress}>
+                  <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || loadingCheckoutSettings || !selectedAddress || (shippingMethods.length > 0 && !selectedShippingMethod)}>
                      {paymentPending ? 'در انتظار بررسی تراکنش' : submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
                   </Button>
                   <p className="text-xs text-muted-foreground">پس از پرداخت، نتیجه تراکنش از طریق استعلام امن سرور بررسی می‌شود.</p>
