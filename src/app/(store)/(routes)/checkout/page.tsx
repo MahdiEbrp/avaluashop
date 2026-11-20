@@ -20,6 +20,14 @@ type Address = {
    postalCode: string
 }
 
+type ShippingMethod = {
+   id: string
+   title: string
+   description: string | null
+   cost: number
+   freeShippingThreshold: number | null
+}
+
 const money = new Intl.NumberFormat('fa-IR')
 const toman = (value: number) => `${money.format(Math.round(value))} تومان`
 
@@ -39,6 +47,10 @@ function CheckoutContent() {
    const [addresses, setAddresses] = useState<Address[]>([])
    const [selectedAddress, setSelectedAddress] = useState('')
    const [discountCode, setDiscountCode] = useState('')
+   const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([])
+   const [selectedShippingMethod, setSelectedShippingMethod] = useState('')
+   const [taxRate, setTaxRate] = useState(0.09)
+   const [taxLabel, setTaxLabel] = useState('مالیات بر ارزش افزوده')
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
@@ -105,6 +117,29 @@ function CheckoutContent() {
    }, [])
 
    useEffect(() => {
+      let cancelled = false
+      Promise.all([
+         fetch('/api/shipping-methods', { cache: 'no-store' }).then((response) => {
+            if (!response.ok) throw new Error('دریافت روش‌های ارسال انجام نشد.')
+            return response.json() as Promise<ShippingMethod[]>
+         }),
+         fetch('/api/store-settings', { cache: 'no-store' }).then((response) => {
+            if (!response.ok) throw new Error('دریافت تنظیمات فروشگاه انجام نشد.')
+            return response.json() as Promise<{ taxRate: number; taxLabel: string }>
+         }),
+      ]).then(([methods, settings]) => {
+         if (cancelled) return
+         setShippingMethods(methods)
+         if (methods.length) setSelectedShippingMethod(methods[0].id)
+         setTaxRate(settings.taxRate)
+         setTaxLabel(settings.taxLabel)
+      }).catch((reason) => {
+         if (!cancelled) setError(reason instanceof Error ? reason.message : 'خطا در دریافت تنظیمات خرید')
+      })
+      return () => { cancelled = true }
+   }, [])
+
+   useEffect(() => {
       if (!user) {
          setLoadingAddresses(false)
          return
@@ -144,14 +179,21 @@ function CheckoutContent() {
          0
       )
       const afterDiscount = Math.max(0, subtotal - productDiscount)
-      const tax = afterDiscount * 0.09
+      const tax = afterDiscount * taxRate
+      const selectedMethod = shippingMethods.find((method) => method.id === selectedShippingMethod)
+      const shipping = selectedMethod
+         ? selectedMethod.freeShippingThreshold !== null && afterDiscount >= selectedMethod.freeShippingThreshold
+            ? 0
+            : selectedMethod.cost
+         : 0
       return {
          subtotal,
          productDiscount,
          tax,
-         payable: afterDiscount + tax,
+         shipping,
+         payable: afterDiscount + tax + shipping,
       }
-   }, [cart])
+   }, [cart, taxRate, shippingMethods, selectedShippingMethod])
 
    async function saveAddress(event: FormEvent<HTMLFormElement>) {
       event.preventDefault()
@@ -194,7 +236,7 @@ function CheckoutContent() {
          const response = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ addressId: selectedAddress, discountCode: discountCode.trim() || undefined }),
+            body: JSON.stringify({ addressId: selectedAddress, discountCode: discountCode.trim() || undefined, shippingMethodId: selectedShippingMethod || undefined }),
          })
          if (!response.ok) {
             const message = await response.text()
@@ -358,6 +400,23 @@ function CheckoutContent() {
                         </div>
                      ))}
                   </div>
+                  {shippingMethods.length > 0 && (
+                     <div className="space-y-2">
+                        <Label htmlFor="shippingMethod">روش ارسال</Label>
+                        <select
+                           id="shippingMethod"
+                           value={selectedShippingMethod}
+                           onChange={(event) => setSelectedShippingMethod(event.target.value)}
+                           className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                        >
+                           {shippingMethods.map((method) => (
+                              <option key={method.id} value={method.id}>
+                                 {method.title} — {toman(method.cost)}
+                              </option>
+                           ))}
+                        </select>
+                     </div>
+                  )}
                   <div className="space-y-2 border-t pt-3 text-sm">
                      <div className="space-y-1">
                         <Label htmlFor="discountCode">کد تخفیف</Label>
@@ -372,9 +431,10 @@ function CheckoutContent() {
                      </div>
                      <div className="flex justify-between"><span>جمع کالاها</span><span>{toman(totals.subtotal)}</span></div>
                      <div className="flex justify-between"><span>تخفیف محصولات</span><span>{toman(totals.productDiscount)}</span></div>
-                     <div className="flex justify-between"><span>مالیات</span><span>{toman(totals.tax)}</span></div>
+                     <div className="flex justify-between"><span>{taxLabel}</span><span>{toman(totals.tax)}</span></div>
+                     <div className="flex justify-between"><span>هزینه ارسال</span><span>{toman(totals.shipping)}</span></div>
                      <div className="flex justify-between font-bold"><span>مبلغ نهایی</span><span>{toman(totals.payable)}</span></div>
-                     <p className="text-xs text-muted-foreground">هزینه ارسال در این نسخه محاسبه نشده و مبلغ پرداختی نهایی ممکن است پس از تکمیل تنظیمات ارسال تغییر کند.</p>
+   
                   </div>
                   <Button className="w-full" onClick={submitOrder} disabled={submitting || paymentPending || !selectedAddress}>
                      {paymentPending ? 'در انتظار بررسی تراکنش' : submitting ? 'در حال انتقال به درگاه...' : 'پرداخت و ثبت سفارش'}
