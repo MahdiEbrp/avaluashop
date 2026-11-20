@@ -53,7 +53,7 @@ export async function GET(req: Request) {
          gateway: {
             code: 'tabapay',
             title: gateway?.title ?? 'TabaPay',
-            isActive: gateway?.isActive ?? false,
+            isActive: Boolean(gateway?.isActive && credentialsConfigured),
             sandbox: gatewaySettings.sandbox !== false,
             credentialsConfigured,
          },
@@ -99,8 +99,18 @@ export async function PUT(req: Request) {
          ? encryptSettingSecret(input.merchantKey)
          : existingGateway?.credentialsEncrypted ?? null
 
-      if (input.gatewayActive && !credentialsEncrypted) {
-         return NextResponse.json({ message: 'GATEWAY_CREDENTIALS_REQUIRED' }, { status: 400 })
+      let credentialsReadable = false
+      if (credentialsEncrypted) {
+         try {
+            decryptSettingSecret(credentialsEncrypted)
+            credentialsReadable = true
+         } catch {
+            credentialsReadable = false
+         }
+      }
+
+      if (input.gatewayActive && !credentialsReadable) {
+         return NextResponse.json({ message: 'GATEWAY_CREDENTIALS_REQUIRED_OR_ENCRYPTION_KEY_INVALID' }, { status: 400 })
       }
 
       const [, gateway] = await prisma.$transaction([
@@ -148,6 +158,9 @@ export async function PUT(req: Request) {
    } catch (error) {
       if (error instanceof ZodError) {
          return NextResponse.json({ message: 'INVALID_SETTINGS', issues: error.issues }, { status: 400 })
+      }
+      if (error instanceof Error && error.message.includes('APP_SETTINGS_ENCRYPTION_KEY')) {
+         return NextResponse.json({ message: 'APP_SETTINGS_ENCRYPTION_KEY_REQUIRED' }, { status: 503 })
       }
       console.error('[ADMIN_SETTINGS_PUT]', error)
       return NextResponse.json({ message: 'SETTINGS_SAVE_FAILED' }, { status: 500 })
