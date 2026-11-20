@@ -7,6 +7,8 @@ import {
 import {
    createTabapayPayment,
    verifyTabapayPayment,
+   validateTabapayConfiguration,
+   isTabapayAmountValid,
 } from '@/lib/payments/tabapay'
 import { get, json, prismaMock, silenceConsole, USER } from './helpers'
 
@@ -14,6 +16,8 @@ vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule
 vi.mock('@/lib/payments/tabapay', () => ({
    createTabapayPayment: vi.fn(),
    verifyTabapayPayment: vi.fn(),
+   validateTabapayConfiguration: vi.fn(),
+   isTabapayAmountValid: vi.fn(() => true),
 }))
 vi.mock('@/lib/payments/order-lifecycle', () => ({
    completePendingOrder: vi.fn(),
@@ -32,6 +36,8 @@ const order = {
 
 beforeEach(() => {
    process.env.APP_URL = 'https://avaluashop.vercel.app'
+   vi.mocked(validateTabapayConfiguration).mockReturnValue({} as never)
+   vi.mocked(isTabapayAmountValid).mockReturnValue(true)
    silenceConsole()
    prismaMock.order.findFirst.mockResolvedValue(order)
    prismaMock.payment.findFirst.mockResolvedValue(null)
@@ -163,9 +169,7 @@ describe('POST /api/payments/tabapay', () => {
    })
 
    it('answers 400 when the amount is outside the gateway limits', async () => {
-      vi.mocked(createTabapayPayment).mockRejectedValue(
-         new Error('TABAPAY_AMOUNT_OUT_OF_RANGE')
-      )
+      vi.mocked(isTabapayAmountValid).mockReturnValue(false)
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
@@ -173,27 +177,29 @@ describe('POST /api/payments/tabapay', () => {
       await expect(response.json()).resolves.toEqual({
          message: 'TABAPAY_AMOUNT_OUT_OF_RANGE',
       })
+      expect(createTabapayPayment).not.toHaveBeenCalled()
    })
 
-   it('releases the reservation when the gateway fails', async () => {
+   it('keeps the reservation when the gateway create result is ambiguous', async () => {
       vi.mocked(createTabapayPayment).mockRejectedValue(new Error('TABAPAY_HTTP_ERROR'))
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(502)
+      expect(response.status).toBe(202)
       await expect(response.json()).resolves.toEqual({
-         message: 'PAYMENT_INITIALIZATION_FAILED',
+         message: 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION',
       })
-      expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
+      expect(releasePendingOrder).not.toHaveBeenCalled()
    })
 
-   it('still answers 502 when the compensating release also fails', async () => {
+   it('does not release stock after a gateway timeout, even if reconciliation is needed', async () => {
       vi.mocked(createTabapayPayment).mockRejectedValue(new Error('TABAPAY_HTTP_ERROR'))
       vi.mocked(releasePendingOrder).mockRejectedValue(new Error('release down'))
 
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(502)
+      expect(response.status).toBe(202)
+      expect(releasePendingOrder).not.toHaveBeenCalled()
    })
 
    it('does not attempt a release when the request never named an order', async () => {
