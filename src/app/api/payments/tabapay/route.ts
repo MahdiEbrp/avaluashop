@@ -35,28 +35,9 @@ export async function POST(req: Request) {
          return NextResponse.json({ message: 'ORDER_NOT_PAYABLE' }, { status: 409 })
       }
 
-      const amountRial = Math.round(orderSnapshot.payable * 10)
-      if (!isTabapayAmountValid(amountRial)) {
-         await releasePendingOrder(orderId)
-         return NextResponse.json(
-            { message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' },
-            { status: 400 }
-         )
-      }
-
-      try {
-         validateTabapayConfiguration()
-      } catch {
-         await releasePendingOrder(orderId)
-         return NextResponse.json(
-            { message: 'TABAPAY_NOT_CONFIGURED' },
-            { status: 503 }
-         )
-      }
-
-      // A transaction-scoped PostgreSQL advisory lock serializes payment
-      // initialization for this order without holding a DB transaction open
-      // while making the external gateway request.
+      // Check for an existing transaction before validating current gateway
+      // configuration. A configuration change must never cancel an order that
+      // already has a usable payment URL or an in-flight initialization.
       const reservation = await prisma.$transaction(async (tx) => {
          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${orderId}))`
 
@@ -77,6 +58,17 @@ export async function POST(req: Request) {
                return { kind: 'existing-url' as const, paymentUrl: existingPayment.paymentUrl }
             }
             return { kind: 'initializing' as const }
+         }
+
+         const amountRial = Math.round(order.payable * 10)
+         if (!isTabapayAmountValid(amountRial)) {
+            return { kind: 'amount-invalid' as const }
+         }
+
+         try {
+            validateTabapayConfiguration()
+         } catch {
+            return { kind: 'not-configured' as const }
          }
 
          const provider = await tx.paymentProvider.upsert({
@@ -101,7 +93,7 @@ export async function POST(req: Request) {
                orderId: order.id,
             },
          })
-         return { kind: 'created' as const, paymentId: payment.id, order }
+         return { kind: 'created' as const, paymentId: payment.id, order, amountRial }
       })
 
       if (reservation.kind === 'not-payable') {
@@ -116,6 +108,20 @@ export async function POST(req: Request) {
             { status: 202 }
          )
       }
+      if (reservation.kind === 'amount-invalid') {
+         await releasePendingOrder(orderId)
+         return NextResponse.json(
+            { message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' },
+            { status: 400 }
+         )
+      }
+      if (reservation.kind === 'not-configured') {
+         await releasePendingOrder(orderId)
+         return NextResponse.json(
+            { message: 'TABAPAY_NOT_CONFIGURED' },
+            { status: 503 }
+         )
+      }
       if (reservation.kind === 'disabled') {
          await releasePendingOrder(orderId)
          return NextResponse.json({ message: 'PAYMENT_PROVIDER_DISABLED' }, { status: 503 })
@@ -124,7 +130,7 @@ export async function POST(req: Request) {
       paymentId = reservation.paymentId
       gatewayRequestStarted = true
       const result = await createTabapayPayment({
-         amountRial,
+         amountRial: reservation.amountRial,
          orderNumber: reservation.order.number,
          mobile: reservation.order.address?.phone,
       })
