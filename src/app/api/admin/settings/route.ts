@@ -71,8 +71,29 @@ export async function PUT(req: Request) {
       const input = updateSchema.parse(await req.json())
       const existingGateway = await prisma.paymentProvider.findFirst({
          where: { OR: [{ code: 'tabapay' }, { title: 'Tabapay' }] },
-         select: { id: true, credentialsEncrypted: true },
+         select: { id: true, credentialsEncrypted: true, isActive: true, settings: true },
       })
+
+      if (existingGateway) {
+         const activePayments = await prisma.payment.count({
+            where: { providerId: existingGateway.id, status: 'Processing' },
+         })
+         const currentGatewaySettings =
+            existingGateway.settings && typeof existingGateway.settings === 'object'
+               ? existingGateway.settings as { sandbox?: boolean }
+               : {}
+         const gatewayConfigurationChanged =
+            Boolean(input.merchantKey) ||
+            input.sandbox !== (currentGatewaySettings.sandbox !== false) ||
+            input.gatewayActive !== existingGateway.isActive
+
+         if (activePayments > 0 && gatewayConfigurationChanged) {
+            return NextResponse.json(
+               { message: 'GATEWAY_HAS_PENDING_TRANSACTIONS' },
+               { status: 409 }
+            )
+         }
+      }
 
       const credentialsEncrypted = input.merchantKey
          ? encryptSettingSecret(input.merchantKey)
