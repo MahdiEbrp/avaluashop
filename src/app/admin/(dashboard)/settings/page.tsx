@@ -191,9 +191,26 @@ export default function SettingsPage() {
             <div className="space-y-3">
                {methods.map((method) => (
                   <div key={method.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-                     <div>
-                        <p className="font-medium">{method.title}</p>
-                        <p className="text-xs text-muted-foreground">{method.code} · هزینه: {method.cost.toLocaleString('fa-IR')} · ارسال رایگان از {method.freeShippingThreshold?.toLocaleString('fa-IR') ?? '—'}</p>
+                     <div className="grid flex-1 gap-2 sm:grid-cols-3">
+                        <label className="space-y-1 text-xs">عنوان
+                           <input className={inputClass} defaultValue={method.title} onBlur={(event) => {
+                              if (event.currentTarget.value !== method.title) void updateMethod(method, { title: event.currentTarget.value }).catch((error) => setMessage(error.message))
+                           }} />
+                        </label>
+                        <label className="space-y-1 text-xs">هزینه (تومان)
+                           <input className={inputClass} type="number" min="0" defaultValue={method.cost} onBlur={(event) => {
+                              const cost = Number(event.currentTarget.value)
+                              if (Number.isFinite(cost) && cost !== method.cost) void updateMethod(method, { cost }).catch((error) => setMessage(error.message))
+                           }} />
+                        </label>
+                        <label className="space-y-1 text-xs">ارسال رایگان از (تومان)
+                           <input className={inputClass} type="number" min="0" defaultValue={method.freeShippingThreshold ?? ''} onBlur={(event) => {
+                              const value = event.currentTarget.value.trim()
+                              const freeShippingThreshold = value ? Number(value) : null
+                              if (freeShippingThreshold !== method.freeShippingThreshold) void updateMethod(method, { freeShippingThreshold }).catch((error) => setMessage(error.message))
+                           }} />
+                        </label>
+                        <p className="text-xs text-muted-foreground sm:col-span-3">{method.code}</p>
                      </div>
                      <div className="flex items-center gap-3 text-sm">
                         <label className="flex items-center gap-1">
