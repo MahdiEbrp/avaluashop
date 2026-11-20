@@ -3,18 +3,23 @@ import {
    verifyTabapayPayment,
    validateTabapayConfiguration,
 } from '@/lib/payments/tabapay'
+import { prismaMock } from '../support/db'
+
+vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
+vi.mock('@/lib/settings-crypto', () => ({ decryptSettingSecret: vi.fn(() => 'test-merchant-key') }))
 
 const merchantKey = 'test-merchant-key'
 
 beforeEach(() => {
-   process.env.TABAPAY_MERCHANT_KEY = merchantKey
-   process.env.TABAPAY_SANDBOX = 'true'
    process.env.APP_URL = 'https://avaluashop.vercel.app'
+   prismaMock.paymentProvider.findUnique.mockResolvedValue({
+      isActive: true,
+      settings: { sandbox: true },
+      credentialsEncrypted: 'encrypted-secret',
+   } as never)
 })
 
 afterEach(() => {
-   delete process.env.TABAPAY_MERCHANT_KEY
-   delete process.env.TABAPAY_SANDBOX
    delete process.env.APP_URL
    vi.unstubAllGlobals()
 })
@@ -55,7 +60,9 @@ describe('Tabapay adapter', () => {
    })
 
    it('refuses to run without a merchant key', async () => {
-      delete process.env.TABAPAY_MERCHANT_KEY
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
+         isActive: true, settings: { sandbox: true }, credentialsEncrypted: null,
+      } as never)
 
       await expect(
          createTabapayPayment({ amountRial: 250_000, orderNumber: 1 })
@@ -100,7 +107,9 @@ describe('Tabapay adapter', () => {
    })
 
    it('uses the live endpoints when the sandbox flag is explicitly off', async () => {
-      process.env.TABAPAY_SANDBOX = 'false'
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
+         isActive: true, settings: { sandbox: false }, credentialsEncrypted: 'encrypted-secret',
+      } as never)
       const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
          new Response(
             JSON.stringify({
@@ -120,7 +129,9 @@ describe('Tabapay adapter', () => {
    })
 
    it('defaults to sandbox when the flag is absent', async () => {
-      delete process.env.TABAPAY_SANDBOX
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
+         isActive: true, settings: {}, credentialsEncrypted: 'encrypted-secret',
+      } as never)
       const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
          new Response(
             JSON.stringify({
@@ -207,11 +218,15 @@ describe('Tabapay adapter', () => {
       ).rejects.toThrow('TABAPAY_CREATE_UNCONFIRMED')
    })
 
-   it('exposes configuration validation without contacting the gateway', () => {
-      expect(() => validateTabapayConfiguration()).not.toThrow()
+   it('validates the database-backed gateway configuration without contacting the gateway', async () => {
+      await expect(validateTabapayConfiguration()).resolves.toMatchObject({
+         createUrl: 'https://api.tabapay.ir/v1/sandbox/create',
+      })
 
-      delete process.env.TABAPAY_MERCHANT_KEY
-      expect(() => validateTabapayConfiguration()).toThrow('TABAPAY_NOT_CONFIGURED')
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
+         isActive: true, settings: { sandbox: true }, credentialsEncrypted: null,
+      } as never)
+      await expect(validateTabapayConfiguration()).rejects.toThrow('TABAPAY_NOT_CONFIGURED')
    })
 
    it('falls back to a generic message when creation fails without one', async () => {
