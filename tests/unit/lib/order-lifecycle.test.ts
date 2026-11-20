@@ -128,7 +128,7 @@ describe('completePendingOrder', () => {
       await expect(completePendingOrder('o1', 'pay1')).resolves.toBe(true)
 
       expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-         where: { id: 'pay1', status: 'Processing' },
+         where: { id: 'pay1', orderId: 'o1', status: 'Processing' },
          data: { status: 'Paid', isSuccessful: true },
       })
       expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
