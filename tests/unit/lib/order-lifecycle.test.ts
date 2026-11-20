@@ -14,6 +14,7 @@ const orderWithItems = {
    userId: 'u1',
    status: 'PendingPayment',
    isPaid: false,
+   discountCodeId: null,
    orderItems: [
       { productId: 'p1', count: 2 },
       { productId: 'p2', count: 1 },
@@ -27,6 +28,7 @@ beforeEach(() => {
    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 })
    prismaMock.payment.findUnique.mockResolvedValue({ status: 'Processing' })
    prismaMock.product.update.mockResolvedValue({})
+   prismaMock.discountCode.update.mockResolvedValue({})
    prismaMock.cartItem.findUnique.mockResolvedValue({ count: 3 })
    prismaMock.cartItem.update.mockResolvedValue({})
    prismaMock.cartItem.delete.mockResolvedValue({})
@@ -45,7 +47,7 @@ describe('releasePendingOrder', () => {
          data: { status: 'Cancelled' },
       })
       expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
-         where: { id: 'pay1', status: 'Processing' },
+         where: { id: 'pay1', orderId: 'o1', status: 'Processing' },
          data: { status: 'Failed' },
       })
       /* Every purchased unit goes back on the shelf. */
@@ -55,6 +57,20 @@ describe('releasePendingOrder', () => {
       })
       expect(prismaMock.product.update).toHaveBeenCalledWith({
          where: { id: 'p2' },
+         data: { stock: { increment: 1 } },
+      })
+   })
+
+   it('restores the reserved discount-code use when an unpaid order is cancelled', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         ...orderWithItems,
+         discountCodeId: 'dc1',
+      })
+
+      await expect(releasePendingOrder('o1', 'pay1')).resolves.toBe(true)
+
+      expect(prismaMock.discountCode.update).toHaveBeenCalledWith({
+         where: { id: 'dc1' },
          data: { stock: { increment: 1 } },
       })
    })
