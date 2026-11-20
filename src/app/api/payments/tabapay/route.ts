@@ -142,17 +142,19 @@ export async function POST(req: Request) {
       // unknown (for example a timeout after the provider created a token).
       // Keep the reservation in that case; releasing it could permit an
       // untracked late payment against stock that has already been resold.
-      if (orderId && !gatewayRequestStarted) {
+      const definitiveCreateRejection =
+         error instanceof Error && error.message.startsWith('TABAPAY_CREATE_REJECTED:')
+      if (orderId && (!gatewayRequestStarted || definitiveCreateRejection)) {
          await releasePendingOrder(orderId, paymentId).catch((releaseError) => {
             console.error('[TABAPAY_RELEASE]', releaseError)
          })
       }
 
       return NextResponse.json(
-         { message: gatewayRequestStarted
+         { message: gatewayRequestStarted && !definitiveCreateRejection
             ? 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION'
             : 'PAYMENT_INITIALIZATION_FAILED' },
-         { status: gatewayRequestStarted ? 202 : 502 }
+         { status: gatewayRequestStarted && !definitiveCreateRejection ? 202 : 502 }
       )
    }
 }
