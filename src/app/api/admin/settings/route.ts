@@ -7,7 +7,7 @@ const updateSchema = z.object({
    taxEnabled: z.boolean(),
    taxRate: z.number().finite().min(0).max(1),
    taxLabel: z.string().trim().min(1).max(80),
-   currency: z.enum(['IRR', 'IRT']),
+   currency: z.literal('IRT'),
    gatewayActive: z.boolean(),
    sandbox: z.boolean(),
    merchantKey: z.string().trim().max(500).optional(),
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 
       return NextResponse.json({
          taxEnabled: store.taxEnabled,
-         taxRate: store.taxRate,
+         taxRate: store.taxRate * 100,
          taxLabel: store.taxLabel,
          currency: store.currency,
          gateway: {
