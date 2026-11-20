@@ -69,7 +69,11 @@ const jsonResponse = (body: unknown, status = 200) =>
    })
 
 const stubFetch = (handler: (url: string, init?: RequestInit) => Promise<Response>) =>
-   vi.stubGlobal('fetch', vi.fn(handler))
+   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/api/shipping-methods') return jsonResponse([])
+      if (url === '/api/store-settings') return jsonResponse({ taxRate: 0.09, taxLabel: 'مالیات بر ارزش افزوده' })
+      return handler(url, init)
+   }))
 
 beforeEach(() => {
    dispatchCart.mockClear()
@@ -160,7 +164,7 @@ describe('checkout — address selection', () => {
          }
          return jsonResponse([])
       })
-      vi.stubGlobal('fetch', fetchMock)
+      stubFetch((url, init) => fetchMock(url, init))
 
       render(<CheckoutPage />)
       await screen.findByText('هنوز نشانی‌ای ثبت نکرده‌اید.')
@@ -773,7 +777,7 @@ describe('checkout — defensive branches', () => {
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
-      vi.stubGlobal('fetch', vi.fn(async () => pending))
+      stubFetch(async () => pending)
 
       const { unmount } = render(<CheckoutPage />)
       unmount()
