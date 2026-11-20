@@ -152,7 +152,10 @@ describe('POST /api/payments/tabapay', () => {
       /* A `pending:` refId is a row that never finished initializing. */
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
-      expect(response.status).toBe(409)
+      expect(response.status).toBe(202)
+      await expect(response.json()).resolves.toEqual({
+         message: 'PAYMENT_ALREADY_INITIALIZED',
+      })
    })
 
    it('answers 503 when the provider is switched off', async () => {
