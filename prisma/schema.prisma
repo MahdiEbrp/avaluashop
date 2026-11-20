@@ -200,6 +200,8 @@ model Order {
   @@index([addressId])
   @@index([discountCodeId])
   @@index([createdAt])
+  @@index([shippingMethodId])
+  @@index([shippingCarrierId])
 }
 
 model OrderItem {
