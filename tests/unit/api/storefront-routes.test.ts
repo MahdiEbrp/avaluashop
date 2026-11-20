@@ -279,6 +279,12 @@ describe('POST /api/orders', () => {
       expect((await ordersPOST(json({ addressId: 'ad1' }))).status).toBe(401)
    })
 
+   it('rejects a JSON null body with 400', async () => {
+      const response = await ordersPOST(json(null, USER))
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
+   })
+
    it('requires a shipping address', async () => {
       const response = await ordersPOST(json({}, USER))
 

@@ -49,6 +49,9 @@ export async function POST(req: Request) {
       } catch {
          return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
       }
+      if (!body || typeof body !== 'object' || Array.isArray(body)) {
+         return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
+      }
 
       const addressId = typeof body.addressId === 'string' ? body.addressId : null
       const discountCode =
