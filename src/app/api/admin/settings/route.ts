@@ -27,7 +27,7 @@ export async function GET(req: Request) {
             create: { id: 'default' },
             update: {},
          }),
-         prisma.paymentProvider.findUnique({ where: { code: 'tabapay' } }),
+         prisma.paymentProvider.findFirst({ where: { OR: [{ code: 'tabapay' }, { title: 'Tabapay' }] } }),
       ])
 
       let credentialsConfigured = false
@@ -70,8 +70,8 @@ export async function PUT(req: Request) {
    try {
       const input = updateSchema.parse(await req.json())
       const existingGateway = await prisma.paymentProvider.findUnique({
-         where: { code: 'tabapay' },
-         select: { credentialsEncrypted: true },
+         where: { OR: [{ code: 'tabapay' }, { title: 'Tabapay' }] },
+         select: { id: true, credentialsEncrypted: true },
       })
 
       const credentialsEncrypted = input.merchantKey
@@ -100,7 +100,7 @@ export async function PUT(req: Request) {
             },
          }),
          prisma.paymentProvider.upsert({
-            where: { code: 'tabapay' },
+            where: { title: 'Tabapay' },
             create: {
                code: 'tabapay',
                title: 'TabaPay',
@@ -111,6 +111,7 @@ export async function PUT(req: Request) {
                credentialsEncrypted,
             },
             update: {
+               code: 'tabapay',
                isActive: input.gatewayActive,
                settings: { sandbox: input.sandbox },
                credentialsEncrypted,
