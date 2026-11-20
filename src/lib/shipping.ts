@@ -1,18 +1,77 @@
-export type ShippingMethodQuoteInput = {
-   type: 'FlatRate' | 'Free' | 'FreeAbove' | 'CarrierCalculated'
+export type ShippingMethodType = 'FlatRate' | 'Free' | 'FreeAbove' | 'CarrierCalculated'
+
+/* Live carrier pricing is not wired to any provider yet: such methods are
+   read-only in the admin screen, so the edit form only ever accepts the
+   hand-priced types. Mapping keeps the select's value valid either way. */
+export type EditableShippingMethodType = Exclude<ShippingMethodType, 'CarrierCalculated'>
+
+export function editableMethodType(type: ShippingMethodType): EditableShippingMethodType {
+   return type === 'CarrierCalculated' ? 'FlatRate' : type
+}
+
+export interface ShippingMethodQuoteInput {
+   type: ShippingMethodType
    amount: number
    freeAbove: number | null
    allowedCities: string[]
 }
 
-export type ShippingQuote = {
+export interface ShippingQuote {
    available: boolean
    amount: number
    reason?: 'CITY_NOT_SUPPORTED' | 'CARRIER_QUOTE_UNAVAILABLE'
 }
 
-function normalizeCity(city: string) {
-   return city.trim().replace(/\s+/g, ' ').toLocaleLowerCase('fa-IR')
+/* Arabic and Persian share letters that render alike but differ by code point,
+   and both keyboards reach real users. Folding them (plus ZWNJ and tatweel)
+   keeps "كرج" and "کرج" the same city. */
+const LETTER_FOLDS: readonly (readonly [RegExp, string])[] = [
+   [/[يیۍ]/g, 'ی'],
+   [/[كک]/g, 'ک'],
+   [/[أإآٱ]/g, 'ا'],
+   [/[ةۀ]/g, 'ه'],
+   [/ؤ/g, 'و'],
+   [/\u0640/g, ''],
+   [/\u200C/g, ''],
+]
+
+/* U+06F0 (۰) and U+0660 (٠) start the two digit ranges. */
+const PERSIAN_DIGIT_ZERO = 1776
+const ARABIC_DIGIT_ZERO = 1632
+
+/* Persian ۰-۹ and Arabic-Indic ٠-٩ digits mean the same numbers. */
+function toAsciiDigits(value: string) {
+   return value.replaceAll(/[\u06F0-\u06F9\u0660-\u0669]/g, (digit) => {
+      /* Both ranges are single BMP code units, so the low byte carries the digit. */
+      // eslint-disable-next-line unicorn/prefer-code-point -- BMP digits only
+      const code = digit.charCodeAt(0)
+
+      return String(code - (code >= PERSIAN_DIGIT_ZERO ? PERSIAN_DIGIT_ZERO : ARABIC_DIGIT_ZERO))
+   })
+}
+
+export function normalizeCity(city: string | null | undefined) {
+   let value = toAsciiDigits((city ?? '').trim().replaceAll(/\s+/g, ' '))
+
+   for (const [pattern, replacement] of LETTER_FOLDS) value = value.replaceAll(pattern, replacement)
+
+   return value.toLocaleLowerCase('fa-IR')
+}
+
+/**
+ * Split an administrator-entered city list. The field is free text, so every
+ * separator an Iranian keyboard produces has to work: ASCII comma, Persian
+ * comma, semicolon and newlines.
+ */
+export function parseAllowedCities(value: string) {
+   return [
+      ...new Set(
+         value
+            .split(/[,،;\n\r]+/)
+            .map((city) => city.trim())
+            .filter(Boolean)
+      ),
+   ]
 }
 
 export function quoteShipping(
@@ -42,7 +101,7 @@ export function quoteShipping(
 }
 
 export function calculateDiscountedSubtotal(
-   items: Array<{ count: number; product: { price: number; discount: number } }>,
+   items: { count: number; product: { price: number; discount: number } }[],
    coupon: { percent: number; maxDiscountAmount: number } | null
 ) {
    const total = items.reduce((sum, item) => sum + item.count * item.product.price, 0)
@@ -69,7 +128,7 @@ export function calculateDiscountedSubtotal(
 }
 
 export function calculateOrderTotals(
-   items: Array<{ count: number; product: { price: number; discount: number } }>,
+   items: { count: number; product: { price: number; discount: number } }[],
    coupon: { percent: number; maxDiscountAmount: number } | null,
    tax: { enabled: boolean; rate: number },
    shipping: number
