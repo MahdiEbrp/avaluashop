@@ -353,8 +353,19 @@ enum ShippingCarrierCode {
   Chapar
 }
 
+model StoreSetting {
+  /// Singleton settings row; use id="default".
+  id         String   @id @default("default")
+  taxEnabled Boolean  @default(true)
+  taxRate    Float    @default(0.09)
+  taxLabel   String   @default("مالیات بر ارزش افزوده")
+  currency   String   @default("IRT")
+  updatedAt  DateTime @updatedAt
+}
+
 model ShippingMethod {
   id          String @id @default(cuid())
+  code        String @unique
   title       String
   description String?
   type        ShippingMethodType @default(FlatRate)
