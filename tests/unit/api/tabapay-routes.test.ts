@@ -126,6 +126,40 @@ describe('POST /api/payments/tabapay', () => {
       expect((await tabapayPOST(json({ orderId: 'order-1' }, USER))).status).toBe(409)
    })
 
+   it('re-checks the order under the lock when it changed after the snapshot', async () => {
+      /* The snapshot check is only a fast path. Another request can pay or
+         cancel the order between that read and the advisory lock, so the
+         transaction must re-read and refuse rather than create a payment. */
+      prismaMock.order.findFirst
+         .mockResolvedValueOnce(order)
+         .mockResolvedValueOnce({ ...order, isPaid: true })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(409)
+      await expect(response.json()).resolves.toEqual({ message: 'ORDER_NOT_PAYABLE' })
+      expect(prismaMock.order.findFirst).toHaveBeenCalledTimes(2)
+      expect(prismaMock.payment.create).not.toHaveBeenCalled()
+   })
+
+   it('answers 503 and releases when the gateway loses its configuration mid-request', async () => {
+      /* Configuration can disappear between the pre-check and the locked
+         section; the row is not created yet, so only the order is released. */
+      vi.mocked(validateTabapayConfiguration).mockImplementation(() => {
+         throw new Error('TABAPAY_NOT_CONFIGURED')
+      })
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(503)
+      await expect(response.json()).resolves.toEqual({
+         message: 'TABAPAY_NOT_CONFIGURED',
+      })
+      expect(releasePendingOrder).toHaveBeenCalledWith('order-1')
+      expect(prismaMock.payment.create).not.toHaveBeenCalled()
+      expect(createTabapayPayment).not.toHaveBeenCalled()
+   })
+
    it('refuses a half-initialized payment instead of starting a second one', async () => {
       prismaMock.payment.findFirst.mockResolvedValue({
          id: 'payment-1',
@@ -204,6 +238,21 @@ describe('POST /api/payments/tabapay', () => {
       const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
 
       expect(response.status).toBe(502)
+      expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
+   })
+
+   it('tolerates the compensating release failing after an explicit rejection', async () => {
+      vi.mocked(createTabapayPayment).mockRejectedValue(
+         new Error('TABAPAY_CREATE_REJECTED:MERCHANT_INACTIVE')
+      )
+      vi.mocked(releasePendingOrder).mockRejectedValue(new Error('release down'))
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(502)
+      await expect(response.json()).resolves.toEqual({
+         message: 'PAYMENT_INITIALIZATION_FAILED',
+      })
       expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
    })
 
