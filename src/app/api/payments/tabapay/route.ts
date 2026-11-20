@@ -113,7 +113,7 @@ export async function POST(req: Request) {
       if (reservation.kind === 'initializing') {
          return NextResponse.json(
             { message: 'PAYMENT_ALREADY_INITIALIZED' },
-            { status: 409 }
+            { status: 202 }
          )
       }
       if (reservation.kind === 'disabled') {
