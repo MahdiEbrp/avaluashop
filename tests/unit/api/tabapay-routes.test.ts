@@ -193,6 +193,17 @@ describe('POST /api/payments/tabapay', () => {
       expect(releasePendingOrder).not.toHaveBeenCalled()
    })
 
+   it('releases the reservation after an explicit gateway rejection', async () => {
+      vi.mocked(createTabapayPayment).mockRejectedValue(
+         new Error('TABAPAY_CREATE_REJECTED:MERCHANT_INACTIVE')
+      )
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(502)
+      expect(releasePendingOrder).toHaveBeenCalledWith('order-1', 'payment-1')
+   })
+
    it('does not release stock after a gateway timeout, even if reconciliation is needed', async () => {
       vi.mocked(createTabapayPayment).mockRejectedValue(new Error('TABAPAY_HTTP_ERROR'))
       vi.mocked(releasePendingOrder).mockRejectedValue(new Error('release down'))
