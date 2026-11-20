@@ -188,6 +188,7 @@ describe('checkout — address selection', () => {
       )
       /* The saved address is appended and becomes the selection. */
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       expect(screen.queryByText('هنوز نشانی‌ای ثبت نکرده‌اید.')).not.toBeInTheDocument()
    })
 
@@ -303,6 +304,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -340,6 +342,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -360,6 +363,7 @@ describe('checkout — submitting the order', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -564,6 +568,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -593,6 +598,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       await user().type(screen.getByLabelText('کد تخفیف'), 'SAVE10')
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -617,6 +623,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -638,6 +645,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/وضعیت ایجاد تراکنش هنوز مشخص نیست/)
@@ -655,6 +663,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -673,6 +682,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -691,6 +701,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -714,6 +725,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -738,6 +750,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -758,6 +771,7 @@ describe('checkout — gateway initialization', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -796,6 +810,7 @@ describe('checkout — defensive branches', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
@@ -811,6 +826,7 @@ describe('checkout — defensive branches', () => {
 
       render(<CheckoutPage />)
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 

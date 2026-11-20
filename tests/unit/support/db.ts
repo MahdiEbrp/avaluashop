@@ -40,6 +40,8 @@ export interface PrismaMock {
    provider: TableMock
    paymentProvider: TableMock
    storeSetting: TableMock
+   shippingMethod: TableMock
+   shippingCarrier: TableMock
    $queryRaw: MockFn
    $transaction: MockFn
    $connect: MockFn
@@ -70,6 +72,8 @@ const TABLES = [
    'provider',
    'paymentProvider',
    'storeSetting',
+   'shippingMethod',
+   'shippingCarrier',
 ]
 
 const CRUD = [
