@@ -295,6 +295,27 @@ describe('Tabapay adapter', () => {
       ).rejects.toThrow('TABAPAY_VERIFICATION_MISMATCH')
    })
 
+   it('keeps ambiguous verification responses pending for reconciliation', async () => {
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({
+                  responseCode: -101,
+                  status: 'error',
+                  token: 'tabapay-token-1',
+                  amount: 100_000,
+               }),
+               { status: 200 }
+            )
+         )
+      )
+
+      await expect(
+         verifyTabapayPayment({ token: 'tabapay-token-1', amountRial: 100_000 })
+      ).rejects.toThrow('TABAPAY_VERIFICATION_UNCONFIRMED')
+   })
+
    it('returns false for an explicit unsuccessful transaction', async () => {
       vi.stubGlobal(
          'fetch',
