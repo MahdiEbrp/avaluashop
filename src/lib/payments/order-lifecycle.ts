@@ -30,6 +30,13 @@ export async function releasePendingOrder(orderId: string, paymentId?: string) {
          })
       }
 
+      if (order.discountCodeId) {
+         await tx.discountCode.update({
+            where: { id: order.discountCodeId },
+            data: { stock: { increment: 1 } },
+         })
+      }
+
       return true
    })
 }
@@ -37,7 +44,7 @@ export async function releasePendingOrder(orderId: string, paymentId?: string) {
 export async function completePendingOrder(orderId: string, paymentId: string) {
    return prisma.$transaction(async (tx) => {
       const paid = await tx.payment.updateMany({
-         where: { id: paymentId, status: 'Processing' },
+         where: { id: paymentId, orderId, status: 'Processing' },
          data: { status: 'Paid', isSuccessful: true },
       })
 
