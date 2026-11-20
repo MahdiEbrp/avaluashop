@@ -307,6 +307,45 @@ describe('POST /api/orders', () => {
       expect(prismaMock.cartItem.deleteMany).not.toHaveBeenCalled()
    })
 
+   it('uses the selected database shipping method and snapshots its charge', async () => {
+      stubSuccess()
+      prismaMock.shippingMethod.findMany.mockResolvedValue([{
+         id: 'express-1',
+         title: 'ارسال فوری',
+         cost: 50,
+         freeShippingThreshold: 500,
+      }])
+
+      const response = await ordersPOST(
+         json({ addressId: 'ad1', shippingMethodId: 'express-1' }, USER)
+      )
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({
+            shipping: 50,
+            shippingMethodName: 'ارسال فوری',
+            taxRate: 0.09,
+            payable: 311.6,
+         }),
+      })
+   })
+
+   it('uses the configured tax rate and can disable tax', async () => {
+      stubSuccess()
+      prismaMock.storeSetting.findUnique.mockResolvedValue({
+         taxEnabled: true,
+         taxRate: 0.05,
+      })
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.order.create).toHaveBeenCalledWith({
+         data: expect.objectContaining({ taxRate: 0.05, tax: 12, payable: 252 }),
+      })
+   })
+
    it('reserves stock for every line inside the transaction', async () => {
       stubSuccess()
 
