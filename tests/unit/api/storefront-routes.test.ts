@@ -254,6 +254,8 @@ describe('POST /api/orders', () => {
       prismaMock.cart.findUnique.mockResolvedValue(cart)
       prismaMock.product.updateMany.mockResolvedValue({ count: 1 })
       prismaMock.order.create.mockResolvedValue({ id: 'o1', number: 42 })
+      prismaMock.shippingMethod.findMany.mockResolvedValue([])
+      prismaMock.storeSetting.findUnique.mockResolvedValue(null)
    }
 
    it('rejects an anonymous caller', async () => {
