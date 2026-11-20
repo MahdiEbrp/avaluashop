@@ -405,7 +405,7 @@ describe('POST /api/orders', () => {
    })
 
    it('rejects an expired or unknown discount code', async () => {
-      prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
+      stubSuccess()
       prismaMock.discountCode.findFirst.mockResolvedValue(null)
 
       const response = await ordersPOST(
