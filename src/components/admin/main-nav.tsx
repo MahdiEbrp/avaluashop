@@ -37,6 +37,11 @@ export function MainNav({
          active: pathname.includes(`/admin/payments`),
       },
       {
+         href: `/admin/settings`,
+         label: 'Settings',
+         active: pathname.includes(`/admin/settings`),
+      },
+      {
          href: `/admin/users`,
          label: 'Users',
          active: pathname.includes(`/admin/users`),
