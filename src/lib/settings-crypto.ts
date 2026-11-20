@@ -36,7 +36,7 @@ export function encryptSettingSecret(value: string) {
 /** Decrypt a secret only in trusted server-side modules. */
 export function decryptSettingSecret(value: string) {
    const [version, iv, tag, ciphertext, ...extra] = value.split('.')
-   if (version !== 'v1' || !iv || !tag || !ciphertext || extra.length) {
+   if (version !== 'v1' || !iv || !tag || !ciphertext || extra.length > 0) {
       throw new Error('INVALID_ENCRYPTED_SETTING')
    }
 

@@ -1,22 +1,33 @@
 import prisma from '@/lib/prisma'
 import { decryptSettingSecret } from '@/lib/settings-crypto'
 
-type TabapayResponse = {
+/* The canonical identity of the gateway row. Title is unique too, but titles
+   are display strings and drift ("TabaPay" vs "Tabapay"); `code` is the stable
+   key every module must resolve the provider by. */
+export const TABAPAY_PROVIDER_CODE = 'tabapay'
+
+interface TabapayResponse {
    responseCode?: number
    status?: string
+   message?: string
    token?: string
    url?: string
-   amount?: number | string
-   message?: string
-   trackingCode?: number | string
-   shaparakRefNumber?: string
-   cardNumber?: string
+   amount?: number
    hashedCardNumber?: string
 }
 
+type ProviderSettings = Record<string, string | number | boolean>
+
+/** `settings` is free-form JSON; only known keys may be read from it. */
+export function providerSettings(value: unknown): ProviderSettings {
+   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+
+   return value as ProviderSettings
+}
+
 async function getConfig(requireActive = true) {
-   const provider = await prisma.paymentProvider.findFirst({
-      where: { OR: [{ code: 'tabapay' }, { title: { equals: 'Tabapay', mode: 'insensitive' } }] },
+   const provider = await prisma.paymentProvider.findUnique({
+      where: { code: TABAPAY_PROVIDER_CODE },
       select: { isActive: true, settings: true, credentialsEncrypted: true },
    })
 
@@ -25,19 +36,18 @@ async function getConfig(requireActive = true) {
    if (!provider.credentialsEncrypted) throw new Error('TABAPAY_NOT_CONFIGURED')
 
    const merchantKey = decryptSettingSecret(provider.credentialsEncrypted)
-   const settings = provider.settings && typeof provider.settings === 'object'
-      ? provider.settings as { sandbox?: boolean }
-      : {}
-   const sandbox = settings.sandbox !== false
+   const sandbox = providerSettings(provider.settings).sandbox !== false
    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL
    if (!appUrl) throw new Error('APP_URL_NOT_CONFIGURED')
 
-   const baseUrl = 'https://api.tabapay.ir/v1'
+   const base = appUrl.replace(/\/$/, '')
+   const api = 'https://api.tabapay.ir/v1'
+
    return {
       merchantKey,
-      createUrl: sandbox ? `${baseUrl}/sandbox/create` : `${baseUrl}/create`,
-      verifyUrl: sandbox ? `${baseUrl}/sandbox/verify` : `${baseUrl}/verify`,
-      appUrl: appUrl.replace(/\/$/, ''),
+      appUrl: base,
+      createUrl: sandbox ? `${api}/sandbox/create` : `${api}/create`,
+      verifyUrl: sandbox ? `${api}/sandbox/verify` : `${api}/verify`,
    }
 }
 
@@ -55,12 +65,12 @@ async function postForm(url: string, merchantKey: string, fields: Record<string,
 
    const response = await fetch(url, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${merchantKey}` },
+      headers: { authorization: `Bearer ${merchantKey}` },
       body: form,
-      cache: 'no-store',
-      signal: AbortSignal.timeout(15_000),
    })
+
    if (!response.ok) throw new Error('TABAPAY_HTTP_ERROR')
+
    return (await response.json()) as TabapayResponse
 }
 
@@ -98,7 +108,8 @@ export async function createTabapayPayment(input: {
 }
 
 export async function verifyTabapayPayment(input: { token: string; amountRial: number }) {
-   // Existing in-flight payments remain verifiable after disabling new payments.
+   /* Existing in-flight payments stay verifiable after new ones are disabled:
+      the callback still has to settle or release the reservation. */
    const config = await getConfig(false)
    const result = await postForm(config.verifyUrl, config.merchantKey, {
       token: input.token,
@@ -106,12 +117,18 @@ export async function verifyTabapayPayment(input: { token: string; amountRial: n
    })
 
    if (result.status === 'success' && result.responseCode === 1) {
-      if (result.token !== input.token || Number(result.amount) !== input.amountRial) {
+      if (result.token !== input.token || result.amount !== input.amountRial) {
          throw new Error('TABAPAY_VERIFICATION_MISMATCH')
       }
       return true
    }
 
-   if (result.status === 'failed' && typeof result.responseCode === 'number') return false
+   /* Only a provider response explicitly marked "failed" is definitive.
+      "error", missing fields, malformed JSON and transport failures are
+      ambiguous and must not release a stock reservation. */
+   if (result.status === 'failed' && typeof result.responseCode === 'number') {
+      return false
+   }
+
    throw new Error('TABAPAY_VERIFICATION_UNCONFIRMED')
 }
