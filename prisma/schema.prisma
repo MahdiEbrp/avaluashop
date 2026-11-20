@@ -334,7 +334,7 @@ model StoreSetting {
   taxEnabled Boolean @default(true)
   taxRate   Float    @default(0.09)
   taxLabel  String   @default("مالیات بر ارزش افزوده")
-  currency  String   @default("IRR")
+  currency  String   @default("IRT")
   updatedAt DateTime @updatedAt
 }
 
