@@ -1,3 +1,6 @@
+import prisma from '@/lib/prisma'
+import { decryptSettingSecret } from '@/lib/settings-crypto'
+
 type TabapayResponse = {
    responseCode?: number
    status?: string
@@ -11,11 +14,20 @@ type TabapayResponse = {
    hashedCardNumber?: string
 }
 
-function getConfig() {
-   const merchantKey = process.env.TABAPAY_MERCHANT_KEY
-   if (!merchantKey) throw new Error('TABAPAY_NOT_CONFIGURED')
+async function getConfig() {
+   const provider = await prisma.paymentProvider.findUnique({
+      where: { code: 'tabapay' },
+      select: { isActive: true, settings: true, credentialsEncrypted: true },
+   })
+   if (!provider?.isActive) throw new Error('PAYMENT_PROVIDER_DISABLED')
+   if (!provider.credentialsEncrypted) throw new Error('TABAPAY_NOT_CONFIGURED')
 
-   const sandbox = process.env.TABAPAY_SANDBOX !== 'false'
+   const merchantKey = decryptSettingSecret(provider.credentialsEncrypted)
+   const settings =
+      provider.settings && typeof provider.settings === 'object'
+         ? provider.settings as { sandbox?: boolean }
+         : {}
+   const sandbox = settings.sandbox !== false
    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL
    if (!appUrl) throw new Error('APP_URL_NOT_CONFIGURED')
 
@@ -28,7 +40,7 @@ function getConfig() {
    }
 }
 
-export function validateTabapayConfiguration() {
+export async function validateTabapayConfiguration() {
    return getConfig()
 }
 
@@ -36,8 +48,7 @@ export function isTabapayAmountValid(amountRial: number) {
    return Number.isSafeInteger(amountRial) && amountRial >= 100_000 && amountRial <= 500_000_000
 }
 
-async function postForm(url: string, fields: Record<string, string>) {
-   const { merchantKey } = getConfig()
+async function postForm(url: string, merchantKey: string, fields: Record<string, string>) {
    const form = new FormData()
    for (const [key, value] of Object.entries(fields)) form.set(key, value)
 
@@ -57,12 +68,12 @@ export async function createTabapayPayment(input: {
    orderNumber: number
    mobile?: string
 }) {
-   const config = getConfig()
+   const config = await getConfig()
    if (!isTabapayAmountValid(input.amountRial)) {
       throw new Error('TABAPAY_AMOUNT_OUT_OF_RANGE')
    }
 
-   const result = await postForm(config.createUrl, {
+   const result = await postForm(config.createUrl, config.merchantKey, {
       amount: String(input.amountRial),
       callbackURL: `${config.appUrl}/api/payments/tabapay/callback`,
       description: `Avaluona Shop order #${input.orderNumber}`,
@@ -99,8 +110,8 @@ export async function verifyTabapayPayment(input: {
    token: string
    amountRial: number
 }) {
-   const config = getConfig()
-   const result = await postForm(config.verifyUrl, {
+   const config = await getConfig()
+   const result = await postForm(config.verifyUrl, config.merchantKey, {
       token: input.token,
       amount: String(input.amountRial),
    })
@@ -115,9 +126,6 @@ export async function verifyTabapayPayment(input: {
       return true
    }
 
-   // Only a provider response explicitly marked "failed" is definitive.
-   // "error", missing fields, malformed JSON and transport failures are
-   // ambiguous and must not release a stock reservation.
    if (result.status === 'failed' && typeof result.responseCode === 'number') {
       return false
    }
