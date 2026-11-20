@@ -68,6 +68,7 @@ describe('POST /api/payments/tabapay', () => {
       await expect(response.json()).resolves.toEqual({
          paymentUrl: 'https://api.tabapay.ir/pay/tabapay-token',
       })
+      expect(prismaMock.$queryRaw).toHaveBeenCalled()
       expect(createTabapayPayment).toHaveBeenCalledWith({
          amountRial: 120_000,
          orderNumber: 42,
@@ -399,7 +400,7 @@ describe('GET /api/payments/tabapay/callback', () => {
 
       const response = await tabapayCallbackGET(callback())
 
-      expect(response.headers.get('location')).toContain('/checkout?payment=pending')
+      expect(response.headers.get('location')).toContain('/checkout?payment=pending&orderId=order-1')
       expect(releasePendingOrder).not.toHaveBeenCalled()
       expect(completePendingOrder).not.toHaveBeenCalled()
    })
