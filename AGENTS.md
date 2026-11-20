@@ -50,6 +50,10 @@ npm run db:seed        # tsx prisma/seed.ts
 npm run db:studio
 ```
 
+The database is managed **only** with `db:push`; there is intentionally no `prisma/migrations`
+folder. Do not run `prisma migrate dev`/`deploy` and do not commit a migration — the schema in
+`prisma/schema.prisma` is the single source of truth and `db:push` reconciles the database to it.
+
 Always finish with `npm run lint && npm run typecheck`. Both are cheap and gated in CI;
 `lint` treats every warning as an error.
 
