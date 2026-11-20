@@ -11,46 +11,15 @@ export function MainNav({
    const pathname = usePathname()
 
    const routes = [
-      {
-         href: `/admin/banners`,
-         label: 'Banners',
-         active: pathname.includes(`/admin/banners`),
-      },
-      {
-         href: `/admin/categories`,
-         label: 'Categories',
-         active: pathname.includes(`/admin/categories`),
-      },
-      {
-         href: `/admin/products`,
-         label: 'Products',
-         active: pathname.includes(`/admin/products`),
-      },
-      {
-         href: `/admin/orders`,
-         label: 'Orders',
-         active: pathname.includes(`/admin/orders`),
-      },
-      {
-         href: `/admin/payments`,
-         label: 'Payments',
-         active: pathname.includes(`/admin/payments`),
-      },
-      {
-         href: `/admin/users`,
-         label: 'Users',
-         active: pathname.includes(`/admin/users`),
-      },
-      {
-         href: `/admin/brands`,
-         label: 'Brands',
-         active: pathname.includes(`/admin/brands`),
-      },
-      {
-         href: `/codes`,
-         label: 'Codes',
-         active: pathname.includes(`/codes`),
-      },
+      { href: '/admin/banners', label: 'Banners' },
+      { href: '/admin/categories', label: 'Categories' },
+      { href: '/admin/products', label: 'Products' },
+      { href: '/admin/orders', label: 'Orders' },
+      { href: '/admin/payments', label: 'Payments' },
+      { href: '/admin/settings', label: 'Settings' },
+      { href: '/admin/users', label: 'Users' },
+      { href: '/admin/brands', label: 'Brands' },
+      { href: '/codes', label: 'Codes' },
    ]
 
    return (
@@ -64,7 +33,7 @@ export function MainNav({
                href={route.href}
                className={cn(
                   'text-sm transition-colors hover:text-primary',
-                  route.active
+                  pathname.startsWith(route.href)
                      ? 'font-semibold'
                      : 'font-light text-muted-foreground'
                )}

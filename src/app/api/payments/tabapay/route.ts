@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma'
 import { releasePendingOrder } from '@/lib/payments/order-lifecycle'
 import {
+   TABAPAY_PROVIDER_CODE,
    createTabapayPayment,
    isTabapayAmountValid,
    validateTabapayConfiguration,
@@ -66,21 +67,19 @@ export async function POST(req: Request) {
          }
 
          try {
-            validateTabapayConfiguration()
+            await validateTabapayConfiguration()
          } catch {
             return { kind: 'not-configured' as const }
          }
 
-         const provider = await tx.paymentProvider.upsert({
-            where: { title: 'Tabapay' },
-            create: {
-               title: 'Tabapay',
-               description: 'Tabapay Iranian payment gateway',
-               websiteUrl: 'https://tabapay.ir',
-               isActive: true,
-            },
-            update: {},
+         /* Resolve the row the admin settings page writes; never create one
+            here. Creating by title used to produce a second, credential-less
+            provider that later shadowed the configured one. */
+         const provider = await tx.paymentProvider.findUnique({
+            where: { code: TABAPAY_PROVIDER_CODE },
+            select: { id: true, isActive: true },
          })
+         if (!provider) return { kind: 'not-configured' as const }
          if (!provider.isActive) return { kind: 'disabled' as const }
 
          const payment = await tx.payment.create({

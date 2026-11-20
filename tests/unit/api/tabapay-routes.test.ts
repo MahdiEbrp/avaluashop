@@ -14,6 +14,8 @@ import { get, json, prismaMock, silenceConsole, USER } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('@/lib/payments/tabapay', () => ({
+   TABAPAY_PROVIDER_CODE: 'tabapay',
+   providerSettings: vi.fn(() => ({})),
    createTabapayPayment: vi.fn(),
    verifyTabapayPayment: vi.fn(),
    validateTabapayConfiguration: vi.fn(),
@@ -41,7 +43,7 @@ beforeEach(() => {
    silenceConsole()
    prismaMock.order.findFirst.mockResolvedValue(order)
    prismaMock.payment.findFirst.mockResolvedValue(null)
-   prismaMock.paymentProvider.upsert.mockResolvedValue({ id: 'provider-1', isActive: true })
+   prismaMock.paymentProvider.findUnique.mockResolvedValue({ id: 'provider-1', isActive: true })
    prismaMock.payment.create.mockResolvedValue({ id: 'payment-1' })
    prismaMock.payment.update.mockResolvedValue({})
    vi.mocked(createTabapayPayment).mockResolvedValue({
@@ -192,8 +194,26 @@ describe('POST /api/payments/tabapay', () => {
       })
    })
 
+   it('answers 503 when no provider row matches the gateway code', async () => {
+      prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
+
+      const response = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(response.status).toBe(503)
+      await expect(response.json()).resolves.toEqual({ message: 'TABAPAY_NOT_CONFIGURED' })
+   })
+
+   it('resolves the provider by its stable code, never by title', async () => {
+      await tabapayPOST(json({ orderId: 'order-1' }, USER))
+
+      expect(prismaMock.paymentProvider.findUnique).toHaveBeenCalledWith(
+         expect.objectContaining({ where: { code: 'tabapay' } })
+      )
+      expect(prismaMock.paymentProvider.upsert).not.toHaveBeenCalled()
+   })
+
    it('answers 503 when the provider is switched off', async () => {
-      prismaMock.paymentProvider.upsert.mockResolvedValue({
+      prismaMock.paymentProvider.findUnique.mockResolvedValue({
          id: 'provider-1',
          isActive: false,
       })
