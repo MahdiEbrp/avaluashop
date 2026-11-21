@@ -319,7 +319,7 @@ describe('checkout — submitting the order', () => {
             '/api/orders',
             expect.objectContaining({
                method: 'POST',
-               body: JSON.stringify({ addressId: 'ad1', discountCode: undefined }),
+               body: expect.stringContaining('"addressId":"ad1"'),
             })
          )
          expect(fetchMock).toHaveBeenCalledWith(
@@ -612,7 +612,7 @@ describe('checkout — gateway initialization', () => {
          '/api/orders',
          expect.objectContaining({
             method: 'POST',
-            body: JSON.stringify({ addressId: 'ad1', discountCode: 'SAVE10' }),
+            body: expect.stringContaining('"discountCode":"SAVE10"'),
          })
       ))
    })
@@ -1037,6 +1037,37 @@ describe('checkout — shipping methods', () => {
       const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string; idempotencyKey?: string }
       expect(payload.shippingMethodId).toBe('sm1')
       expect(payload.idempotencyKey).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
+   })
+
+   it('reuses the same idempotency key when retrying after a failed gateway call', async () => {
+      let gatewayAttempt = 0
+      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+         if (url === '/api/shipping/methods') return jsonResponse([flat])
+         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+         if (url === '/api/payments/tabapay') {
+            gatewayAttempt += 1
+            if (gatewayAttempt === 1) return jsonResponse({ message: 'GATEWAY_DOWN' }, 502)
+            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/retry' })
+         }
+         return jsonResponse([address])
+      })
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<CheckoutPage />)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+      await waitFor(() => expect(gatewayAttempt).toBe(1))
+
+      await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
+      await waitFor(() => expect(redirectToPayment).toHaveBeenCalledWith('https://api.tabapay.ir/pay/retry'))
+
+      const keys = fetchMock.mock.calls
+         .filter(([url]) => url === '/api/orders')
+         .map(([, init]) => (JSON.parse(String(init?.body)) as { idempotencyKey?: string }).idempotencyKey)
+      expect(keys).toHaveLength(2)
+      expect(keys[0]).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
+      expect(keys[1]).toBe(keys[0])
    })
 
    it('lets an order through when the store has no shipping methods', async () => {

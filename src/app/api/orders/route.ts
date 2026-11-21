@@ -9,29 +9,17 @@ export async function GET(req: Request) {
 
       const orders = await prisma.order.findMany({
          where: { userId },
-         include: {
-            address: true,
-            payments: true,
-            refund: true,
-            orderItems: true,
-            shippingMethod: {
-               select: {
-                  id: true,
-                  code: true,
-                  title: true,
-                  description: true,
-                  type: true,
-                  amount: true,
-                  freeAbove: true,
-               },
-            },
-            shippingCarrier: {
-               select: { id: true, code: true, title: true },
-            },
+         select: {
+            id: true,
+            number: true,
+            createdAt: true,
+            payable: true,
+            isPaid: true,
          },
+         orderBy: { createdAt: 'desc' },
       })
 
-      return NextResponse.json(orders)
+      return NextResponse.json(orders, { headers: { 'Cache-Control': 'private, no-store' } })
    } catch (error) {
       console.error('[ORDERS_GET]', error)
       return new NextResponse('Internal error', { status: 500 })

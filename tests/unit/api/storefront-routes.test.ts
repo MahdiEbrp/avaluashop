@@ -213,34 +213,32 @@ describe('GET /api/orders', () => {
       expect((await ordersGET(get())).status).toBe(401)
    })
 
-   it('lists the caller orders with relations', async () => {
-      prismaMock.order.findMany.mockResolvedValue([{ id: 'o1' }])
+   it('lists only the caller-facing order summary fields', async () => {
+      const orderSummary = {
+         id: 'o1',
+         number: 42,
+         createdAt: new Date('2026-10-01T10:00:00.000Z'),
+         payable: 261.6,
+         isPaid: true,
+      }
+      prismaMock.order.findMany.mockResolvedValue([orderSummary])
 
       const response = await ordersGET(get(USER))
 
-      await expect(response.json()).resolves.toEqual([{ id: 'o1' }])
+      await expect(response.json()).resolves.toEqual([
+         { ...orderSummary, createdAt: orderSummary.createdAt.toISOString() },
+      ])
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
       expect(prismaMock.order.findMany).toHaveBeenCalledWith({
          where: { userId: 'user-1' },
-         include: {
-            address: true,
-            payments: true,
-            refund: true,
-            orderItems: true,
-            shippingMethod: {
-               select: {
-                  id: true,
-                  code: true,
-                  title: true,
-                  description: true,
-                  type: true,
-                  amount: true,
-                  freeAbove: true,
-               },
-            },
-            shippingCarrier: {
-               select: { id: true, code: true, title: true },
-            },
+         select: {
+            id: true,
+            number: true,
+            createdAt: true,
+            payable: true,
+            isPaid: true,
          },
+         orderBy: { createdAt: 'desc' },
       })
    })
 
@@ -338,6 +336,21 @@ describe('POST /api/orders', () => {
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
       expect(prismaMock.order.findFirst).not.toHaveBeenCalled()
+   })
+
+   it('answers 500 when a P2002 error is not caused by an existing idempotent order', async () => {
+      stubSuccess()
+      prismaMock.order.findFirst.mockResolvedValue(null)
+      prismaMock.order.create.mockRejectedValue(
+         Object.assign(new Error('unique constraint on number'), { code: 'P2002' })
+      )
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'checkout-race-1234567890',
+      }, USER))
+
+      expect(response.status).toBe(500)
    })
 
    it('requires a shipping address', async () => {
@@ -741,20 +754,52 @@ describe('GET /api/orders/[orderId]', () => {
       expect(await response.text()).toBe('orderId is required')
    })
 
-   it('returns the order scoped to the caller', async () => {
-      prismaMock.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1' })
+   it('returns only safe tracking fields for the caller order', async () => {
+      prismaMock.order.findFirst.mockResolvedValue({
+         id: 'o1',
+         status: 'Shipped',
+         shippingTrackingNumber: 'TRK-1',
+         shippingCarrierName: 'پست',
+         shippingMethodName: 'پست پیشتاز',
+      })
 
       const response = await orderGET(get(USER), call({ orderId: 'o1' }))
 
-      await expect(response.json()).resolves.toEqual({ id: 'o1' })
-      expect(prismaMock.order.findUniqueOrThrow).toHaveBeenCalledWith(
-         expect.objectContaining({ where: { userId: 'user-1', id: 'o1' } })
-      )
+      await expect(response.json()).resolves.toEqual({
+         id: 'o1',
+         status: 'Shipped',
+         shippingTrackingNumber: 'TRK-1',
+         shippingCarrierName: 'پست',
+         shippingMethodName: 'پست پیشتاز',
+      })
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+      expect(prismaMock.order.findFirst).toHaveBeenCalledWith({
+         where: { userId: 'user-1', id: 'o1' },
+         select: {
+            id: true,
+            status: true,
+            shippingTrackingNumber: true,
+            shippingCarrierName: true,
+            shippingMethodName: true,
+         },
+      })
    })
 
-   it('answers 500 for an order that is not the caller', async () => {
-      prismaMock.order.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
+   it('answers 404 when the order does not belong to the caller', async () => {
+      prismaMock.order.findFirst.mockResolvedValue(null)
 
-      expect((await orderGET(get(USER), call({ orderId: 'o9' }))).status).toBe(500)
+      const response = await orderGET(get(USER), call({ orderId: 'o9' }))
+
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe('Order not found')
+   })
+
+   it('answers 500 when loading the order fails', async () => {
+      prismaMock.order.findFirst.mockRejectedValue(new Error('db down'))
+
+      const response = await orderGET(get(USER), call({ orderId: 'o9' }))
+
+      expect(response.status).toBe(500)
+      expect(await response.text()).toBe('Internal error')
    })
 })
