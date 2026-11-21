@@ -27,11 +27,14 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+   let requestUserId: string | null = null
+   let requestKey: string | null = null
    try {
       const userId = req.headers.get('X-USER-ID')
+      requestUserId = userId
       if (!userId) return new NextResponse('Unauthorized', { status: 401 })
 
-      let body: { addressId?: unknown; discountCode?: unknown; shippingMethodId?: unknown }
+      let body: { addressId?: unknown; discountCode?: unknown; shippingMethodId?: unknown; idempotencyKey?: unknown }
       try {
          body = await req.json()
       } catch {
@@ -39,6 +42,22 @@ export async function POST(req: Request) {
       }
       if (!body || typeof body !== 'object' || Array.isArray(body)) {
          return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
+      }
+
+      const idempotencyKey =
+         typeof body.idempotencyKey === 'string' ? body.idempotencyKey : null
+      if (idempotencyKey !== null && !/^[a-zA-Z0-9_-]{16,128}$/.test(idempotencyKey)) {
+         return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
+      }
+      requestKey = idempotencyKey
+
+      // A retry with the same key returns its original order before reserving
+      // inventory or consuming a discount code again.
+      if (idempotencyKey) {
+         const existingOrder = await prisma.order.findFirst({
+            where: { userId, idempotencyKey },
+         })
+         if (existingOrder) return NextResponse.json(existingOrder, { status: 200 })
       }
 
       const addressId = typeof body.addressId === 'string' ? body.addressId : null
@@ -188,6 +207,7 @@ export async function POST(req: Request) {
          return tx.order.create({
             data: {
                userId,
+               idempotencyKey: idempotencyKey ?? undefined,
                status: 'PendingPayment',
                total: costs.total,
                tax: costs.tax,
@@ -216,6 +236,22 @@ export async function POST(req: Request) {
       // Keep the cart until payment is verified by Tabapay.
       return NextResponse.json(order, { status: 201 })
    } catch (error) {
+      // A concurrent request may win the unique-key race after both requests
+      // passed the initial lookup. The losing transaction rolls back all
+      // inventory/coupon changes; return the winner's committed order.
+      if (
+         requestUserId &&
+         requestKey &&
+         typeof error === 'object' &&
+         error !== null &&
+         'code' in error &&
+         error.code === 'P2002'
+      ) {
+         const existingOrder = await prisma.order.findFirst({
+            where: { userId: requestUserId, idempotencyKey: requestKey },
+         })
+         if (existingOrder) return NextResponse.json(existingOrder, { status: 200 })
+      }
       if (error instanceof Error && error.message === 'INSUFFICIENT_STOCK') {
          return new NextResponse(
             'One or more products no longer have enough stock',

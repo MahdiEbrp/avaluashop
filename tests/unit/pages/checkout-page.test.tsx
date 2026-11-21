@@ -1034,8 +1034,9 @@ describe('checkout — shipping methods', () => {
 
       await waitFor(() => expect(redirectToPayment).toHaveBeenCalled())
       const orderCall = fetchMock.mock.calls.find(([url]) => url === '/api/orders')
-      const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string }
+      const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string; idempotencyKey?: string }
       expect(payload.shippingMethodId).toBe('sm1')
+      expect(payload.idempotencyKey).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
    })
 
    it('lets an order through when the store has no shipping methods', async () => {
