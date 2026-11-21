@@ -299,7 +299,7 @@ describe('admin orders', () => {
    })
 
    it('PATCH refuses to mark an order paid directly', async () => {
-      const response = await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))
+      const response = await orderPATCH(json({ isPaid: true }, USER), call({ orderId: 'o1' }))
 
       expect(response.status).toBe(400)
       expect(prismaMock.order.update).not.toHaveBeenCalled()
@@ -382,7 +382,7 @@ describe('admin orders', () => {
       prismaMock.order.findUnique.mockResolvedValue(null)
 
       expect(
-         (await orderPATCH(json({ isPaid: true }, USER), call({ orderId: 'o1' }))).status
+         (await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))).status
       ).toBe(404)
    })
 
@@ -390,7 +390,7 @@ describe('admin orders', () => {
       prismaMock.order.findUnique.mockRejectedValue(new Error('down'))
 
       expect(
-         (await orderPATCH(json({ isPaid: true }, USER), call({ orderId: 'o1' }))).status
+         (await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))).status
       ).toBe(500)
    })
 })
