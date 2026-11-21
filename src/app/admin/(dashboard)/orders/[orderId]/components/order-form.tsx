@@ -15,13 +15,14 @@ import {
    getNextOrderStatuses,
    ORDER_STATUSES,
    ORDER_STATUS_LABELS,
+   type OrderStatus,
 } from '@/lib/order-status'
 import type { OrderWithIncludes } from '@/types/prisma'
 import { toast } from 'react-hot-toast'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { type Resolver, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 
 const formSchema = z.object({
@@ -40,13 +41,13 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialData }) => {
    const router = useRouter()
    const [loading, setLoading] = useState(false)
 
-   const currentStatus = initialData?.status ?? 'PendingPayment'
+   const currentStatus: OrderStatus = initialData?.status ?? 'PendingPayment'
    const nextStatuses = initialData?.isPaid ? getNextOrderStatuses(currentStatus) : []
 
    const form = useForm<OrderFormValues>({
-      resolver: zodResolver(formSchema) as unknown as Resolver<OrderFormValues>,
+      resolver: zodResolver(formSchema),
       defaultValues: {
-         status: currentStatus as (typeof ORDER_STATUSES)[number],
+         status: currentStatus,
          shippingTrackingNumber: initialData?.shippingTrackingNumber ?? '',
       },
    })
@@ -101,7 +102,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialData }) => {
                            onChange={field.onChange}
                         >
                            <option value={currentStatus}>
-                              {ORDER_STATUS_LABELS[currentStatus as (typeof ORDER_STATUSES)[number]] ?? currentStatus}
+                              {ORDER_STATUS_LABELS[currentStatus]}
                            </option>
                            {nextStatuses.map((status) => (
                               <option key={status} value={status}>

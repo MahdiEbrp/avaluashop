@@ -388,6 +388,46 @@ describe('admin orders', () => {
       })
    })
 
+   it('PATCH rejects clearing the tracking number on a shipped or delivered order', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         id: 'o1',
+         status: 'Shipped',
+         isPaid: true,
+         shippingTrackingNumber: 'TRK-1',
+      })
+
+      const clearedOnShipped = await orderPATCH(
+         json({ status: 'Shipped', shippingTrackingNumber: '' }, USER),
+         call({ orderId: 'o1' })
+      )
+      expect(clearedOnShipped.status).toBe(400)
+
+      const clearedOnDeliver = await orderPATCH(
+         json({ status: 'Delivered', shippingTrackingNumber: '' }, USER),
+         call({ orderId: 'o1' })
+      )
+      expect(clearedOnDeliver.status).toBe(400)
+      expect(prismaMock.order.updateMany).not.toHaveBeenCalled()
+      expect(prismaMock.order.update).not.toHaveBeenCalled()
+   })
+
+   it('PATCH answers 409 when a concurrent edit changes the order state', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         id: 'o1',
+         status: 'Processing',
+         isPaid: true,
+         shippingTrackingNumber: 'TRK-1',
+      })
+      prismaMock.order.updateMany.mockResolvedValue({ count: 0 })
+
+      const response = await orderPATCH(
+         json({ status: 'Shipped' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(409)
+   })
+
    it('PATCH answers 404 for a missing order', async () => {
       prismaMock.order.findUnique.mockResolvedValue(null)
 

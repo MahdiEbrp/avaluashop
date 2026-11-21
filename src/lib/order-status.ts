@@ -32,12 +32,15 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
  */
 export function getNextOrderStatuses(status: string): OrderStatus[] {
    switch (status) {
-      case 'Processing':
+      case 'Processing': {
          return ['Shipped']
-      case 'Shipped':
+      }
+      case 'Shipped': {
          return ['Delivered']
-      default:
+      }
+      default: {
          return []
+      }
    }
 }
 

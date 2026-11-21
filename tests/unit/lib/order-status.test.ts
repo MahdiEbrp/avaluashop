@@ -9,7 +9,7 @@ describe('order fulfilment status transitions', () => {
    it('includes every persisted OrderStatusEnum value and a customer label', () => {
       expect(ORDER_STATUSES).toContain('PendingPayment')
       expect(ORDER_STATUSES).toContain('Denied')
-      expect(Object.keys(ORDER_STATUS_LABELS).sort()).toEqual([...ORDER_STATUSES].sort())
+      expect(Object.keys(ORDER_STATUS_LABELS)).toEqual(ORDER_STATUSES)
    })
 
    it('allows a paid order to advance from processing to shipped', () => {
