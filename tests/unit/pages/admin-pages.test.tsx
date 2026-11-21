@@ -552,7 +552,17 @@ describe('storefront profile pages', () => {
       signIn()
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify({ id: 'o1' })))
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({
+                  id: 'o1',
+                  status: 'Processing',
+                  shippingMethodName: null,
+                  shippingCarrierName: null,
+                  shippingTrackingNumber: null,
+               })
+            )
+         )
       )
 
       /* `use(params)` suspends on first render; flushing inside `act` lets the
@@ -561,8 +571,66 @@ describe('storefront profile pages', () => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o1' })} />)
       })
 
-      await waitFor(() => expect(screen.getByText('o1')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText(/شماره سفارش:\s*o1/)).toBeInTheDocument())
+      expect(screen.getByText(/وضعیت سفارش:\s*در حال پردازش/)).toBeInTheDocument()
+      expect(screen.getByText('کد رهگیری هنوز ثبت نشده است.')).toBeInTheDocument()
+      expect(screen.getByText(/روش ارسال:\s*—/)).toBeInTheDocument()
+      expect(screen.getByText(/شرکت حمل‌ونقل:\s*—/)).toBeInTheDocument()
       expect(routerMock.push).not.toHaveBeenCalled()
+      vi.unstubAllGlobals()
+   })
+
+   it('order detail page falls back to the raw status when it has no label', async () => {
+      signIn()
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({
+                  id: 'o3',
+                  status: 'AwaitingCustoms',
+                  shippingMethodName: null,
+                  shippingCarrierName: null,
+                  shippingTrackingNumber: null,
+               })
+            )
+         )
+      )
+
+      await act(async () => {
+         render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o3' })} />)
+      })
+
+      await waitFor(() => expect(screen.getByText(/AwaitingCustoms/)).toBeInTheDocument())
+      vi.unstubAllGlobals()
+   })
+
+   it('order detail page shows the tracking number and the shipping details', async () => {
+      signIn()
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () =>
+            new Response(
+               JSON.stringify({
+                  id: 'o2',
+                  status: 'Shipped',
+                  shippingMethodName: 'پست پیشتاز',
+                  shippingCarrierName: 'پست',
+                  shippingTrackingNumber: 'TRK-987',
+               })
+            )
+         )
+      )
+
+      await act(async () => {
+         render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o2' })} />)
+      })
+
+      await waitFor(() => expect(screen.getByText('TRK-987')).toBeInTheDocument())
+      expect(screen.getByText(/روش ارسال:\s*پست پیشتاز/)).toBeInTheDocument()
+      expect(screen.getByText(/شرکت حمل‌ونقل:\s*پست/)).toBeInTheDocument()
+      expect(screen.getByText(/وضعیت سفارش:\s*ارسال شده/)).toBeInTheDocument()
+      expect(screen.queryByText('کد رهگیری هنوز ثبت نشده است.')).not.toBeInTheDocument()
       vi.unstubAllGlobals()
    })
 })
