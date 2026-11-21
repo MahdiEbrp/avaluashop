@@ -27,6 +27,7 @@ const formSchema = z.object({
    discount: z.coerce.number().min(0),
    isPaid: z.boolean().default(false).optional(),
    isCompleted: z.boolean().default(false).optional(),
+   shippingTrackingNumber: z.string().max(100).nullable().optional(),
 })
 
 type ProductFormValues = z.infer<typeof formSchema>
@@ -47,6 +48,7 @@ export const OrderForm: React.FC<ProductFormProps> = ({ initialData }) => {
    const defaultValues = initialData
       ? {
            ...initialData,
+           shippingTrackingNumber: initialData.shippingTrackingNumber ?? '',
         }
       : {
            status: '---',
@@ -55,6 +57,7 @@ export const OrderForm: React.FC<ProductFormProps> = ({ initialData }) => {
            discount: 0,
            isPaid: false,
            isCompleted: false,
+           shippingTrackingNumber: '',
         }
 
    const form = useForm<ProductFormValues>({
@@ -198,6 +201,25 @@ export const OrderForm: React.FC<ProductFormProps> = ({ initialData }) => {
                            This product will appear in the store.
                         </FormDescription>
                      </div>
+                  </FormItem>
+               )}
+            />
+            <FormField
+               control={form.control}
+               name="shippingTrackingNumber"
+               render={({ field }) => (
+                  <FormItem>
+                     <FormLabel>شماره مرسوله / کد رهگیری</FormLabel>
+                     <FormControl>
+                        <Input
+                           disabled={loading}
+                           placeholder="کد رهگیری را وارد کنید"
+                           value={field.value ?? ''}
+                           onChange={field.onChange}
+                        />
+                     </FormControl>
+                     <FormDescription>در صورت نداشتن کد، این فیلد را خالی بگذارید.</FormDescription>
+                     <FormMessage />
                   </FormItem>
                )}
             />

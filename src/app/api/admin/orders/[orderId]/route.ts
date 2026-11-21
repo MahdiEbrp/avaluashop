@@ -28,6 +28,7 @@ const orderPatch = z
       payable: z.coerce.number().min(0).max(1_000_000),
       isPaid: z.boolean(),
       isCompleted: z.boolean(),
+      shippingTrackingNumber: z.string().trim().max(100).nullable(),
    })
    .partial()
    .refine((value) => Object.keys(value).length > 0, {

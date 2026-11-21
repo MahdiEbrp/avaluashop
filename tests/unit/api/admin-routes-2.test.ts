@@ -185,6 +185,30 @@ describe('admin orders', () => {
       await expect(response.json()).resolves.toMatchObject({ message: 'INVALID ORDER' })
    })
 
+   it('PATCH accepts a nullable tracking number', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
+      prismaMock.order.update.mockResolvedValue({ id: 'o1', shippingTrackingNumber: 'TRK-123' })
+
+      const response = await orderPATCH(
+         json({ shippingTrackingNumber: 'TRK-123' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+         where: { id: 'o1' },
+         data: { shippingTrackingNumber: 'TRK-123' },
+      })
+   })
+
+   it('PATCH rejects a tracking number longer than 100 characters', async () => {
+      const response = await orderPATCH(
+         json({ shippingTrackingNumber: 'x'.repeat(101) }, USER),
+         call({ orderId: 'o1' })
+      )
+      expect(response.status).toBe(400)
+   })
+
    it('PATCH rejects an empty patch', async () => {
       const response = await orderPATCH(json({}, USER), call({ orderId: 'o1' }))
 
