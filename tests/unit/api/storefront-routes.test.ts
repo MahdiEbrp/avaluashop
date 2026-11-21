@@ -686,20 +686,43 @@ describe('GET /api/orders/[orderId]', () => {
       expect(await response.text()).toBe('orderId is required')
    })
 
-   it('returns the order scoped to the caller', async () => {
-      prismaMock.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1' })
+   it('returns only safe tracking fields for the caller order', async () => {
+      prismaMock.order.findFirst.mockResolvedValue({
+         id: 'o1',
+         status: 'Shipped',
+         shippingTrackingNumber: 'TRK-1',
+         shippingCarrierName: 'پست',
+         shippingMethodName: 'پست پیشتاز',
+      })
 
       const response = await orderGET(get(USER), call({ orderId: 'o1' }))
 
-      await expect(response.json()).resolves.toEqual({ id: 'o1' })
-      expect(prismaMock.order.findUniqueOrThrow).toHaveBeenCalledWith(
-         expect.objectContaining({ where: { userId: 'user-1', id: 'o1' } })
-      )
+      await expect(response.json()).resolves.toEqual({
+         id: 'o1',
+         status: 'Shipped',
+         shippingTrackingNumber: 'TRK-1',
+         shippingCarrierName: 'پست',
+         shippingMethodName: 'پست پیشتاز',
+      })
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
+      expect(prismaMock.order.findFirst).toHaveBeenCalledWith({
+         where: { userId: 'user-1', id: 'o1' },
+         select: {
+            id: true,
+            status: true,
+            shippingTrackingNumber: true,
+            shippingCarrierName: true,
+            shippingMethodName: true,
+         },
+      })
    })
 
-   it('answers 500 for an order that is not the caller', async () => {
-      prismaMock.order.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
+   it('answers 404 when the order does not belong to the caller', async () => {
+      prismaMock.order.findFirst.mockResolvedValue(null)
 
-      expect((await orderGET(get(USER), call({ orderId: 'o9' }))).status).toBe(500)
+      const response = await orderGET(get(USER), call({ orderId: 'o9' }))
+
+      expect(response.status).toBe(404)
+      expect(await response.text()).toBe('Order not found')
    })
 })
