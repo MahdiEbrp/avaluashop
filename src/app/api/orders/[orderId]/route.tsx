@@ -18,30 +18,27 @@ export async function GET(
          return new NextResponse('orderId is required', { status: 400 })
       }
 
-      const order = await prisma.order.findUniqueOrThrow({
-         where: {
-            userId,
-            id: orderId,
-         },
-         include: {
-            address: true,
-            discountCode: true,
-            user: true,
-            payments: {
-               include: {
-                  provider: true,
-               },
-            },
-            orderItems: {
-               include: {
-                  product: { include: { brand: true, categories: true } },
-               },
-            },
-            refund: true,
+      /* Return only the fields used by the customer's tracking page.
+         In particular, never serialize User (OTP) or PaymentProvider
+         (encrypted credentials/settings) relations to the storefront. */
+      const order = await prisma.order.findFirst({
+         where: { userId, id: orderId },
+         select: {
+            id: true,
+            status: true,
+            shippingTrackingNumber: true,
+            shippingCarrierName: true,
+            shippingMethodName: true,
          },
       })
 
-      return NextResponse.json(order)
+      if (!order) {
+         return new NextResponse('Order not found', { status: 404 })
+      }
+
+      return NextResponse.json(order, {
+         headers: { 'Cache-Control': 'private, no-store' },
+      })
    } catch (error) {
       console.error('[ORDER_GET]', error)
       return new NextResponse('Internal error', { status: 500 })
