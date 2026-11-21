@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/admin/ui/button'
+import { toast } from 'react-hot-toast'
 import {
    Form,
    FormControl,
@@ -40,7 +41,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialData }) => {
    const [loading, setLoading] = useState(false)
 
    const currentStatus = initialData?.status ?? 'PendingPayment'
-   const nextStatuses = getNextOrderStatuses(currentStatus)
+   const nextStatuses = initialData?.isPaid ? getNextOrderStatuses(currentStatus) : []
 
    const form = useForm<OrderFormValues>({
       resolver: zodResolver(formSchema) as unknown as Resolver<OrderFormValues>,
@@ -70,10 +71,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({ initialData }) => {
 
          router.refresh()
          router.push('/admin/orders')
-         const { toast } = await import('react-hot-toast')
          toast.success('Order updated.')
       } catch (error) {
-         const { toast } = await import('react-hot-toast')
          toast.error(error instanceof Error ? error.message : 'Something went wrong.')
       } finally {
          setLoading(false)
