@@ -160,6 +160,8 @@ model ProductReview {
 
 model Order {
   id     String          @id @default(cuid())
+  /// Optional client request key; unique to make checkout retries safe.
+  idempotencyKey String? @unique
   number Int             @unique @default(autoincrement())
   status OrderStatusEnum
 
