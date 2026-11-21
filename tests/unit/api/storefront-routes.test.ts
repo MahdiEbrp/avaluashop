@@ -283,6 +283,76 @@ describe('POST /api/orders', () => {
       await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
    })
 
+   it('returns the existing order for a repeated idempotency key without reserving stock again', async () => {
+      const existingOrder = { id: 'o-existing', number: 41, status: 'PendingPayment' }
+      prismaMock.order.findFirst.mockResolvedValue(existingOrder)
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'checkout-request-1234567890',
+      }, USER))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual(existingOrder)
+      expect(prismaMock.order.findFirst).toHaveBeenCalledWith({
+         where: { userId: 'user-1', idempotencyKey: 'checkout-request-1234567890' },
+      })
+      expect(prismaMock.$transaction).not.toHaveBeenCalled()
+      expect(prismaMock.product.updateMany).not.toHaveBeenCalled()
+      expect(prismaMock.discountCode.updateMany).not.toHaveBeenCalled()
+   })
+
+   it('returns the committed order when concurrent requests race on the unique key', async () => {
+      const existingOrder = { id: 'o-race-winner', number: 43, status: 'PendingPayment' }
+      stubSuccess()
+      prismaMock.order.findFirst
+         .mockResolvedValueOnce(null)
+         .mockResolvedValueOnce(existingOrder)
+      prismaMock.order.create.mockRejectedValue(
+         Object.assign(new Error('unique constraint'), { code: 'P2002' })
+      )
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'checkout-race-1234567890',
+      }, USER))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual(existingOrder)
+      expect(prismaMock.order.findFirst).toHaveBeenNthCalledWith(1, {
+         where: { userId: 'user-1', idempotencyKey: 'checkout-race-1234567890' },
+      })
+      expect(prismaMock.order.findFirst).toHaveBeenNthCalledWith(2, {
+         where: { userId: 'user-1', idempotencyKey: 'checkout-race-1234567890' },
+      })
+   })
+
+   it('rejects a malformed idempotency key', async () => {
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'short',
+      }, USER))
+
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
+      expect(prismaMock.order.findFirst).not.toHaveBeenCalled()
+   })
+
+   it('answers 500 when a P2002 error is not caused by an existing idempotent order', async () => {
+      stubSuccess()
+      prismaMock.order.findFirst.mockResolvedValue(null)
+      prismaMock.order.create.mockRejectedValue(
+         Object.assign(new Error('unique constraint on number'), { code: 'P2002' })
+      )
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'checkout-race-1234567890',
+      }, USER))
+
+      expect(response.status).toBe(500)
+   })
+
    it('requires a shipping address', async () => {
       const response = await ordersPOST(json({}, USER))
 
@@ -722,5 +792,14 @@ describe('GET /api/orders/[orderId]', () => {
 
       expect(response.status).toBe(404)
       expect(await response.text()).toBe('Order not found')
+   })
+
+   it('answers 500 when loading the order fails', async () => {
+      prismaMock.order.findFirst.mockRejectedValue(new Error('db down'))
+
+      const response = await orderGET(get(USER), call({ orderId: 'o9' }))
+
+      expect(response.status).toBe(500)
+      expect(await response.text()).toBe('Internal error')
    })
 })
