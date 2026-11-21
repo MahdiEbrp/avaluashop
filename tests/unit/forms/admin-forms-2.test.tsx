@@ -115,7 +115,27 @@ describe('admin OrderForm', () => {
 
       await waitFor(() => expect(fetchMock).toHaveBeenCalled())
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/orders/o1')
+      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(payload.status).toBe('Processing')
+      expect(payload).not.toHaveProperty('isPaid')
+      expect(payload).not.toHaveProperty('isCompleted')
       await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Order updated.'))
+      vi.unstubAllGlobals()
+   })
+
+   it('submits a valid fulfilment status with its tracking number', async () => {
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(<AdminOrderForm initialData={{ ...orderData, isPaid: true } as never} />)
+
+      await user().selectOptions(screen.getByRole('combobox'), 'Shipped')
+      await user().type(screen.getByPlaceholderText('کد رهگیری را وارد کنید'), 'TRK-42')
+      await user().click(screen.getByRole('button', { name: 'Save changes' }))
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(payload).toEqual({ status: 'Shipped', shippingTrackingNumber: 'TRK-42' })
       vi.unstubAllGlobals()
    })
 
@@ -133,10 +153,12 @@ describe('admin OrderForm', () => {
       vi.unstubAllGlobals()
    })
 
-   it('starts from zeroed defaults without an order', () => {
+   it('starts from a pending-payment order without editable payment controls', () => {
       render(<AdminOrderForm initialData={null} />)
 
-      expect(screen.getAllByRole('spinbutton').length).toBeGreaterThanOrEqual(3)
+      expect(screen.getByRole('combobox')).toHaveValue('PendingPayment')
+      expect(screen.getByPlaceholderText('کد رهگیری را وارد کنید')).toBeInTheDocument()
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
    })
 
    it('populates and submits the shipment tracking number', async () => {
