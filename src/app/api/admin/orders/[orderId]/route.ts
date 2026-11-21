@@ -92,7 +92,12 @@ export async function PATCH(req: Request, { params }: RouteContext) {
          /* Compare-and-set prevents two admins from advancing the same order
             from a stale page at the same time. */
          const updated = await prisma.order.updateMany({
-            where: { id: orderId, status: existing.status, isPaid: true },
+            where: {
+               id: orderId,
+               status: existing.status,
+               isPaid: true,
+               shippingTrackingNumber: existing.shippingTrackingNumber,
+            },
             data: {
                ...data,
                ...(data.status === 'Delivered' ? { isCompleted: true } : {}),
