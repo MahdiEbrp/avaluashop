@@ -327,15 +327,32 @@ describe('POST /api/orders', () => {
       })
    })
 
-   it('rejects a malformed idempotency key', async () => {
+   it('rejects a malformed or non-string idempotency key', async () => {
+      for (const badKey of ['short', 12_345]) {
+         const response = await ordersPOST(json({
+            addressId: 'ad1',
+            idempotencyKey: badKey,
+         }, USER))
+
+         expect(response.status).toBe(400)
+         await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
+      }
+      expect(prismaMock.order.findFirst).not.toHaveBeenCalled()
+   })
+
+   it('answers 500 when a P2002 error is not caused by an existing idempotent order', async () => {
+      stubSuccess()
+      prismaMock.order.findFirst.mockResolvedValue(null)
+      prismaMock.order.create.mockRejectedValue(
+         Object.assign(new Error('unique constraint on number'), { code: 'P2002' })
+      )
+
       const response = await ordersPOST(json({
          addressId: 'ad1',
-         idempotencyKey: 'short',
+         idempotencyKey: 'checkout-race-1234567890',
       }, USER))
 
-      expect(response.status).toBe(400)
-      await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
-      expect(prismaMock.order.findFirst).not.toHaveBeenCalled()
+      expect(response.status).toBe(500)
    })
 
    it('requires a shipping address', async () => {
@@ -777,5 +794,14 @@ describe('GET /api/orders/[orderId]', () => {
 
       expect(response.status).toBe(404)
       expect(await response.text()).toBe('Order not found')
+   })
+
+   it('answers 500 when loading the order fails', async () => {
+      prismaMock.order.findFirst.mockRejectedValue(new Error('db down'))
+
+      const response = await orderGET(get(USER), call({ orderId: 'o9' }))
+
+      expect(response.status).toBe(500)
+      expect(await response.text()).toBe('Internal error')
    })
 })

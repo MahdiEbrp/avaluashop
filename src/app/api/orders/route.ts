@@ -44,11 +44,15 @@ export async function POST(req: Request) {
          return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
       }
 
-      const idempotencyKey =
-         typeof body.idempotencyKey === 'string' ? body.idempotencyKey : null
-      if (idempotencyKey !== null && !/^[a-zA-Z0-9_-]{16,128}$/.test(idempotencyKey)) {
+      if (
+         body.idempotencyKey !== undefined &&
+         body.idempotencyKey !== null &&
+         (typeof body.idempotencyKey !== 'string' ||
+            !/^[a-zA-Z0-9_-]{16,128}$/.test(body.idempotencyKey))
+      ) {
          return NextResponse.json({ message: 'INVALID_ORDER_REQUEST' }, { status: 400 })
       }
+      const idempotencyKey = body.idempotencyKey ?? null
       requestKey = idempotencyKey
 
       // A retry with the same key returns its original order before reserving
