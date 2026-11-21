@@ -161,7 +161,7 @@ model ProductReview {
 model Order {
   id     String          @id @default(cuid())
   /// Optional client request key; unique to make checkout retries safe.
-  idempotencyKey String? @unique
+  idempotencyKey String?
   number Int             @unique @default(autoincrement())
   status OrderStatusEnum
 
@@ -198,6 +198,7 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([userId, idempotencyKey])
   @@index([userId])
   @@index([addressId])
   @@index([discountCodeId])
