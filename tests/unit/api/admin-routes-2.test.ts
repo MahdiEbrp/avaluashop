@@ -293,7 +293,12 @@ describe('admin orders', () => {
 
       expect(response.status).toBe(200)
       expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
-         where: { id: 'o1', status: 'Processing', isPaid: true },
+         where: {
+            id: 'o1',
+            status: 'Processing',
+            isPaid: true,
+            shippingTrackingNumber: null,
+         },
          data: { status: 'Shipped', shippingTrackingNumber: 'TRK-1' },
       })
    })
@@ -373,7 +378,12 @@ describe('admin orders', () => {
 
       expect(response.status).toBe(200)
       expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
-         where: { id: 'o1', status: 'Shipped', isPaid: true },
+         where: {
+            id: 'o1',
+            status: 'Shipped',
+            isPaid: true,
+            shippingTrackingNumber: 'TRK-1',
+         },
          data: { status: 'Delivered', isCompleted: true },
       })
    })
