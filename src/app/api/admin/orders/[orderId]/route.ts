@@ -52,6 +52,44 @@ export async function GET(req: Request, { params }: RouteContext) {
    }
 }
 
+type OrderFulfilmentPatch = z.infer<typeof orderPatch>
+
+interface ExistingOrderState {
+   status: string
+   isPaid: boolean
+   shippingTrackingNumber: string | null
+}
+
+function validateOrderFulfilmentPatch(
+   existing: ExistingOrderState,
+   data: OrderFulfilmentPatch
+): NextResponse | null {
+   if (data.status && data.status !== existing.status) {
+      if (!canTransitionOrderStatus(existing.status, data.status)) {
+         return getErrorResponse(409, 'INVALID ORDER STATUS TRANSITION')
+      }
+
+      /* Payment state is written only by the verified gateway lifecycle. */
+      if (!existing.isPaid) {
+         return getErrorResponse(409, 'ORDER NOT PAID')
+      }
+   }
+
+   const targetStatus = data.status ?? existing.status
+   const trackingNumber =
+      data.shippingTrackingNumber === undefined
+         ? existing.shippingTrackingNumber
+         : data.shippingTrackingNumber
+   if (
+      (targetStatus === 'Shipped' || targetStatus === 'Delivered') &&
+      !trackingNumber
+   ) {
+      return getErrorResponse(400, 'TRACKING NUMBER REQUIRED')
+   }
+
+   return null
+}
+
 export async function PATCH(req: Request, { params }: RouteContext) {
    if (!req.headers.get('X-USER-ID')) return unauthorized()
 
@@ -71,24 +109,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 
       if (!existing) return getErrorResponse(404, 'ORDER NOT FOUND')
 
+      const validationError = validateOrderFulfilmentPatch(existing, data)
+      if (validationError) return validationError
+
       if (data.status && data.status !== existing.status) {
-         if (!canTransitionOrderStatus(existing.status, data.status)) {
-            return getErrorResponse(409, 'INVALID ORDER STATUS TRANSITION')
-         }
-
-         /* Payment state is written only by the verified gateway lifecycle. */
-         if (!existing.isPaid) {
-            return getErrorResponse(409, 'ORDER NOT PAID')
-         }
-
-         const trackingNumber =
-            data.shippingTrackingNumber !== undefined
-               ? data.shippingTrackingNumber
-               : existing.shippingTrackingNumber
-         if (data.status === 'Shipped' && !trackingNumber) {
-            return getErrorResponse(400, 'TRACKING NUMBER REQUIRED')
-         }
-
          /* Compare-and-set prevents two admins from advancing the same order
             from a stale page at the same time. */
          const updated = await prisma.order.updateMany({
