@@ -28,7 +28,14 @@ const orderPatch = z
       payable: z.coerce.number().min(0).max(1_000_000),
       isPaid: z.boolean(),
       isCompleted: z.boolean(),
-      shippingTrackingNumber: z.string().trim().max(100).nullable(),
+      /* The admin form posts an empty string when the operator clears the
+         field; storing '' would look like a real code to every reader. */
+      shippingTrackingNumber: z
+         .string()
+         .trim()
+         .max(100)
+         .nullable()
+         .transform((value) => (value === '' ? null : value)),
    })
    .partial()
    .refine((value) => Object.keys(value).length > 0, {

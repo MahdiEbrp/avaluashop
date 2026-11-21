@@ -8,7 +8,20 @@ import { use, useEffect, useState } from 'react'
 
 import { UserCombobox } from '../../components/switcher'
 
-type OrderTrackingView = {
+/* The API returns the raw enum; the customer reads Persian. */
+const STATUS_LABELS: Record<string, string> = {
+   Processing: 'در حال پردازش',
+   Shipped: 'ارسال شده',
+   Delivered: 'تحویل شده',
+   ReturnProcessing: 'در حال پردازش مرجوعی',
+   ReturnCompleted: 'مرجوعی انجام شده',
+   Cancelled: 'لغو شده',
+   RefundProcessing: 'در حال پردازش بازگشت وجه',
+   RefundCompleted: 'بازگشت وجه انجام شده',
+   Denied: 'رد شده',
+}
+
+interface OrderTrackingView {
    id: string
    status: string
    shippingTrackingNumber: string | null
@@ -47,7 +60,7 @@ const ProductPage = ({ params }: { params: Promise<{ orderId: string }> }) => {
                {order ? (
                   <div className="space-y-3">
                      <div>شماره سفارش: {order.id}</div>
-                     <div>وضعیت سفارش: {order.status}</div>
+                     <div>وضعیت سفارش: {STATUS_LABELS[order.status] ?? order.status}</div>
                      <div>روش ارسال: {order.shippingMethodName ?? '—'}</div>
                      <div>شرکت حمل‌ونقل: {order.shippingCarrierName ?? '—'}</div>
                      <div className="rounded-md border p-3">

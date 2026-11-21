@@ -209,6 +209,66 @@ describe('admin orders', () => {
       expect(response.status).toBe(400)
    })
 
+   it('PATCH clears the tracking number when the operator empties the field', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
+      prismaMock.order.update.mockResolvedValue({ id: 'o1', shippingTrackingNumber: null })
+
+      const response = await orderPATCH(
+         json({ shippingTrackingNumber: ' '.repeat(3) }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+         where: { id: 'o1' },
+         data: { shippingTrackingNumber: null },
+      })
+   })
+
+   it('PATCH trims the tracking number before saving it', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
+      prismaMock.order.update.mockResolvedValue({ id: 'o1' })
+
+      await orderPATCH(json({ shippingTrackingNumber: '  TRK-1  ' }, USER), call({ orderId: 'o1' }))
+
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+         where: { id: 'o1' },
+         data: { shippingTrackingNumber: 'TRK-1' },
+      })
+   })
+
+   it('PATCH accepts clearing an existing tracking number with null', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
+      prismaMock.order.update.mockResolvedValue({ id: 'o1', shippingTrackingNumber: null })
+
+      const response = await orderPATCH(
+         json({ shippingTrackingNumber: null }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+         where: { id: 'o1' },
+         data: { shippingTrackingNumber: null },
+      })
+   })
+
+   it('PATCH drops fields the order schema does not own', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
+      prismaMock.order.update.mockResolvedValue({ id: 'o1' })
+
+      const response = await orderPATCH(
+         json({ shippingTrackingNumber: 'TRK-1', bogus: 1 }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+         where: { id: 'o1' },
+         data: { shippingTrackingNumber: 'TRK-1' },
+      })
+   })
+
    it('PATCH rejects an empty patch', async () => {
       const response = await orderPATCH(json({}, USER), call({ orderId: 'o1' }))
 

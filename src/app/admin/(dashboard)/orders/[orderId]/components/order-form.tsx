@@ -27,7 +27,7 @@ const formSchema = z.object({
    discount: z.coerce.number().min(0),
    isPaid: z.boolean().default(false).optional(),
    isCompleted: z.boolean().default(false).optional(),
-   shippingTrackingNumber: z.string().max(100).nullable().optional(),
+   shippingTrackingNumber: z.string().max(100),
 })
 
 type ProductFormValues = z.infer<typeof formSchema>
@@ -214,7 +214,7 @@ export const OrderForm: React.FC<ProductFormProps> = ({ initialData }) => {
                         <Input
                            disabled={loading}
                            placeholder="کد رهگیری را وارد کنید"
-                           value={field.value ?? ''}
+                           value={field.value}
                            onChange={field.onChange}
                         />
                      </FormControl>

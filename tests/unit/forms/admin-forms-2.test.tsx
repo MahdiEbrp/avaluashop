@@ -138,6 +138,28 @@ describe('admin OrderForm', () => {
 
       expect(screen.getAllByRole('spinbutton').length).toBeGreaterThanOrEqual(3)
    })
+
+   it('populates and submits the shipment tracking number', async () => {
+      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      vi.stubGlobal('fetch', fetchMock)
+
+      render(
+         <AdminOrderForm
+            initialData={{ ...orderData, shippingTrackingNumber: 'TRK-555' } as never}
+         />
+      )
+
+      const input = screen.getByPlaceholderText('کد رهگیری را وارد کنید')
+      expect(input).toHaveValue('TRK-555')
+      await user().clear(input)
+      await user().type(input, 'TRK-777')
+      await user().click(screen.getByRole('button', { name: 'Save changes' }))
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      expect(payload.shippingTrackingNumber).toBe('TRK-777')
+      vi.unstubAllGlobals()
+   })
 })
 
 describe('admin UserForm', () => {
