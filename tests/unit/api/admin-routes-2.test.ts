@@ -275,19 +275,106 @@ describe('admin orders', () => {
       expect(response.status).toBe(400)
    })
 
-   it('PATCH updates an existing order', async () => {
-      prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
-      prismaMock.order.update.mockResolvedValue({ id: 'o1', status: 'Shipped' })
+   it('PATCH advances a paid order to shipped only with a tracking number', async () => {
+      prismaMock.order.findUnique
+         .mockResolvedValueOnce({
+            id: 'o1',
+            status: 'Processing',
+            isPaid: true,
+            shippingTrackingNumber: null,
+         })
+         .mockResolvedValueOnce({ id: 'o1', status: 'Shipped', shippingTrackingNumber: 'TRK-1' })
+      prismaMock.order.updateMany.mockResolvedValue({ count: 1 })
 
       const response = await orderPATCH(
-         json({ status: 'Shipped', payable: '120' }, USER),
+         json({ status: 'Shipped', shippingTrackingNumber: 'TRK-1' }, USER),
          call({ orderId: 'o1' })
       )
 
       expect(response.status).toBe(200)
-      expect(prismaMock.order.update).toHaveBeenCalledWith({
-         where: { id: 'o1' },
-         data: { status: 'Shipped', payable: 120 },
+      expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
+         where: { id: 'o1', status: 'Processing', isPaid: true },
+         data: { status: 'Shipped', shippingTrackingNumber: 'TRK-1' },
+      })
+   })
+
+   it('PATCH refuses to mark an order paid directly', async () => {
+      const response = await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))
+
+      expect(response.status).toBe(400)
+      expect(prismaMock.order.update).not.toHaveBeenCalled()
+   })
+
+   it('PATCH requires payment verification before shipping', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         id: 'o1',
+         status: 'Processing',
+         isPaid: false,
+         shippingTrackingNumber: null,
+      })
+
+      const response = await orderPATCH(
+         json({ status: 'Shipped', shippingTrackingNumber: 'TRK-1' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(409)
+      expect(prismaMock.order.updateMany).not.toHaveBeenCalled()
+   })
+
+   it('PATCH requires a tracking number before shipping', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         id: 'o1',
+         status: 'Processing',
+         isPaid: true,
+         shippingTrackingNumber: null,
+      })
+
+      const response = await orderPATCH(
+         json({ status: 'Shipped' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(400)
+      expect(prismaMock.order.updateMany).not.toHaveBeenCalled()
+   })
+
+   it('PATCH rejects transitions outside the fulfilment workflow', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+         id: 'o1',
+         status: 'Processing',
+         isPaid: true,
+         shippingTrackingNumber: null,
+      })
+
+      const response = await orderPATCH(
+         json({ status: 'Delivered' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(409)
+   })
+
+   it('PATCH marks a shipped order completed when delivered', async () => {
+      prismaMock.order.findUnique
+         .mockResolvedValueOnce({
+            id: 'o1',
+            status: 'Shipped',
+            isPaid: true,
+            shippingTrackingNumber: 'TRK-1',
+         })
+         .mockResolvedValueOnce({ id: 'o1', status: 'Delivered', isCompleted: true })
+      prismaMock.order.updateMany.mockResolvedValue({ count: 1 })
+
+      const response = await orderPATCH(
+         json({ status: 'Delivered' }, USER),
+         call({ orderId: 'o1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.order.updateMany).toHaveBeenCalledWith({
+         where: { id: 'o1', status: 'Shipped', isPaid: true },
+         data: { status: 'Delivered', isCompleted: true },
       })
    })
 
