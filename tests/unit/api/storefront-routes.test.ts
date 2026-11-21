@@ -304,6 +304,31 @@ describe('POST /api/orders', () => {
       expect(prismaMock.discountCode.updateMany).not.toHaveBeenCalled()
    })
 
+   it('returns the committed order when concurrent requests race on the unique key', async () => {
+      const existingOrder = { id: 'o-race-winner', number: 43, status: 'PendingPayment' }
+      stubSuccess()
+      prismaMock.order.findFirst
+         .mockResolvedValueOnce(null)
+         .mockResolvedValueOnce(existingOrder)
+      prismaMock.order.create.mockRejectedValue(
+         Object.assign(new Error('unique constraint'), { code: 'P2002' })
+      )
+
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'checkout-race-1234567890',
+      }, USER))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual(existingOrder)
+      expect(prismaMock.order.findFirst).toHaveBeenNthCalledWith(1, {
+         where: { userId: 'user-1', idempotencyKey: 'checkout-race-1234567890' },
+      })
+      expect(prismaMock.order.findFirst).toHaveBeenNthCalledWith(2, {
+         where: { userId: 'user-1', idempotencyKey: 'checkout-race-1234567890' },
+      })
+   })
+
    it('rejects a malformed idempotency key', async () => {
       const response = await ordersPOST(json({
          addressId: 'ad1',
