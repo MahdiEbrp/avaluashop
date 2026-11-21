@@ -1,35 +1,12 @@
 import prisma from '@/lib/prisma'
+import { canTransitionOrderStatus, ORDER_STATUSES } from '@/lib/order-status'
 import { getErrorResponse } from '@/lib/utils'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 
-/** The nine states in `OrderStatusEnum`, as a closed list. */
-const orderStatus = z.enum([
-   'Processing',
-   'Shipped',
-   'Delivered',
-   'ReturnProcessing',
-   'ReturnCompleted',
-   'Cancelled',
-   'RefundProcessing',
-   'RefundCompleted',
-   'Denied',
-])
-
-/**
- * A fulfilment update. Amounts are money: they must be finite and
- * non-negative, and `payable` can never exceed what was actually ordered.
- */
 const orderPatch = z
    .object({
-      status: orderStatus,
-      shipping: z.coerce.number().min(0).max(1_000_000),
-      discount: z.coerce.number().min(0).max(1_000_000),
-      payable: z.coerce.number().min(0).max(1_000_000),
-      isPaid: z.boolean(),
-      isCompleted: z.boolean(),
-      /* The admin form posts an empty string when the operator clears the
-         field; storing '' would look like a real code to every reader. */
+      status: z.enum(ORDER_STATUSES),
       shippingTrackingNumber: z
          .string()
          .trim()
@@ -75,6 +52,44 @@ export async function GET(req: Request, { params }: RouteContext) {
    }
 }
 
+type OrderFulfilmentPatch = z.infer<typeof orderPatch>
+
+interface ExistingOrderState {
+   status: string
+   isPaid: boolean
+   shippingTrackingNumber: string | null
+}
+
+function validateOrderFulfilmentPatch(
+   existing: ExistingOrderState,
+   data: OrderFulfilmentPatch
+): NextResponse | null {
+   if (data.status && data.status !== existing.status) {
+      if (!canTransitionOrderStatus(existing.status, data.status)) {
+         return getErrorResponse(409, 'INVALID ORDER STATUS TRANSITION')
+      }
+
+      /* Payment state is written only by the verified gateway lifecycle. */
+      if (!existing.isPaid) {
+         return getErrorResponse(409, 'ORDER NOT PAID')
+      }
+   }
+
+   const targetStatus = data.status ?? existing.status
+   const trackingNumber =
+      data.shippingTrackingNumber === undefined
+         ? existing.shippingTrackingNumber
+         : data.shippingTrackingNumber
+   if (
+      (targetStatus === 'Shipped' || targetStatus === 'Delivered') &&
+      !trackingNumber
+   ) {
+      return getErrorResponse(400, 'TRACKING NUMBER REQUIRED')
+   }
+
+   return null
+}
+
 export async function PATCH(req: Request, { params }: RouteContext) {
    if (!req.headers.get('X-USER-ID')) return unauthorized()
 
@@ -82,13 +97,44 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 
    try {
       const data = orderPatch.parse(await req.json())
-
       const existing = await prisma.order.findUnique({
          where: { id: orderId },
-         select: { id: true },
+         select: {
+            id: true,
+            status: true,
+            isPaid: true,
+            shippingTrackingNumber: true,
+         },
       })
 
       if (!existing) return getErrorResponse(404, 'ORDER NOT FOUND')
+
+      const validationError = validateOrderFulfilmentPatch(existing, data)
+      if (validationError) return validationError
+
+      if (data.status && data.status !== existing.status) {
+         /* Compare-and-set prevents two admins from advancing the same order
+            from a stale page at the same time. */
+         const updated = await prisma.order.updateMany({
+            where: {
+               id: orderId,
+               status: existing.status,
+               isPaid: true,
+               shippingTrackingNumber: existing.shippingTrackingNumber,
+            },
+            data: {
+               ...data,
+               ...(data.status === 'Delivered' ? { isCompleted: true } : {}),
+            },
+         })
+
+         if (updated.count !== 1) {
+            return getErrorResponse(409, 'ORDER STATE CONFLICT')
+         }
+
+         const order = await prisma.order.findUnique({ where: { id: orderId } })
+         return NextResponse.json(order)
+      }
 
       const order = await prisma.order.update({
          where: { id: orderId },

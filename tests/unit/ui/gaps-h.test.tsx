@@ -151,7 +151,7 @@ describe('product form delete confirmation', () => {
 describe('admin order form error handling', () => {
    const initialData = {
       id: 'o1',
-      status: 'Pending',
+      status: 'Processing',
       shipping: 10,
       payable: 100,
       discount: 0,
