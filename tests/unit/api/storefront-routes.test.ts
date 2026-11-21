@@ -213,34 +213,32 @@ describe('GET /api/orders', () => {
       expect((await ordersGET(get())).status).toBe(401)
    })
 
-   it('lists the caller orders with relations', async () => {
-      prismaMock.order.findMany.mockResolvedValue([{ id: 'o1' }])
+   it('lists only the caller-facing order summary fields', async () => {
+      const orderSummary = {
+         id: 'o1',
+         number: 42,
+         createdAt: new Date('2026-10-01T10:00:00.000Z'),
+         payable: 261.6,
+         isPaid: true,
+      }
+      prismaMock.order.findMany.mockResolvedValue([orderSummary])
 
       const response = await ordersGET(get(USER))
 
-      await expect(response.json()).resolves.toEqual([{ id: 'o1' }])
+      await expect(response.json()).resolves.toEqual([
+         { ...orderSummary, createdAt: orderSummary.createdAt.toISOString() },
+      ])
+      expect(response.headers.get('cache-control')).toBe('private, no-store')
       expect(prismaMock.order.findMany).toHaveBeenCalledWith({
          where: { userId: 'user-1' },
-         include: {
-            address: true,
-            payments: true,
-            refund: true,
-            orderItems: true,
-            shippingMethod: {
-               select: {
-                  id: true,
-                  code: true,
-                  title: true,
-                  description: true,
-                  type: true,
-                  amount: true,
-                  freeAbove: true,
-               },
-            },
-            shippingCarrier: {
-               select: { id: true, code: true, title: true },
-            },
+         select: {
+            id: true,
+            number: true,
+            createdAt: true,
+            payable: true,
+            isPaid: true,
          },
+         orderBy: { createdAt: 'desc' },
       })
    })
 
