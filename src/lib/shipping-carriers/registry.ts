@@ -1,10 +1,12 @@
-import { CarrierAdapterError, type ShippingCarrierCode } from './types'
+import { CarrierAdapterError, type CarrierOperation, type ShippingCarrierCode } from './types'
 import type { ShippingCarrierAdapter } from './adapter'
 
-const CARRIER_CODES: readonly ShippingCarrierCode[] = ['Post', 'Tipax', 'Chapar']
+const CARRIER_CODES: ReadonlySet<ShippingCarrierCode> = new Set(['Post', 'Tipax', 'Chapar'])
 
-export function isShippingCarrierCode(value: string): value is ShippingCarrierCode {
-   return CARRIER_CODES.some((code) => code === value)
+/* Rows reach this guard from the database and from request bodies, so the
+   value is unknown until it has been checked. */
+export function isShippingCarrierCode(value: unknown): value is ShippingCarrierCode {
+   return CARRIER_CODES.has(value as ShippingCarrierCode)
 }
 
 export function createShippingCarrierRegistry(
@@ -23,14 +25,14 @@ export function createShippingCarrierRegistry(
    }
 
    return {
-      get(code: ShippingCarrierCode) {
+      get(code: ShippingCarrierCode, operation: CarrierOperation = 'quote') {
          const adapter = registry.get(code)
          if (!adapter) {
             throw new CarrierAdapterError({
                code: 'CARRIER_ADAPTER_NOT_CONFIGURED',
                message: `Shipping carrier adapter "${code}" is not configured`,
                carrier: code,
-               operation: 'quote',
+               operation,
             })
          }
          return adapter

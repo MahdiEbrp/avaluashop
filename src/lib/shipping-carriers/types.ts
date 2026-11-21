@@ -54,12 +54,12 @@ export interface CarrierTracking {
    status: string
    description?: string
    updatedAt?: string
-   events?: Array<{
+   events?: {
       status: string
       description?: string
       occurredAt?: string
       location?: string
-   }>
+   }[]
    raw?: unknown
 }
 
