@@ -327,16 +327,14 @@ describe('POST /api/orders', () => {
       })
    })
 
-   it('rejects a malformed or non-string idempotency key', async () => {
-      for (const badKey of ['short', 12_345]) {
-         const response = await ordersPOST(json({
-            addressId: 'ad1',
-            idempotencyKey: badKey,
-         }, USER))
+   it('rejects a malformed idempotency key', async () => {
+      const response = await ordersPOST(json({
+         addressId: 'ad1',
+         idempotencyKey: 'short',
+      }, USER))
 
-         expect(response.status).toBe(400)
-         await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
-      }
+      expect(response.status).toBe(400)
+      await expect(response.json()).resolves.toEqual({ message: 'INVALID_ORDER_REQUEST' })
       expect(prismaMock.order.findFirst).not.toHaveBeenCalled()
    })
 

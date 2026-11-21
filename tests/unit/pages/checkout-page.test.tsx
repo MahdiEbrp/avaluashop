@@ -1041,8 +1041,8 @@ describe('checkout — shipping methods', () => {
 
    it('reuses the same idempotency key when retrying after a failed gateway call', async () => {
       let gatewayAttempt = 0
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/shipping/methods') return jsonResponse([flatMethod])
+      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+         if (url === '/api/shipping/methods') return jsonResponse([flat])
          if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
          if (url === '/api/payments/tabapay') {
             gatewayAttempt += 1
@@ -1062,12 +1062,12 @@ describe('checkout — shipping methods', () => {
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
       await waitFor(() => expect(redirectToPayment).toHaveBeenCalledWith('https://api.tabapay.ir/pay/retry'))
 
-      const orderCalls = fetchMock.mock.calls.filter(([url]) => url === '/api/orders')
-      expect(orderCalls).toHaveLength(2)
-      const firstKey = (JSON.parse(String(orderCalls[0]?.[1]?.body)) as { idempotencyKey?: string }).idempotencyKey
-      const secondKey = (JSON.parse(String(orderCalls[1]?.[1]?.body)) as { idempotencyKey?: string }).idempotencyKey
-      expect(firstKey).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
-      expect(secondKey).toBe(firstKey)
+      const keys = fetchMock.mock.calls
+         .filter(([url]) => url === '/api/orders')
+         .map(([, init]) => (JSON.parse(String(init?.body)) as { idempotencyKey?: string }).idempotencyKey)
+      expect(keys).toHaveLength(2)
+      expect(keys[0]).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
+      expect(keys[1]).toBe(keys[0])
    })
 
    it('lets an order through when the store has no shipping methods', async () => {
