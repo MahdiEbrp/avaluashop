@@ -9,7 +9,7 @@ import { CartContextProvider, useCartContext } from '@/state/Cart'
 import { UserContextProvider, useUserContext } from '@/state/User'
 import { redirectToPayment } from '@/lib/payments/redirect'
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface Address {
    id: string
@@ -173,6 +173,9 @@ function CheckoutContent() {
    const [loadingAddresses, setLoadingAddresses] = useState(true)
    const [savingAddress, setSavingAddress] = useState(false)
    const [submitting, setSubmitting] = useState(false)
+   // Keep one key for this checkout view so retries after an uncertain response
+   // resolve to the same server-side order rather than reserving stock twice.
+   const orderRequestKey = useRef<string | null>(null)
    const [paymentPending, setPaymentPending] = useState(false)
    const [error, setError] = useState('')
    const [success, setSuccess] = useState('')
@@ -385,11 +388,13 @@ function CheckoutContent() {
       setSuccess('')
 
       try {
+         if (!orderRequestKey.current) orderRequestKey.current = globalThis.crypto.randomUUID()
          const response = await fetch('/api/orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                addressId: selectedAddress,
+               idempotencyKey: orderRequestKey.current,
                shippingMethodId: selectedShippingMethod || undefined,
                discountCode: discountCode.trim() || undefined,
             }),
