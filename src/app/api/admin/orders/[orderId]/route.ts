@@ -81,7 +81,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
             return getErrorResponse(409, 'ORDER NOT PAID')
          }
 
-         const trackingNumber = data.shippingTrackingNumber ?? existing.shippingTrackingNumber
+         const trackingNumber =
+            data.shippingTrackingNumber !== undefined
+               ? data.shippingTrackingNumber
+               : existing.shippingTrackingNumber
          if (data.status === 'Shipped' && !trackingNumber) {
             return getErrorResponse(400, 'TRACKING NUMBER REQUIRED')
          }
