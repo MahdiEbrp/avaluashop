@@ -3,12 +3,11 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader } from '@/components/ui/loader'
 import { useAuthenticated } from '@/hooks/useAuthentication'
+import { ORDER_STATUS_LABELS, type OrderStatus } from '@/lib/order-status'
 import { usePathname } from 'next/navigation'
 import { use, useEffect, useState } from 'react'
 
 import { UserCombobox } from '../../components/switcher'
-
-import { ORDER_STATUS_LABELS, type OrderStatus } from '@/lib/order-status'
 
 interface OrderTrackingView {
    id: string
