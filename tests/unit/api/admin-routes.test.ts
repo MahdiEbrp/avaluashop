@@ -172,7 +172,7 @@ describe('admin brands', () => {
       const response = await brandsPOST(json({}, USER))
 
       expect(response.status).toBe(400)
-      expect(await response.text()).toBe('Name is required')
+      await expect(response.json()).resolves.toEqual({ message: 'INVALID_BRAND' })
    })
 
    it('POST creates and invalidates the catalogue tag', async () => {
@@ -182,7 +182,7 @@ describe('admin brands', () => {
          json({ title: 'Acme', description: 'd', logo: '/l.png' }, USER)
       )
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(201)
       expect(revalidateTag).toHaveBeenCalledWith('catalog', { expire: 0 })
    })
 
@@ -195,7 +195,7 @@ describe('admin brands', () => {
    it('GET lists brands', async () => {
       prismaMock.brand.findMany.mockResolvedValue([{ id: 'br1' }])
 
-      const response = await brandsGET()
+      const response = await brandsGET(get(USER))
 
       await expect(response.json()).resolves.toEqual([{ id: 'br1' }])
    })
@@ -203,7 +203,7 @@ describe('admin brands', () => {
    it('GET answers 500 on failure', async () => {
       prismaMock.brand.findMany.mockRejectedValue(new Error('down'))
 
-      expect((await brandsGET()).status).toBe(500)
+      expect((await brandsGET(get(USER))).status).toBe(500)
    })
 
    it('single-brand routes require a session', async () => {
@@ -226,6 +226,8 @@ describe('admin brands', () => {
    })
 
    it('DELETE removes the brand and rejects a missing id', async () => {
+      prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
+      prismaMock.product.count.mockResolvedValue(0)
       prismaMock.brand.delete.mockResolvedValue({ id: 'br1' })
 
       expect((await brandDEL(get(USER), call({ brandId: 'br1' }))).status).toBe(200)
@@ -233,6 +235,8 @@ describe('admin brands', () => {
    })
 
    it('DELETE answers 500 on failure', async () => {
+      prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
+      prismaMock.product.count.mockResolvedValue(0)
       prismaMock.brand.delete.mockRejectedValue(new Error('down'))
 
       expect((await brandDEL(get(USER), call({ brandId: 'br1' }))).status).toBe(500)
@@ -278,10 +282,10 @@ describe('admin brands', () => {
 })
 
 describe('admin categories', () => {
-   it('POST requires a session, a title and a banner', async () => {
+   it('POST requires a session and a valid title', async () => {
       expect((await categoriesPOST(json({}))).status).toBe(401)
       expect((await categoriesPOST(json({}, USER))).status).toBe(400)
-      expect((await categoriesPOST(json({ title: 'Shoes' }, USER))).status).toBe(400)
+      expect((await categoriesPOST(json({ title: 'Shoes' }, USER))).status).toBe(201)
    })
 
    it('POST creates the category with its banner', async () => {
@@ -291,13 +295,9 @@ describe('admin categories', () => {
          json({ title: 'Shoes', description: 'd', bannerId: 'b1' }, USER)
       )
 
-      expect(response.status).toBe(200)
+      expect(response.status).toBe(201)
       expect(prismaMock.category.create).toHaveBeenCalledWith({
-         data: {
-            title: 'Shoes',
-            description: 'd',
-            banners: { connect: { id: 'b1' } },
-         },
+         data: { title: 'Shoes', description: 'd' },
       })
    })
 
@@ -305,20 +305,20 @@ describe('admin categories', () => {
       prismaMock.category.create.mockRejectedValue(new Error('down'))
 
       expect(
-         (await categoriesPOST(json({ title: 'x', bannerId: 'b1' }, USER))).status
+         (await categoriesPOST(json({ title: 'x' }, USER))).status
       ).toBe(500)
    })
 
    it('GET lists categories', async () => {
       prismaMock.category.findMany.mockResolvedValue([{ id: 'c1' }])
 
-      await expect((await categoriesGET()).json()).resolves.toEqual([{ id: 'c1' }])
+      await expect((await categoriesGET(get(USER))).json()).resolves.toEqual([{ id: 'c1' }])
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.category.findMany.mockRejectedValue(new Error('down'))
 
-      expect((await categoriesGET()).status).toBe(500)
+      expect((await categoriesGET(get(USER))).status).toBe(500)
    })
 
    it('single-category routes require a session', async () => {
@@ -340,7 +340,9 @@ describe('admin categories', () => {
       expect((await categoryGET(get(USER), call({ categoryId: 'c1' }))).status).toBe(500)
    })
 
-   it('DELETE removes the category and rejects a missing id', async () => {
+   it('DELETE removes an unused category and rejects a missing id', async () => {
+      prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
+      prismaMock.product.count.mockResolvedValue(0)
       prismaMock.category.delete.mockResolvedValue({ id: 'c1' })
 
       expect((await categoryDEL(get(USER), call({ categoryId: 'c1' }))).status).toBe(200)
@@ -348,40 +350,30 @@ describe('admin categories', () => {
    })
 
    it('DELETE answers 500 on failure', async () => {
+      prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
+      prismaMock.product.count.mockResolvedValue(0)
       prismaMock.category.delete.mockRejectedValue(new Error('down'))
 
       expect((await categoryDEL(get(USER), call({ categoryId: 'c1' }))).status).toBe(500)
    })
 
-   it('PATCH requires both banner and title', async () => {
-      expect(
-         (await categoryPATCH(json({ title: 'x' }, USER), call({ categoryId: 'c1' }))).status
-      ).toBe(400)
-      expect(
-         (await categoryPATCH(json({ bannerId: 'b1' }, USER), call({ categoryId: 'c1' }))).status
-      ).toBe(400)
-      expect(
-         (
-            await categoryPATCH(
-               json({ bannerId: 'b1', title: 'x' }, USER),
-               call({ categoryId: '' })
-            )
-         ).status
-      ).toBe(400)
+   it('PATCH rejects an empty patch and a missing id', async () => {
+      expect((await categoryPATCH(json({}, USER), call({ categoryId: 'c1' }))).status).toBe(400)
+      expect((await categoryPATCH(json({ title: 'x' }, USER), call({ categoryId: '' }))).status).toBe(400)
    })
 
    it('PATCH updates the category', async () => {
       prismaMock.category.update.mockResolvedValue({ id: 'c1' })
 
       const response = await categoryPATCH(
-         json({ title: 'New', description: 'd', bannerId: 'b1' }, USER),
+         json({ title: 'New', description: 'd' }, USER),
          call({ categoryId: 'c1' })
       )
 
       expect(response.status).toBe(200)
       expect(prismaMock.category.update).toHaveBeenCalledWith({
          where: { id: 'c1' },
-         data: { title: 'New', description: 'd', banners: { connect: { id: 'b1' } } },
+         data: { title: 'New', description: 'd' }, 
       })
    })
 
@@ -391,7 +383,7 @@ describe('admin categories', () => {
       expect(
          (
             await categoryPATCH(
-               json({ title: 'x', bannerId: 'b1' }, USER),
+               json({ title: 'x' }, USER),
                call({ categoryId: 'c1' })
             )
          ).status
