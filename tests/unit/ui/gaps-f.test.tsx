@@ -30,7 +30,7 @@ describe('admin order sort filter', () => {
       render(<AdminSortBy initialData="featured" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Featured')).at(-1)!)
+      await user().click((await screen.findAllByText('جدیدترین سفارش')).at(-1)!)
 
       await waitFor(() =>
          expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
@@ -41,7 +41,7 @@ describe('admin order sort filter', () => {
       render(<AdminSortBy initialData={undefined} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Most Expensive')).at(-1)!)
+      await user().click((await screen.findAllByText('بیشترین مبلغ')).at(-1)!)
 
       await waitFor(() => expect(routerMock.replace).toHaveBeenCalled())
    })
