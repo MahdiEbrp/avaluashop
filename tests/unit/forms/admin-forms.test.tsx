@@ -277,7 +277,6 @@ describe('admin CategoryForm', () => {
 
       render(
          <CategoryForm
-            banners={banners as never}
             initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
          />
       )
@@ -377,6 +376,7 @@ describe('admin ProductForm', () => {
       render(
          <ProductForm
             categories={categories as never}
+            brands={brands as never}
             initialData={
                {
                   id: 'p1',
@@ -388,7 +388,7 @@ describe('admin ProductForm', () => {
                   images: [],
                   categories,
                   categoryId: 'c1',
-                  brandId: null,
+                  brandId: 'br1',
                   isAvailable: true,
                   isFeatured: false,
                } as never
