@@ -6,11 +6,7 @@ import { prismaMock } from '../support/db'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-const paidOrder = (createdAt: Date, payable: number, items: { price: number }[]) => ({
-   createdAt,
-   payable,
-   orderItems: items,
-})
+const paidOrder = (createdAt: Date, payable: number) => ({ createdAt, payable })
 
 describe('dashboard aggregates', () => {
    beforeEach(() => {
@@ -78,14 +74,18 @@ describe('getGraphRevenue', () => {
          'Dec',
       ])
       expect(graph.every((point) => point.total === 0)).toBe(true)
+      expect(prismaMock.order.findMany).toHaveBeenCalledWith({
+         where: { isPaid: true },
+         select: { createdAt: true, payable: true },
+      })
    })
 
    it('adds each paid order onto the month it was created in', async () => {
       prismaMock.order.findMany.mockResolvedValue([
-         paidOrder(new Date('2024-01-15T00:00:00Z'), 100, []),
-         paidOrder(new Date('2024-01-20T00:00:00Z'), 50, []),
-         paidOrder(new Date('2024-07-02T00:00:00Z'), 25, []),
-         paidOrder(new Date('2024-12-31T00:00:00Z'), 5, []),
+         paidOrder(new Date('2024-01-15T00:00:00Z'), 100),
+         paidOrder(new Date('2024-01-20T00:00:00Z'), 50),
+         paidOrder(new Date('2024-07-02T00:00:00Z'), 25),
+         paidOrder(new Date('2024-12-31T00:00:00Z'), 5),
       ])
 
       const graph = await getGraphRevenue()
