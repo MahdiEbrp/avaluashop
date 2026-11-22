@@ -347,7 +347,6 @@ describe('admin forms request failures', () => {
 
       render(
          <CategoryForm
-            banners={[]}
             initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
          />
       )
@@ -376,6 +375,7 @@ describe('admin forms request failures', () => {
       render(
          <ProductForm
             categories={[{ id: 'c1', title: 'Shoes' }] as never}
+            brands={[] as never}
             initialData={
                {
                   id: 'p1',
@@ -517,8 +517,8 @@ describe('orders table', () => {
       const { container } = render(
          <OrdersTable
             data={[
-               { id: 'o1', number: 'Order #1', createdAt: '2024', payable: '$5', isPaid: true },
-               { id: 'o2', number: 'Order #2', createdAt: '2024', payable: '$6', isPaid: false },
+               { id: 'o1', number: 'Order #1', date: '2024', payable: '$5', isPaid: true },
+               { id: 'o2', number: 'Order #2', date: '2024', payable: '$6', isPaid: false },
             ]}
          />
       )
