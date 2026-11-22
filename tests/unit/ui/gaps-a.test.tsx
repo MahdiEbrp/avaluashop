@@ -273,7 +273,7 @@ describe('product form image field', () => {
    const categories = [{ id: 'c1', title: 'Shoes' }]
 
    it('appends an uploaded image and removes it', async () => {
-      render(<ProductForm categories={categories as never} initialData={null} />)
+      render(<ProductForm categories={categories as never} brands={[] as never} initialData={null} />)
 
       act(() => {
          widgetState.onSuccess?.({ info: { secure_url: 'https://cdn/new.png' } })
@@ -286,7 +286,7 @@ describe('product form image field', () => {
    })
 
    it('toggles the featured and available switches', async () => {
-      render(<ProductForm categories={categories as never} initialData={null} />)
+      render(<ProductForm categories={categories as never} brands={[] as never} initialData={null} />)
 
       const switches = screen.getAllByRole('checkbox')
       await user().click(switches[0])
