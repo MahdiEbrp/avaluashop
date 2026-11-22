@@ -37,8 +37,8 @@ describe('dashboard aggregates', () => {
 
    it('sums the final payable amount of paid orders', async () => {
       prismaMock.order.findMany.mockResolvedValue([
-         { orderItems: [{ price: 10 }, { price: 2.5 }] },
-         { orderItems: [{ price: 100 }] },
+         { payable: 112.5 },
+         { payable: 100 },
       ])
 
       await expect(getTotalRevenue()).resolves.toBe(212.5)
