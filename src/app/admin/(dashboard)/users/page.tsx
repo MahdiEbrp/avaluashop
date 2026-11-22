@@ -37,9 +37,9 @@ export default async function UsersPage({
    const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE))
    const formattedUsers: UserColumn[] = users.map((user) => ({
       id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
+      name: user.name ?? '—',
+      email: user.email ?? '—',
+      phone: user.phone ?? '—',
       orders: user._count.orders,
    }))
 
