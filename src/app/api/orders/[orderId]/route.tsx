@@ -18,17 +18,29 @@ export async function GET(
          return new NextResponse('orderId is required', { status: 400 })
       }
 
-      /* Return only the fields used by the customer's tracking page.
-         In particular, never serialize User (OTP) or PaymentProvider
-         (encrypted credentials/settings) relations to the storefront. */
+      // Explicit customer-safe selection: never serialize User, Payment or
+      // PaymentProvider relations into a storefront response.
       const order = await prisma.order.findFirst({
          where: { userId, id: orderId },
          select: {
             id: true,
+            number: true,
             status: true,
+            isPaid: true,
+            payable: true,
+            shipping: true,
+            createdAt: true,
             shippingTrackingNumber: true,
             shippingCarrierName: true,
             shippingMethodName: true,
+            orderItems: {
+               select: {
+                  count: true,
+                  price: true,
+                  discount: true,
+                  product: { select: { title: true } },
+               },
+            },
          },
       })
 
