@@ -446,9 +446,9 @@ describe('admin orders', () => {
 })
 
 describe('admin payments', () => {
-   it('requires a session', async () => {
+   it('requires a session for reads and settlement attempts', async () => {
       expect((await paymentGET(get(), call({ paymentId: 'pay1' }))).status).toBe(401)
-      expect((await paymentPATCH(json({}), call({ paymentId: 'pay1' }))).status).toBe(401)
+      expect((await paymentPATCH(json({ status: 'Paid' }), call({ paymentId: 'pay1' }))).status).toBe(401)
    })
 
    it('GET returns the payment or 404', async () => {
@@ -465,64 +465,22 @@ describe('admin payments', () => {
       expect((await paymentGET(get(USER), call({ paymentId: 'pay1' }))).status).toBe(500)
    })
 
-   it('PATCH strips gateway evidence from the body', async () => {
-      prismaMock.payment.findUnique.mockResolvedValue({ id: 'pay1' })
-      prismaMock.payment.update.mockResolvedValue({ id: 'pay1' })
+   it.each([
+      [{ status: 'Paid', isSuccessful: true }],
+      [{ status: 'Failed' }],
+      [{ payable: 1 }],
+      [{ fee: 1 }],
+      [{ status: 'Paid', refId: 'forged', cardHash: 'x' }],
+   ])('rejects admin settlement mutation %o', async (body) => {
+      const response = await paymentPATCH(json(body, USER), call({ paymentId: 'pay1' }))
 
-      await paymentPATCH(
-         json({ status: 'Paid', refId: 'forged', cardHash: 'x' }, USER),
-         call({ paymentId: 'pay1' })
-      )
-
-      /* Unknown keys never reach the update: zod strips them. */
-      expect(prismaMock.payment.update).toHaveBeenCalledWith({
-         where: { id: 'pay1' },
-         data: { status: 'Paid' },
+      expect(response.status).toBe(405)
+      await expect(response.json()).resolves.toEqual({
+         message: 'PAYMENT_SETTLEMENT_READ_ONLY',
       })
-   })
-
-   it('PATCH rejects an out-of-range fee and an empty body', async () => {
-      expect(
-         (
-            await paymentPATCH(
-               json({ fee: 99_000_000 }, USER),
-               call({ paymentId: 'pay1' })
-            )
-         ).status
-      ).toBe(400)
-      expect((await paymentPATCH(json({}, USER), call({ paymentId: 'pay1' }))).status).toBe(400)
-   })
-
-   it('PATCH updates settlement fields', async () => {
-      prismaMock.payment.findUnique.mockResolvedValue({ id: 'pay1' })
-      prismaMock.payment.update.mockResolvedValue({ id: 'pay1', status: 'Paid' })
-
-      const response = await paymentPATCH(
-         json({ status: 'Paid', isSuccessful: true, fee: '5' }, USER),
-         call({ paymentId: 'pay1' })
-      )
-
-      expect(response.status).toBe(200)
-      expect(prismaMock.payment.update).toHaveBeenCalledWith({
-         where: { id: 'pay1' },
-         data: { status: 'Paid', isSuccessful: true, fee: 5 },
-      })
-   })
-
-   it('PATCH answers 404 when the payment is gone', async () => {
-      prismaMock.payment.findUnique.mockResolvedValue(null)
-
-      expect(
-         (await paymentPATCH(json({ status: 'Paid' }, USER), call({ paymentId: 'x' }))).status
-      ).toBe(404)
-   })
-
-   it('PATCH answers 500 on failure', async () => {
-      prismaMock.payment.findUnique.mockRejectedValue(new Error('down'))
-
-      expect(
-         (await paymentPATCH(json({ status: 'Paid' }, USER), call({ paymentId: 'pay1' }))).status
-      ).toBe(500)
+      expect(response.headers.get('allow')).toBe('GET')
+      expect(prismaMock.payment.update).not.toHaveBeenCalled()
+      expect(prismaMock.payment.findUnique).not.toHaveBeenCalled()
    })
 })
 

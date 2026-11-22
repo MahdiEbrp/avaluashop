@@ -1,34 +1,10 @@
-# PR #40 — Carrier API integration plan
+# PR #40 — Carrier quote and shipment tracking orchestration
 
-> Planning-only PR. No runtime code or database changes.
+## Implemented modules
+- `src/lib/shipping-carriers/service.ts` (exported via `src/lib/shipping-carriers/index.ts`):
+  - `validateCarrierQuoteRequest(request)`: validates origin/destination city, address, 10-digit postal code (`/^\d{10}$/`), positive parcel weight (`weightGrams > 0`), and non-negative declared value before invoking any carrier adapter.
+  - `quoteCarrierRate(carrier, request, registry)`: queries the configured carrier adapter and returns a structured `CarrierQuoteOutcome` (`{ available: true, carrier, quote }` or `{ available: false, carrier, reason, retryable }`). Never fabricates prices when an adapter is unconfigured, rejects malformed quotes, and surfaces `CarrierAdapterError` codes safely.
+  - `resolveNextOrderStatusFromTracking(currentOrderStatus, tracking)`: enforces monotonic order status progression (`Processing → Shipped → Delivered`) from carrier tracking statuses (`picked_up` / `in_transit` / `out_for_delivery` → `Shipped`; `delivered` → `Delivered`) so out-of-order tracking events can never regress a `Delivered` or `Shipped` order.
 
-## Current repository facts
-- Carrier records exist for Post, Tipax, and Chapar.
-- A provider-neutral adapter interface and registry exist for quote, shipment creation, and tracking operations.
-- Manual tracking number entry exists.
-- Carrier-calculated shipping is currently unavailable; no live carrier API integration was found in the audited implementation.
-
-## Goal
-Connect carrier APIs without leaking credentials, fabricating quotes, or blocking checkout when a carrier is unavailable.
-
-## Proposed design
-1. Implement one adapter per carrier behind the existing interface; do not add provider-specific branching to checkout.
-2. Confirm official API documentation, sandbox access, supported services, coverage, and rate limits before implementation.
-3. Store credentials encrypted server-side and expose only safe configuration metadata to admin UI.
-4. Quote requests must use validated destination and parcel data; return explicit unavailable/error states rather than guessed prices.
-5. Persist quote expiry and selected service/price snapshot on the order so checkout totals cannot change after order creation.
-6. Shipment creation must be idempotent; persist provider shipment ID and tracking number only after provider confirmation.
-7. Tracking sync must be rate-limited, retryable, and safe against out-of-order status updates.
-8. Keep manual tracking as a fallback and clearly distinguish manual from provider-synchronized status.
-
-## Acceptance criteria
-- No provider credentials are returned by any API.
-- No live quote is represented as available without a confirmed carrier response.
-- Checkout uses a server-validated, non-expired quote snapshot.
-- Duplicate shipment creation is prevented.
-- Tracking events cannot regress a delivered order to an earlier state.
-- Adapter contract tests and provider sandbox tests cover success, invalid credentials, timeout, malformed response, rate limit, and retry.
-- Tests cover all three carriers independently.
-
-## Integration blockers
-Do not invent API URLs, request formats, or credentials. Each carrier needs official API documentation and sandbox credentials supplied through the business's secure secret-management process, never through chat or source control.
+## Integration note
+No guessed Post, Tipax, or Chapar URLs or credentials are stored in source control. Live carrier adapters should be registered in `shippingCarrierRegistry` only after official provider API documentation and sandbox credentials are supplied.

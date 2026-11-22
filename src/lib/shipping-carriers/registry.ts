@@ -47,3 +47,5 @@ export function createShippingCarrierRegistry(
 }
 
 export const shippingCarrierRegistry = createShippingCarrierRegistry([])
+
+export type ShippingCarrierRegistry = ReturnType<typeof createShippingCarrierRegistry>
