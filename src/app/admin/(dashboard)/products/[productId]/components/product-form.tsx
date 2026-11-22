@@ -137,10 +137,11 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             cache: 'no-store',
          })
          if (!response.ok) throw new Error('Product delete failed')
+         const result = (await response.json()) as { archived?: boolean }
 
          router.refresh()
          router.push(`/admin/products`)
-         toast.success('Product deleted.')
+         toast.success(result.archived ? 'Product archived to preserve history.' : 'Product deleted.')
       } catch {
          toast.error('Something went wrong.')
       } finally {
