@@ -101,7 +101,7 @@ describe('admin product form image list', () => {
       await user().clear(stock)
       await user().type(stock, '5')
 
-      await user().click(screen.getByRole('combobox'))
+      await user().click(screen.getAllByRole('combobox')[0])
       await user().click((await screen.findAllByText('Shoes')).at(-1)!)
 
       await user().click(screen.getByRole('button', { name: /create/i }))
