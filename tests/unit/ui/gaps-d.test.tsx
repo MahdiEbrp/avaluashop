@@ -140,7 +140,6 @@ describe('category form failure', () => {
 
       render(
          <CategoryForm
-            banners={[{ id: 'b1', label: 'Sale' }] as never}
             initialData={null}
          />
       )
