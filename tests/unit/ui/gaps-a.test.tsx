@@ -215,7 +215,7 @@ describe('admin order filter chrome', () => {
       render(<AdminSortBy initialData="highest_payable" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(await screen.findByText('Least Expensive'))
+      await user().click(await screen.findByText('کمترین مبلغ'))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=least_expensive', {
          scroll: false,
@@ -226,7 +226,7 @@ describe('admin order filter chrome', () => {
       render(<AdminSortBy initialData="featured" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('Featured').at(-1)!)
+      await user().click(screen.getAllByText('جدیدترین سفارش').at(-1)!)
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
    })
