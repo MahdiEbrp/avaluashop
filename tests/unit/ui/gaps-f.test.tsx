@@ -27,7 +27,7 @@ beforeEach(() => routerMock.replace.mockClear())
 
 describe('admin order sort filter', () => {
    it('clears the sort when the active value is picked again', async () => {
-      render(<AdminSortBy initialData="featured" />)
+      render(<AdminSortBy initialData="newest" />)
 
       await user().click(screen.getByRole('combobox'))
       await user().click((await screen.findAllByText('جدیدترین سفارش')).at(-1)!)
