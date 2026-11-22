@@ -189,7 +189,7 @@ describe('admin brands', () => {
    it('POST answers 500 on failure', async () => {
       prismaMock.brand.create.mockRejectedValue(new Error('down'))
 
-      expect((await brandsPOST(json({ title: 'x' }, USER))).status).toBe(500)
+      expect((await brandsPOST(json({ title: 'xx' }, USER))).status).toBe(500)
    })
 
    it('GET lists brands', async () => {
@@ -275,7 +275,7 @@ describe('admin brands', () => {
    it('PATCH answers 500 on failure', async () => {
       prismaMock.brand.update.mockRejectedValue(new Error('down'))
 
-      expect((await brandPATCH(json({ title: 'x' }, USER), call({ brandId: 'br1' }))).status).toBe(
+      expect((await brandPATCH(json({ title: 'xx' }, USER), call({ brandId: 'br1' }))).status).toBe(
          500
       )
    })
@@ -305,7 +305,7 @@ describe('admin categories', () => {
       prismaMock.category.create.mockRejectedValue(new Error('down'))
 
       expect(
-         (await categoriesPOST(json({ title: 'x' }, USER))).status
+         (await categoriesPOST(json({ title: 'xx' }, USER))).status
       ).toBe(500)
    })
 
@@ -383,7 +383,7 @@ describe('admin categories', () => {
       expect(
          (
             await categoryPATCH(
-               json({ title: 'x' }, USER),
+               json({ title: 'xx' }, USER),
                call({ categoryId: 'c1' })
             )
          ).status
