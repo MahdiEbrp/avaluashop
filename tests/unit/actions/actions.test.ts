@@ -74,18 +74,23 @@ describe('getGraphRevenue', () => {
          'Dec',
       ])
       expect(graph.every((point) => point.total === 0)).toBe(true)
+      const year = new Date().getFullYear()
       expect(prismaMock.order.findMany).toHaveBeenCalledWith({
-         where: { isPaid: true },
+         where: {
+            isPaid: true,
+            createdAt: { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) },
+         },
          select: { createdAt: true, payable: true },
       })
    })
 
    it('adds each paid order onto the month it was created in', async () => {
+      const year = new Date().getFullYear()
       prismaMock.order.findMany.mockResolvedValue([
-         paidOrder(new Date('2024-01-15T00:00:00Z'), 100),
-         paidOrder(new Date('2024-01-20T00:00:00Z'), 50),
-         paidOrder(new Date('2024-07-02T00:00:00Z'), 25),
-         paidOrder(new Date('2024-12-31T00:00:00Z'), 5),
+         paidOrder(new Date(year, 0, 15), 100),
+         paidOrder(new Date(year, 0, 20), 50),
+         paidOrder(new Date(year, 6, 2), 25),
+         paidOrder(new Date(year, 11, 31), 5),
       ])
 
       const graph = await getGraphRevenue()
