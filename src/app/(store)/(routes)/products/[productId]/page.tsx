@@ -34,6 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
          id: productId,
          categories: { some: { title: { in: WOMENS_ACCESSORY_CATEGORIES } } },
       },
+      select: {
+         title: true,
+         description: true,
+         keywords: true,
+         images: true,
+      },
    })
 
    if (!product) return { title: 'محصول پیدا نشد' }
@@ -42,7 +48,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: product.title,
       description: product.description,
       keywords: product.keywords,
-      openGraph: { images: product.images },
+      openGraph: {
+         title: product.title,
+         description: product.description ?? undefined,
+         images: product.images,
+         type: 'website',
+      },
    }
 }
 
@@ -63,11 +74,11 @@ export default async function Product({
    if (!product) notFound()
 
    return (
-      <div dir="rtl">
+      <div dir="rtl" className="pb-8">
          <Breadcrumbs product={product} />
-         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="relative col-span-1 min-h-[50vh] w-full">
-               <Carousel images={product.images} />
+         <div className="mt-6 grid grid-cols-1 items-start gap-5 md:grid-cols-5 md:gap-7">
+            <div className="w-full md:sticky md:top-24 md:col-span-2">
+               <Carousel images={product.images} alt={product.title} />
             </div>
             <DataSection product={product} />
          </div>
@@ -77,17 +88,17 @@ export default async function Product({
 
 const Breadcrumbs = ({ product }) => (
    <nav className="flex text-muted-foreground" aria-label="مسیر صفحه">
-      <ol className="inline-flex items-center gap-2">
+      <ol className="inline-flex flex-wrap items-center gap-2">
          <li>
-            <Link href="/" className="text-sm font-medium">خانه</Link>
+            <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">خانه</Link>
          </li>
          <li className="flex items-center gap-2">
             <ChevronLeftIcon className="h-4 w-4" />
-            <Link className="text-sm font-medium" href="/products">فروشگاه</Link>
+            <Link className="text-sm font-medium transition-colors hover:text-primary" href="/products">فروشگاه</Link>
          </li>
          <li aria-current="page" className="flex items-center gap-2">
             <ChevronLeftIcon className="h-4 w-4" />
-            <span className="text-sm font-medium">{product.title}</span>
+            <span className="max-w-[60vw] truncate text-sm font-medium text-foreground">{product.title}</span>
          </li>
       </ol>
    </nav>
