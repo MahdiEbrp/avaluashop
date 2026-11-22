@@ -12,7 +12,7 @@ interface OrderTableProps {
 }
 
 export const OrderTable: React.FC<OrderTableProps> = ({ data }) => {
-   return <DataTable searchKey="products" columns={OrderColumns} data={data} />
+   return <DataTable searchKey="number" columns={OrderColumns} data={data} />
 }
 
 export interface OrderColumn {
@@ -20,6 +20,7 @@ export interface OrderColumn {
    isPaid: boolean
    payable: string
    number: string
+   date: string
    createdAt: string
 }
 
