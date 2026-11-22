@@ -31,7 +31,7 @@ describe('product detail information', () => {
       expect(screen.getByRole('heading', { name: 'گردنبند ظریف' })).toBeInTheDocument()
       expect(screen.getByText('آوالونا')).toBeInTheDocument()
       expect(screen.getByText('زیورآلات')).toBeInTheDocument()
-      expect(screen.getByText('٪۱۰ تخفیف')).toBeInTheDocument()
+      expect(screen.getByText('۱۰٪ تخفیف')).toBeInTheDocument()
       expect(screen.getByText('۴۵۰٬۰۰۰ تومان')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'افزودن به سبد خرید' })).toBeInTheDocument()
    })
