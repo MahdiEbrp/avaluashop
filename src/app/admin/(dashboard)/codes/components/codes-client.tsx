@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 type DiscountCode = {
    id: string
@@ -34,7 +34,7 @@ export function DiscountCodesClient() {
       endDate: '',
    })
 
-   async function loadCodes() {
+   const loadCodes = useCallback(async () => {
       setLoading(true)
       try {
          const response = await fetch('/api/admin/codes', { cache: 'no-store' })
@@ -45,11 +45,11 @@ export function DiscountCodesClient() {
       } finally {
          setLoading(false)
       }
-   }
+   }, [])
 
    useEffect(() => {
       void loadCodes()
-   }, [])
+   }, [loadCodes])
 
    async function createCode(event: React.FormEvent<HTMLFormElement>) {
       event.preventDefault()
