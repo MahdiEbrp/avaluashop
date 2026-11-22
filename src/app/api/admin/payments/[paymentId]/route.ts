@@ -32,7 +32,7 @@ export async function GET(req: Request, { params }: RouteContext) {
    }
 }
 
-export async function PATCH(req: Request) {
+export function PATCH(req: Request, _context?: RouteContext) {
    if (!req.headers.get('X-USER-ID')) return unauthorized()
 
    /* Payment settlement is evidence from the verified gateway callback.
