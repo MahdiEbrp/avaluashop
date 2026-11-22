@@ -40,9 +40,9 @@ function buildPageUrl(params: SearchParams, page: number) {
 export default async function OrdersPage({
    searchParams,
 }: {
-   searchParams: Promise<SearchParams>
+   searchParams?: Promise<SearchParams>
 }) {
-   const params = await searchParams
+   const params = (await searchParams) ?? {}
    const requestedPage = Number.parseInt(params.page ?? '1', 10)
    const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1
 
