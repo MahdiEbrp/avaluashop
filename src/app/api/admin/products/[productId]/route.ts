@@ -31,6 +31,7 @@ export async function GET(req: Request, context: RouteContext) {
 
    try {
       const { productId } = await context.params
+      if (!productId) return NextResponse.json({ message: 'PRODUCT_ID_REQUIRED' }, { status: 400 })
       const product = await prisma.product.findUnique({
          where: { id: productId },
          include: { categories: true, brand: true },
@@ -51,6 +52,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 
    try {
       const { productId } = await context.params
+      if (!productId) return NextResponse.json({ message: 'PRODUCT_ID_REQUIRED' }, { status: 400 })
       const input = productPatchSchema.parse(await req.json())
       const existing = await prisma.product.findUnique({
          where: { id: productId },
@@ -115,6 +117,7 @@ export async function DELETE(req: Request, context: RouteContext) {
 
    try {
       const { productId } = await context.params
+      if (!productId) return NextResponse.json({ message: 'PRODUCT_ID_REQUIRED' }, { status: 400 })
       const existing = await prisma.product.findUnique({
          where: { id: productId },
          select: { id: true },
