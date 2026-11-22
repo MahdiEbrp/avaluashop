@@ -24,8 +24,8 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(2),
-   description: z.string().min(1).optional(),
-   logo: z.url().optional(),
+   description: z.string().max(500).optional(),
+   logo: z.union([z.url(), z.literal('')]).optional(),
 })
 
 type BrandFormValues = z.infer<typeof formSchema>
