@@ -24,7 +24,7 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(2),
-   description: z.string().min(1),
+   description: z.string().max(500).optional(),
 })
 
 type CategoryFormValues = z.infer<typeof formSchema>
