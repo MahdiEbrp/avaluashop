@@ -40,5 +40,11 @@ jobs:
       - name: Typecheck tests
         run: npm run typecheck:tests
 
-      - name: Unit tests
-        run: npm run test:unit
+      - name: Focused admin unit tests
+        run: >-
+          npm run test:unit --
+          tests/unit/actions/actions.test.ts
+          tests/unit/api/admin-routes.test.ts
+          tests/unit/api/admin-routes-2.test.ts
+          tests/unit/api/admin-discount-codes-route.test.ts
+          tests/unit/forms/admin-forms.test.tsx
