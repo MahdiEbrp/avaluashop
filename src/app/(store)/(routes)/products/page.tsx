@@ -47,26 +47,12 @@ function pageHref(page: number, filters: Record<string, string | undefined>) {
    return `/products?${params.toString()}`
 }
 
-export default async function Products({
-   searchParams,
-}: Readonly<{
-   searchParams: Promise<ProductsSearchParams>
-}>) {
-   const params = (await searchParams) ?? {}
-   const sort = toFilterValue(params.sort)
-   const isAvailable = toFilterValue(params.isAvailable)
-   const category = toFilterValue(params.category)
-   const query = toFilterValue(params.q)?.trim().slice(0, 80)
-   const requestedPage = toPage(params.page)
-
-   const orderBy =
-      sort === 'most_expensive'
-         ? { price: 'desc' as const }
-         : sort === 'least_expensive'
-           ? { price: 'asc' as const }
-           : [{ isFeatured: 'desc' as const }, { createdAt: 'desc' as const }]
-
-   const where = {
+function buildProductsWhere(
+   isAvailable: string | undefined,
+   category: string | undefined,
+   query: string | undefined
+) {
+   return {
       isAvailable: isAvailable === 'true' ? true : undefined,
       categories: {
          some: {
@@ -79,13 +65,103 @@ export default async function Products({
          ? {
               OR: [
                  { title: { contains: query, mode: 'insensitive' as const } },
-                 { description: { contains: query, mode: 'insensitive' as const } },
-                 { brand: { is: { title: { contains: query, mode: 'insensitive' as const } } } },
+                 {
+                    description: {
+                       contains: query,
+                       mode: 'insensitive' as const,
+                    },
+                 },
+                 {
+                    brand: {
+                       is: {
+                          title: {
+                             contains: query,
+                             mode: 'insensitive' as const,
+                          },
+                       },
+                    },
+                 },
                  { keywords: { has: query } },
               ],
            }
          : {}),
    }
+}
+
+function ProductsPagination({
+   page,
+   totalPages,
+   filters,
+}: Readonly<{
+   page: number
+   totalPages: number
+   filters: Record<string, string | undefined>
+}>) {
+   if (totalPages <= 1) return null
+   return (
+      <nav
+         aria-label="صفحه‌بندی محصولات"
+         className="mb-10 flex items-center justify-center gap-3"
+      >
+         {page > 1 ? (
+            <Link
+               href={pageHref(page - 1, filters)}
+               className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted"
+            >
+               قبلی
+            </Link>
+         ) : (
+            <span
+               aria-disabled="true"
+               className="rounded-xl border border-border/50 px-4 py-2 text-sm text-muted-foreground/50"
+            >
+               قبلی
+            </span>
+         )}
+         <span className="text-sm text-muted-foreground">
+            صفحه {page.toLocaleString('fa-IR')} از{' '}
+            {totalPages.toLocaleString('fa-IR')}
+         </span>
+         {page < totalPages ? (
+            <Link
+               href={pageHref(page + 1, filters)}
+               className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted"
+            >
+               بعدی
+            </Link>
+         ) : (
+            <span
+               aria-disabled="true"
+               className="rounded-xl border border-border/50 px-4 py-2 text-sm text-muted-foreground/50"
+            >
+               بعدی
+            </span>
+         )}
+      </nav>
+   )
+}
+
+export default async function Products({
+   searchParams,
+}: Readonly<{
+   searchParams: Promise<ProductsSearchParams>
+}>) {
+   const params = (await searchParams) ?? {}
+   const sort = toFilterValue(params.sort)
+   const isAvailable = toFilterValue(params.isAvailable)
+   const category = toFilterValue(params.category)
+   const query = toFilterValue(params.q)?.trim().slice(0, 80)
+   const requestedPage = toPage(params.page)
+
+   let orderBy:
+      | { price: 'asc' | 'desc' }
+      | ({ isFeatured: 'desc' } | { createdAt: 'desc' })[] = [
+      { isFeatured: 'desc' },
+      { createdAt: 'desc' },
+   ]
+   if (sort === 'most_expensive') orderBy = { price: 'desc' }
+   else if (sort === 'least_expensive') orderBy = { price: 'asc' }
+   const where = buildProductsWhere(isAvailable, category, query)
 
    const [categories, totalProducts] = await Promise.all([
       prisma.category.findMany({
@@ -97,7 +173,8 @@ export default async function Products({
    ])
 
    const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE))
-   const page = Math.min(requestedPage, totalPages)
+   const page =
+      totalProducts > 0 ? Math.min(requestedPage, totalPages) : requestedPage
    const products = await prisma.product.findMany({
       where,
       orderBy,
@@ -119,10 +196,19 @@ export default async function Products({
             title="فروشگاه اکسسوری"
             description="زیورآلات، کیف و جزئیات ظریف برای کامل‌کردن استایل شما."
          />
-         <form action="/products" method="get" className="mb-5 flex flex-col gap-2 sm:flex-row">
-            <label htmlFor="product-search" className="sr-only">جستجوی محصولات</label>
+         <form
+            action="/products"
+            method="get"
+            className="mb-5 flex flex-col gap-2 sm:flex-row"
+         >
+            <label htmlFor="product-search" className="sr-only">
+               جستجوی محصولات
+            </label>
             <div className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:ring-2 focus-within:ring-ring">
-               <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+               <SearchIcon
+                  className="h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+               />
                <input
                   id="product-search"
                   name="q"
@@ -134,20 +220,33 @@ export default async function Products({
                />
             </div>
             {sort ? <input type="hidden" name="sort" value={sort} /> : null}
-            {category ? <input type="hidden" name="category" value={category} /> : null}
-            {isAvailable ? <input type="hidden" name="isAvailable" value={isAvailable} /> : null}
-            <button type="submit" className="min-h-11 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
+            {category ? (
+               <input type="hidden" name="category" value={category} />
+            ) : null}
+            {isAvailable ? (
+               <input type="hidden" name="isAvailable" value={isAvailable} />
+            ) : null}
+            <button
+               type="submit"
+               className="min-h-11 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
                جستجو
             </button>
             {query ? (
-               <Link href={pageHref(1, { sort, category, isAvailable })} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm text-muted-foreground hover:bg-muted">
+               <Link
+                  href={pageHref(1, { sort, category, isAvailable })}
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm text-muted-foreground hover:bg-muted"
+               >
                   پاک‌کردن جستجو
                </Link>
             ) : null}
          </form>
          <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-3">
             <SortBy initialData={sort} />
-            <CategoriesCombobox initialCategory={category} categories={categories} />
+            <CategoriesCombobox
+               initialCategory={category}
+               categories={categories}
+            />
             <AvailableToggle initialData={isAvailable} />
          </div>
          <div className="mb-4 flex items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -158,35 +257,21 @@ export default async function Products({
             <ProductGrid products={products} />
          ) : (
             <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
-               <p className="font-semibold">محصولی پیدا نشد</p>
-               <p className="mt-2 text-sm text-muted-foreground">عبارت جستجو یا فیلترها را تغییر دهید و دوباره تلاش کنید.</p>
+               <p className="font-semibold">
+                  {query
+                     ? 'محصولی پیدا نشد'
+                     : 'محصولی در این دسته موجود نیست'}
+               </p>
+               <p className="mt-2 text-sm text-muted-foreground">
+                  عبارت جستجو یا فیلترها را تغییر دهید و دوباره تلاش کنید.
+               </p>
             </div>
          )}
-         {totalPages > 1 ? (
-            <nav aria-label="صفحه‌بندی محصولات" className="mb-10 flex items-center justify-center gap-3">
-               {page > 1 ? (
-                  <Link href={pageHref(page - 1, filters)} className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted">
-                     قبلی
-                  </Link>
-               ) : (
-                  <span aria-disabled="true" className="rounded-xl border border-border/50 px-4 py-2 text-sm text-muted-foreground/50">
-                     قبلی
-                  </span>
-               )}
-               <span className="text-sm text-muted-foreground">
-                  صفحه {page.toLocaleString('fa-IR')} از {totalPages.toLocaleString('fa-IR')}
-               </span>
-               {page < totalPages ? (
-                  <Link href={pageHref(page + 1, filters)} className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted">
-                     بعدی
-                  </Link>
-               ) : (
-                  <span aria-disabled="true" className="rounded-xl border border-border/50 px-4 py-2 text-sm text-muted-foreground/50">
-                     بعدی
-                  </span>
-               )}
-            </nav>
-         ) : null}
+         <ProductsPagination
+            page={page}
+            totalPages={totalPages}
+            filters={filters}
+         />
       </div>
    )
 }

@@ -12,7 +12,7 @@ export interface OrderColumn {
    isPaid: boolean
    payable: string
    number: string
-   date: string
+   createdAt: string
 }
 
 export const columns: ColumnDef<TableFeatures, OrderColumn>[] = [
@@ -21,7 +21,7 @@ export const columns: ColumnDef<TableFeatures, OrderColumn>[] = [
       header: 'شماره سفارش',
    },
    {
-      accessorKey: 'date',
+      accessorKey: 'createdAt',
       header: 'تاریخ ثبت',
    },
    {

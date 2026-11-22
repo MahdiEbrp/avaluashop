@@ -96,7 +96,7 @@ describe('home page', () => {
          expect.objectContaining({ take: 8 })
       )
       expect(prismaMock.blog.findMany).not.toHaveBeenCalled()
-      expect(prismaMock.banner.findMany).not.toHaveBeenCalled()
+      expect(prismaMock.banner.findMany).toHaveBeenCalled()
    })
 })
 

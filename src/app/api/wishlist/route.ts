@@ -29,7 +29,7 @@ async function readProductId(req: Request): Promise<string | null> {
          body === null ||
          !('productId' in body) ||
          typeof body.productId !== 'string' ||
-         body.productId.length < 1 ||
+         body.productId.length === 0 ||
          body.productId.length > 64
       ) return null
       return body.productId

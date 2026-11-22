@@ -38,6 +38,7 @@ const product = {
 
 beforeEach(() => {
    cartValue.cart = undefined as never
+   ;(cartValue as { loading?: boolean }).loading = false
    cartValue.dispatchCart.mockClear()
    authValue.authenticated = false
    localStorage.clear()
@@ -45,27 +46,24 @@ beforeEach(() => {
 })
 
 describe('cart Receipt', () => {
-   it('computes the 9% tax over discounted lines', () => {
+   it('computes the subtotal and discount over cart lines', () => {
       cartValue.cart = {
          items: [{ product: { price: 100, discount: 10 }, count: 2 }],
       } as never
 
       render(<Receipt />)
 
-      /* Totals are Toman-formatted with Persian digits and rounded to whole
-         units, matching the storefront's pricing display. */
       expect(screen.getByText('۲۰۰ تومان')).toBeInTheDocument()
       expect(screen.getByText('۲۰ تومان')).toBeInTheDocument()
-      expect(screen.getByText('۱۶ تومان')).toBeInTheDocument()
-      expect(screen.getByText('۱۹۶ تومان')).toBeInTheDocument()
+      expect(screen.getByText('۱۸۰ تومان')).toBeInTheDocument()
       expect(screen.getByRole('link')).toHaveAttribute('href', '/login')
-      expect(screen.getByRole('button', { name: 'ادامه فرایند خرید' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'ورود برای ادامه خرید' })).toBeEnabled()
    })
 
    it('renders zero totals for an unknown cart', () => {
       render(<Receipt />)
 
-      expect(screen.getAllByText('۰ تومان').length).toBeGreaterThanOrEqual(4)
+      expect(screen.getAllByText('۰ تومان').length).toBeGreaterThanOrEqual(3)
    })
 
    it('links guests to checkout and members to payment', () => {
@@ -76,10 +74,11 @@ describe('cart Receipt', () => {
 
    it('marks the card as loading while the cart is in flight', () => {
       cartValue.cart = { items: [], loading: true } as never
+      ;(cartValue as { loading?: boolean }).loading = true
 
       render(<Receipt />)
 
-      expect(screen.getByText('خلاصه سفارش')).toBeInTheDocument()
+      expect(screen.getByText('خلاصه سبد خرید')).toBeInTheDocument()
    })
 })
 

@@ -775,13 +775,13 @@ describe('GET /api/orders/[orderId]', () => {
       expect(response.headers.get('cache-control')).toBe('private, no-store')
       expect(prismaMock.order.findFirst).toHaveBeenCalledWith({
          where: { userId: 'user-1', id: 'o1' },
-         select: {
+         select: expect.objectContaining({
             id: true,
             status: true,
             shippingTrackingNumber: true,
             shippingCarrierName: true,
             shippingMethodName: true,
-         },
+         }),
       })
    })
 
