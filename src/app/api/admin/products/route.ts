@@ -7,7 +7,7 @@ import { z, ZodError } from 'zod'
 const productSchema = z.object({
    title: z.string().trim().min(1).max(200),
    description: z.string().max(10_000).optional().nullable(),
-   images: z.array(z.url()).max(20),
+   images: z.array(z.string().min(1).max(2048)).max(20),
    keywords: z.array(z.string().trim().min(1).max(60)).max(30).optional(),
    price: z.number().finite().positive(),
    discount: z.number().finite().min(0),
