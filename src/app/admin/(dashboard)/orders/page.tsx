@@ -79,7 +79,7 @@ export default async function OrdersPage({
       prisma.order.count({ where }),
       prisma.order.findMany({
          where,
-         include: { orderItems: { include: { product: true } } },
+         select: { id: true, number: true, createdAt: true, payable: true, isPaid: true },
          skip: (page - 1) * PAGE_SIZE,
          take: PAGE_SIZE,
          orderBy: getOrderBy(params.sort),
