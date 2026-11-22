@@ -86,7 +86,7 @@ describe('admin chrome', () => {
          'href',
          '/admin/banners'
       )
-      expect(screen.getByRole('link', { name: 'Codes' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Discount Codes' })).toBeInTheDocument()
    })
 
    it('theme toggle flips the theme', async () => {
