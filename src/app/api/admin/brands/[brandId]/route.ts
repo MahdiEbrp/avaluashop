@@ -23,6 +23,7 @@ export async function GET(req: Request, context: RouteContext) {
 
    try {
       const { brandId } = await context.params
+      if (!brandId) return NextResponse.json({ message: 'BRAND_ID_REQUIRED' }, { status: 400 })
       const brand = await prisma.brand.findUnique({
          where: { id: brandId },
          include: { _count: { select: { products: true } } },
@@ -42,6 +43,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 
    try {
       const { brandId } = await context.params
+      if (!brandId) return NextResponse.json({ message: 'BRAND_ID_REQUIRED' }, { status: 400 })
       const input = brandPatchSchema.parse(await req.json())
       const brand = await prisma.brand.update({
          where: { id: brandId },
@@ -69,6 +71,7 @@ export async function DELETE(req: Request, context: RouteContext) {
 
    try {
       const { brandId } = await context.params
+      if (!brandId) return NextResponse.json({ message: 'BRAND_ID_REQUIRED' }, { status: 400 })
       const existing = await prisma.brand.findUnique({
          where: { id: brandId },
          select: { id: true },
