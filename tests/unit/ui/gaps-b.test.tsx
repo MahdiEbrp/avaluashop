@@ -257,7 +257,6 @@ describe('admin form upload and delete wiring', () => {
 
       render(
          <CategoryForm
-            banners={[]}
             initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
          />
       )
@@ -316,7 +315,7 @@ describe('admin users table without rows', () => {
    it('renders the empty row', async () => {
       prismaMock.user.findMany.mockResolvedValue([])
 
-      render(await UsersPage())
+      render(await UsersPage({ searchParams: Promise.resolve({}) }))
 
       expect(screen.getByText('Users')).toBeInTheDocument()
       expect(screen.getByText('No results.')).toBeInTheDocument()
