@@ -23,50 +23,91 @@ vi.mock('next/cache', () => import('../support/cache'))
 beforeEach(() => silenceConsole())
 
 describe('admin products', () => {
-   it('list endpoints require a session', async () => {
+   const validProduct = {
+      title: 'Runner',
+      description: 'Lightweight',
+      images: ['/runner.png'],
+      price: 100,
+      discount: 10,
+      stock: 5,
+      categoryId: 'c1',
+      brandId: 'br1',
+      isFeatured: true,
+      isAvailable: true,
+   }
+
+   it('admin product list endpoints require a session', async () => {
       expect((await productsGET(get())).status).toBe(401)
-      expect((await productsPOST(json({}))).status).toBe(401)
+      expect((await productsPOST(json(validProduct))).status).toBe(401)
    })
 
-   it('GET filters by category and featured flag', async () => {
+   it('GET filters by the many-to-many category and featured flag', async () => {
       prismaMock.product.findMany.mockResolvedValue([{ id: 'p1' }])
 
       const response = await productsGET(
          get(USER, 'http://localhost/api/admin/products?categoryId=c1&isFeatured=true')
       )
 
-      await expect(response.json()).resolves.toEqual([{ id: 'p1' }])
+      expect(response.status).toBe(200)
       expect(prismaMock.product.findMany).toHaveBeenCalledWith({
-         where: { categoryId: 'c1', isFeatured: true },
+         where: { categories: { some: { id: 'c1' } }, isFeatured: true },
+         include: { categories: true, brand: true },
+         orderBy: { createdAt: 'desc' },
       })
    })
 
-   it('GET omits the featured filter when it is absent', async () => {
+   it('GET omits filters when query parameters are absent', async () => {
       prismaMock.product.findMany.mockResolvedValue([])
 
       await productsGET(get(USER, 'http://localhost/api/admin/products'))
 
       expect(prismaMock.product.findMany).toHaveBeenCalledWith({
-         where: { categoryId: undefined },
+         where: {},
+         include: { categories: true, brand: true },
+         orderBy: { createdAt: 'desc' },
       })
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.product.findMany.mockRejectedValue(new Error('down'))
-
       expect((await productsGET(get(USER))).status).toBe(500)
    })
 
-   it('POST is a listing alias for the admin table', async () => {
-      prismaMock.product.findMany.mockResolvedValue([{ id: 'p1' }])
+   it('POST validates and creates a product with its required relations', async () => {
+      prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
+      prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
+      prismaMock.product.create.mockResolvedValue({ id: 'p1' })
 
-      await expect((await productsPOST(json({}, USER))).json()).resolves.toEqual([{ id: 'p1' }])
+      const response = await productsPOST(json(validProduct, USER))
+
+      expect(response.status).toBe(201)
+      expect(prismaMock.product.create).toHaveBeenCalledWith(
+         expect.objectContaining({
+            data: expect.objectContaining({
+               title: 'Runner',
+               images: ['/runner.png'],
+               stock: 5,
+               brand: { connect: { id: 'br1' } },
+               categories: { connect: { id: 'c1' } },
+            }),
+            include: { categories: true, brand: true },
+         })
+      )
    })
 
-   it('POST answers 500 on failure', async () => {
-      prismaMock.product.findMany.mockRejectedValue(new Error('down'))
+   it('POST rejects invalid product values and missing relations', async () => {
+      expect((await productsPOST(json({ ...validProduct, discount: 101 }, USER))).status).toBe(400)
 
-      expect((await productsPOST(json({}, USER))).status).toBe(500)
+      prismaMock.brand.findUnique.mockResolvedValue(null)
+      prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
+      expect((await productsPOST(json(validProduct, USER))).status).toBe(400)
+   })
+
+   it('POST answers 500 on a database failure', async () => {
+      prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
+      prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
+      prismaMock.product.create.mockRejectedValue(new Error('down'))
+      expect((await productsPOST(json(validProduct, USER))).status).toBe(500)
    })
 
    it('single-product routes require a session', async () => {
@@ -75,83 +116,104 @@ describe('admin products', () => {
       expect((await productPATCH(json({}), call({ productId: 'p1' }))).status).toBe(401)
    })
 
-   it('GET returns the product or 400 for a missing id', async () => {
-      prismaMock.product.findUniqueOrThrow.mockResolvedValue({ id: 'p1' })
-
+   it('GET returns the product or 404 for a missing row', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       expect((await productGET(get(USER), call({ productId: 'p1' }))).status).toBe(200)
+
+      prismaMock.product.findUnique.mockResolvedValue(null)
+      expect((await productGET(get(USER), call({ productId: 'missing' }))).status).toBe(404)
       expect((await productGET(get(USER), call({ productId: '' }))).status).toBe(400)
    })
 
-   it('GET answers 500 for a missing row', async () => {
-      prismaMock.product.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
-
-      expect((await productGET(get(USER), call({ productId: 'x' }))).status).toBe(500)
+   it('GET answers 500 on failure', async () => {
+      prismaMock.product.findUnique.mockRejectedValue(new Error('down'))
+      expect((await productGET(get(USER), call({ productId: 'p1' }))).status).toBe(500)
    })
 
-   it('DELETE removes the product', async () => {
+   it('PATCH writes validated product fields', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({
+         id: 'p1',
+         price: 100,
+         discount: 10,
+         stock: 5,
+      })
+      prismaMock.product.update.mockResolvedValue({ id: 'p1' })
+
+      const response = await productPATCH(
+         json({ title: 'Updated', price: 120, discount: 15, stock: 8, isAvailable: true }, USER),
+         call({ productId: 'p1' })
+      )
+
+      expect(response.status).toBe(200)
+      expect(prismaMock.product.update).toHaveBeenCalledWith(
+         expect.objectContaining({
+            where: { id: 'p1' },
+            data: { title: 'Updated', price: 120, discount: 15, stock: 8, isAvailable: true },
+         })
+      )
+   })
+
+   it('PATCH rejects a discount above price and a missing product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({
+         id: 'p1',
+         price: 100,
+         discount: 10,
+         stock: 5,
+      })
+      expect(
+         (await productPATCH(json({ price: 20, discount: 30 }, USER), call({ productId: 'p1' }))).status
+      ).toBe(400)
+
+      prismaMock.product.findUnique.mockResolvedValue(null)
+      expect(
+         (await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))).status
+      ).toBe(404)
+      expect(
+         (await productPATCH(json({ stock: 3 }, USER), call({ productId: '' }))).status
+      ).toBe(400)
+   })
+
+   it('PATCH answers 500 on a database failure', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({
+         id: 'p1',
+         price: 100,
+         discount: 10,
+         stock: 5,
+      })
+      prismaMock.product.update.mockRejectedValue(new Error('down'))
+      expect((await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))).status).toBe(500)
+   })
+
+   it('DELETE archives products that are still referenced', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
+      prismaMock.orderItem.count.mockResolvedValue(1)
+      prismaMock.product.update.mockResolvedValue({ id: 'p1', isAvailable: false, stock: 0 })
+
+      const response = await productDEL(get(USER), call({ productId: 'p1' }))
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({ archived: true, stock: 0 })
+      expect(prismaMock.product.delete).not.toHaveBeenCalled()
+   })
+
+   it('DELETE removes an unused product and handles missing ids', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.product.delete.mockResolvedValue({ id: 'p1' })
 
       const response = await productDEL(get(USER), call({ productId: 'p1' }))
 
       expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ deleted: true })
+      expect((await productDEL(get(USER), call({ productId: '' }))).status).toBe(400)
    })
 
-   it('DELETE answers 500 on failure', async () => {
+   it('DELETE returns 404 for a missing product and 500 on failure', async () => {
+      prismaMock.product.findUnique.mockResolvedValue(null)
+      expect((await productDEL(get(USER), call({ productId: 'missing' }))).status).toBe(404)
+
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.product.delete.mockRejectedValue(new Error('down'))
-
       expect((await productDEL(get(USER), call({ productId: 'p1' }))).status).toBe(500)
-   })
-
-   it('PATCH writes the editable product fields', async () => {
-      prismaMock.product.update.mockResolvedValue({ id: 'p1' })
-
-      const response = await productPATCH(
-         json(
-            {
-               data: {
-                  title: 'New',
-                  price: 10,
-                  discount: 1,
-                  stock: 5,
-                  isFeatured: true,
-                  isAvailable: true,
-               },
-            },
-            USER
-         ),
-         call({ productId: 'p1' })
-      )
-
-      expect(response.status).toBe(200)
-      expect(prismaMock.product.update).toHaveBeenCalledWith({
-         where: { id: 'p1' },
-         data: {
-            title: 'New',
-            price: 10,
-            discount: 1,
-            stock: 5,
-            isFeatured: true,
-            isAvailable: true,
-         },
-      })
-   })
-
-   it('PATCH rejects a missing id', async () => {
-      const response = await productPATCH(
-         json({ data: {} }, USER),
-         call({ productId: '' })
-      )
-
-      expect(response.status).toBe(400)
-      expect(await response.text()).toBe('Product Id is required')
-   })
-
-   it('PATCH answers 500 on failure', async () => {
-      prismaMock.product.update.mockRejectedValue(new Error('down'))
-
-      expect(
-         (await productPATCH(json({ data: {} }, USER), call({ productId: 'p1' }))).status
-      ).toBe(500)
    })
 })
 
