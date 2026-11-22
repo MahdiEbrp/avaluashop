@@ -182,7 +182,7 @@ describe('admin list pages', () => {
             searchParams: Promise.resolve({
                userId: 'u1',
                sort: 'highest_payable',
-               isPaid: true,
+               isPaid: 'true',
                brand: 'Acme',
                category: 'Shoes',
                page: '2',
@@ -197,7 +197,7 @@ describe('admin list pages', () => {
       expect(args.orderBy).toEqual({ payable: 'desc' })
       expect(args.where).toMatchObject({
          userId: 'u1',
-         isPaid: 'true',
+         isPaid: true,
       })
    })
 
