@@ -43,7 +43,7 @@ export const DataSection = ({ product }: { product: ProductWithIncludes }) => {
                {product.isAvailable ? (
                   <strong className="block text-2xl font-bold text-primary">{formatPrice(finalPrice)}</strong>
                ) : (
-                  <Badge variant="secondary" className="px-3 py-1 text-sm">فعلاً ناموجود</Badge>
+                  <Badge variant="secondary" className="px-3 py-1">فعلاً ناموجود</Badge>
                )}
             </div>
             <div className="flex flex-wrap items-center gap-2">

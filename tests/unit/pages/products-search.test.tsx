@@ -4,6 +4,7 @@ import ProductsPage from '@/app/(store)/(routes)/products/page'
 import { prismaMock } from '../support/db'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
+vi.mock('next/navigation', () => import('../support/navigation'))
 
 describe('storefront product discovery', () => {
    it('searches product title, description, brand and keywords', async () => {
@@ -54,6 +55,24 @@ describe('storefront product discovery', () => {
       expect(prismaMock.product.findMany).toHaveBeenCalledWith(
          expect.objectContaining({ skip: 12, take: 12 })
       )
+   })
+
+   it('disables previous on page 1 and next on the final page', async () => {
+      prismaMock.product.count.mockResolvedValue(25)
+      prismaMock.product.findMany.mockResolvedValue([])
+
+      const firstPage = await ProductsPage({ searchParams: Promise.resolve({ page: '1' }) })
+      const { unmount } = render(firstPage)
+      expect(screen.getByText('قبلی')).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByRole('link', { name: 'بعدی' })).toBeInTheDocument()
+      unmount()
+
+      prismaMock.product.count.mockResolvedValue(25)
+      prismaMock.product.findMany.mockResolvedValue([])
+      const lastPage = await ProductsPage({ searchParams: Promise.resolve({ page: '3' }) })
+      render(lastPage)
+      expect(screen.getByRole('link', { name: 'قبلی' })).toBeInTheDocument()
+      expect(screen.getByText('بعدی')).toHaveAttribute('aria-disabled', 'true')
    })
 
    it('shows an empty state when there are no matching products', async () => {

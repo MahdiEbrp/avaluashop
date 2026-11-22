@@ -24,24 +24,25 @@ export const Item = ({ cartItem }) => {
    const { authenticated } = useAuthenticated()
    const { cart, dispatchCart } = useCartContext()
    const [fetchingCart, setFetchingCart] = useState(false)
-   const [error, setError] = useState('')
    const { product, productId } = cartItem
 
    async function getProduct() {
-      const response = await fetch('/api/product', {
-         method: 'POST',
-         body: JSON.stringify({ productId }),
-         cache: 'no-store',
-         headers: { 'Content-Type': 'application/json' },
-      })
-      if (!response.ok) throw new Error('دریافت اطلاعات محصول انجام نشد.')
-      return await response.json()
+      try {
+         const response = await fetch('/api/product', {
+            method: 'POST',
+            body: JSON.stringify({ productId }),
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json' },
+         })
+         return await response.json()
+      } catch (error) {
+         console.error({ error })
+      }
    }
 
    async function updateCart(delta: number) {
       try {
          setFetchingCart(true)
-         setError('')
          const count = getCountInCart({ cartItems: cart?.items, productId })
          const nextCount = Math.max(0, count + delta)
 
@@ -52,14 +53,17 @@ export const Item = ({ cartItem }) => {
                cache: 'no-store',
                headers: { 'Content-Type': 'application/json' },
             })
-            if (!response.ok) throw new Error('به‌روزرسانی سبد خرید انجام نشد. دوباره تلاش کنید.')
             dispatchCart(await response.json())
          } else {
             const localCart = getLocalCart()
             if (delta > 0 && count > 0) {
                adjustLocalCartCount(localCart, productId, delta)
             } else if (delta > 0) {
-               localCart.items.push({ productId, product: await getProduct(), count: 1 })
+               localCart.items.push({
+                  productId,
+                  product: await getProduct(),
+                  count: 1,
+               })
             } else if (count > 1) {
                adjustLocalCartCount(localCart, productId, delta)
             } else {
@@ -68,8 +72,8 @@ export const Item = ({ cartItem }) => {
             }
             dispatchCart(localCart)
          }
-      } catch (error_) {
-         setError(error_ instanceof Error ? error_.message : 'خطا در به‌روزرسانی سبد خرید')
+      } catch (error) {
+         console.error({ error })
       } finally {
          setFetchingCart(false)
       }
@@ -77,57 +81,101 @@ export const Item = ({ cartItem }) => {
 
    const count = getCountInCart({ cartItems: cart?.items, productId })
    const price = product?.price - (product?.discount || 0)
-   const available = Boolean(product?.isAvailable && product?.stock > 0)
-   const canIncrease = available && count < product.stock
+
+   function renderControls() {
+      if (fetchingCart) {
+         return (
+            <Button disabled>
+               <Spinner />
+            </Button>
+         )
+      }
+      if (count === 0) {
+         return (
+            <Button onClick={() => void updateCart(1)}>
+               افزودن به سبد خرید
+            </Button>
+         )
+      }
+      return (
+         <div className="flex items-center gap-2">
+            <Button
+               variant="outline"
+               size="icon"
+               aria-label="کاهش تعداد"
+               onClick={() => void updateCart(-1)}
+            >
+               {count === 1 ? (
+                  <X className="h-4" />
+               ) : (
+                  <MinusIcon className="h-4" />
+               )}
+            </Button>
+            <Button disabled variant="ghost" size="icon">
+               {count}
+            </Button>
+            <Button
+               variant="outline"
+               size="icon"
+               aria-label="افزایش تعداد"
+               onClick={() => void updateCart(1)}
+            >
+               <PlusIcon className="h-4" />
+            </Button>
+         </div>
+      )
+   }
 
    return (
       <Card dir="rtl">
          <CardHeader className="p-0 md:hidden">
-            <div className="relative h-40 w-full overflow-hidden rounded-t-lg bg-secondary">
-               {product?.images?.[0] ? (
-                  <Link href={`/products/${String(product.id)}`}>
-                     <Image className="object-cover" src={product.images[0]} alt={product?.title || 'تصویر محصول'} fill sizes="100vw" />
-                  </Link>
-               ) : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">بدون تصویر</div>}
+            <div className="relative h-32 w-full">
+               <Link href={`/products/${String(product?.id)}`}>
+                  <Image
+                     className="rounded-t-lg object-cover"
+                     src={product?.images[0]}
+                     alt={product?.title || 'تصویر محصول'}
+                     fill
+                     sizes="50vw"
+                  />
+               </Link>
             </div>
          </CardHeader>
-         <CardContent className="grid grid-cols-1 gap-4 p-3 sm:grid-cols-6">
-            <div className="relative hidden aspect-square w-full overflow-hidden rounded-lg bg-secondary sm:col-span-2 sm:block">
-               {product?.images?.[0] ? (
-                  <Link href={`/products/${String(product.id)}`}>
-                     <Image className="object-cover" src={product.images[0]} alt={product?.title || 'تصویر محصول'} fill sizes="25vw" />
-                  </Link>
-               ) : <div className="flex h-full items-center justify-center text-xs text-muted-foreground">بدون تصویر</div>}
-            </div>
-            <div className="space-y-3 text-right sm:col-span-4">
+         <CardContent className="grid grid-cols-6 gap-4 p-3">
+            <div className="relative col-span-2 hidden w-full md:inline-flex">
                <Link href={`/products/${String(product?.id)}`}>
-                  <h2 className="font-semibold">{product?.title ?? 'محصول حذف‌شده'}</h2>
+                  <Image
+                     className="rounded-lg object-cover"
+                     src={product?.images[0]}
+                     alt={product?.title || 'تصویر محصول'}
+                     fill
+                  />
                </Link>
-               {product?.description ? <p className="line-clamp-2 text-xs leading-6 text-muted-foreground">{product.description}</p> : null}
-               <div className="flex flex-wrap items-center gap-2">
+            </div>
+            <div className="col-span-4 block space-y-3 text-right">
+               <Link href={`/products/${String(product?.id)}`}>
+                  <h2 className="font-semibold">{product?.title}</h2>
+               </Link>
+               {product?.description ? (
+                  <p className="text-xs leading-6 text-muted-foreground">
+                     {product.description}
+                  </p>
+               ) : null}
+               <div className="flex items-center gap-2">
                   {product?.discount > 0 ? (
                      <>
-                        <span className="text-xs text-muted-foreground line-through">{formatPrice(product.price)}</span>
+                        <Badge variant="destructive">
+                           <span className="line-through">
+                              {formatPrice(product?.price)}
+                           </span>
+                        </Badge>
                         <strong>{formatPrice(price)}</strong>
                      </>
-                  ) : <strong>{formatPrice(product?.price ?? 0)}</strong>}
-                  {!available ? <Badge variant="destructive">ناموجود؛ از خرید قابل ثبت نیست</Badge> : null}
-                  {available && !canIncrease ? <Badge variant="secondary">حداکثر موجودی انتخاب شده</Badge> : null}
+                  ) : (
+                     <strong>{formatPrice(product?.price)}</strong>
+                  )}
                </div>
-               {fetchingCart ? (
-                  <Button disabled><Spinner /></Button>
-               ) : (
-                  <div className="flex items-center gap-2">
-                     <Button variant="outline" size="icon" aria-label="کاهش تعداد" onClick={() => void updateCart(-1)}>
-                        {count === 1 ? <X className="h-4" /> : <MinusIcon className="h-4" />}
-                     </Button>
-                     <span className="min-w-8 text-center text-sm font-semibold" aria-live="polite">{toman.format(count)}</span>
-                     <Button variant="outline" size="icon" aria-label="افزایش تعداد" disabled={!canIncrease} onClick={() => void updateCart(1)}>
-                        <PlusIcon className="h-4" />
-                     </Button>
-                  </div>
-               )}
-               {error ? <p role="alert" className="text-xs text-destructive">{error}</p> : null}
+               {renderControls()}
             </div>
          </CardContent>
       </Card>

@@ -52,6 +52,8 @@ vi.mock('embla-carousel-react', () => ({
          off: (event: string) => {
             delete emblaHandlers[event]
          },
+         scrollPrev: vi.fn(),
+         scrollNext: vi.fn(),
       },
    ],
 }))
@@ -358,6 +360,9 @@ describe('carousel', () => {
       const { container } = render(<Carousel images={['/a.png', '/b.png']} />)
 
       expect(container.querySelectorAll('img').length).toBe(2)
+
+      fireEvent.click(screen.getByRole('button', { name: 'تصویر قبلی' }))
+      fireEvent.click(screen.getByRole('button', { name: 'تصویر بعدی' }))
 
       act(() => {
          emblaHandlers.select?.()

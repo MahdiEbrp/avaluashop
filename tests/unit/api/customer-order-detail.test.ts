@@ -20,13 +20,13 @@ describe('customer order detail API', () => {
          number: 12,
          status: 'Shipped',
          isPaid: true,
-         payable: 250000,
-         shipping: 30000,
+         payable: 250_000,
+         shipping: 30_000,
          createdAt: new Date('2026-01-01T00:00:00.000Z'),
          shippingTrackingNumber: 'TRACK-123',
          shippingCarrierName: 'پست',
          shippingMethodName: 'ارسال عادی',
-         orderItems: [{ count: 1, price: 220000, discount: 0, product: { title: 'کیف' } }],
+         orderItems: [{ count: 1, price: 220_000, discount: 0, product: { title: 'کیف' } }],
       })
 
       const response = await GET(

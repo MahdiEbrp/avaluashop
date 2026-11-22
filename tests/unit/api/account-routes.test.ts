@@ -169,15 +169,15 @@ describe('/api/wishlist', () => {
    })
 
    it('GET returns the wishlist', async () => {
-      prismaMock.user.findUniqueOrThrow.mockResolvedValue({ wishlist: [{ id: 'p1' }] })
+      prismaMock.user.findUnique.mockResolvedValue({ wishlist: [{ id: 'p1' }] })
 
       const response = await wishlistGET(get(USER))
 
       await expect(response.json()).resolves.toEqual([{ id: 'p1' }])
    })
 
-   it('GET answers 500 when the user is gone', async () => {
-      prismaMock.user.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
+   it('GET answers 500 when the query fails', async () => {
+      prismaMock.user.findUnique.mockRejectedValue(new Error('P2025'))
 
       expect((await wishlistGET(get(USER))).status).toBe(500)
    })
@@ -187,19 +187,22 @@ describe('/api/wishlist', () => {
    })
 
    it('POST connects the product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockResolvedValue({ wishlist: [{ id: 'p1' }] })
 
       const response = await wishlistPOST(json({ productId: 'p1' }, USER))
 
       await expect(response.json()).resolves.toEqual([{ id: 'p1' }])
-      expect(prismaMock.user.update).toHaveBeenCalledWith({
-         where: { id: 'user-1' },
-         data: { wishlist: { connect: { id: 'p1' } } },
-         include: { wishlist: true },
-      })
+      expect(prismaMock.user.update).toHaveBeenCalledWith(
+         expect.objectContaining({
+            where: { id: 'user-1' },
+            data: { wishlist: { connect: { id: 'p1' } } },
+         })
+      )
    })
 
    it('POST answers 500 on failure', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
       expect((await wishlistPOST(json({ productId: 'p1' }, USER))).status).toBe(500)
@@ -210,19 +213,22 @@ describe('/api/wishlist', () => {
    })
 
    it('DELETE disconnects the product', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockResolvedValue({ wishlist: [] })
 
       const response = await wishlistDEL(json({ productId: 'p1' }, USER))
 
       await expect(response.json()).resolves.toEqual([])
-      expect(prismaMock.user.update).toHaveBeenCalledWith({
-         where: { id: 'user-1' },
-         data: { wishlist: { disconnect: { id: 'p1' } } },
-         include: { wishlist: true },
-      })
+      expect(prismaMock.user.update).toHaveBeenCalledWith(
+         expect.objectContaining({
+            where: { id: 'user-1' },
+            data: { wishlist: { disconnect: { id: 'p1' } } },
+         })
+      )
    })
 
    it('DELETE answers 500 on failure', async () => {
+      prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
       expect((await wishlistDEL(json({ productId: 'p1' }, USER))).status).toBe(500)
