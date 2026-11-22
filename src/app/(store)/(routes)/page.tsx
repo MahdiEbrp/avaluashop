@@ -60,7 +60,7 @@ export default async function Index() {
 
    return (
       <div className="flex flex-col pb-6" dir="rtl">
-         <section className="relative isolate mb-10 mt-5 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-l from-[#f5dce1] via-[#fff8f4] to-[#f1e6d9] px-6 py-12 text-center shadow-sm md:mb-14 md:px-12 md:py-20">
+         <section className="relative isolate mb-10 mt-5 overflow-hidden rounded-4xl border border-primary/10 bg-gradient-to-l from-secondary via-background to-muted px-6 py-12 text-center shadow-sm md:mb-14 md:px-12 md:py-20">
             <div className="absolute -left-16 -top-20 -z-10 h-64 w-64 rounded-full bg-white/50 blur-3xl" />
             <div className="absolute -bottom-24 -right-10 -z-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
             <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/70 px-4 py-2 text-xs font-semibold text-primary md:text-sm">

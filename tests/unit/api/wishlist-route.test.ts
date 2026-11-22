@@ -48,6 +48,40 @@ describe('wishlist API', () => {
       expect(prismaMock.product.findUnique).not.toHaveBeenCalled()
    })
 
+   it('returns 404 on GET when the user does not exist', async () => {
+      prismaMock.user.findUnique.mockResolvedValue(null)
+
+      const response = await GET(new Request('http://localhost/api/wishlist', {
+         headers: { 'X-USER-ID': 'user-1' },
+      }))
+
+      expect(response.status).toBe(404)
+   })
+
+   it('rejects unparseable JSON and missing product on POST and DELETE', async () => {
+      const badJson = await POST(new Request('http://localhost/api/wishlist', {
+         method: 'POST',
+         headers: { 'X-USER-ID': 'user-1', 'Content-Type': 'application/json' },
+         body: '{',
+      }))
+      expect(badJson.status).toBe(400)
+
+      prismaMock.product.findUnique.mockResolvedValue(null)
+      const missingOnPost = await POST(new Request('http://localhost/api/wishlist', {
+         method: 'POST',
+         headers: { 'X-USER-ID': 'user-1', 'Content-Type': 'application/json' },
+         body: JSON.stringify({ productId: 'missing' }),
+      }))
+      expect(missingOnPost.status).toBe(404)
+
+      const badDelete = await DELETE(new Request('http://localhost/api/wishlist', {
+         method: 'DELETE',
+         headers: { 'X-USER-ID': 'user-1', 'Content-Type': 'application/json' },
+         body: JSON.stringify({ productId: '' }),
+      }))
+      expect(badDelete.status).toBe(400)
+   })
+
    it('returns not found when a product to remove does not exist', async () => {
       prismaMock.product.findUnique.mockResolvedValue(null)
 

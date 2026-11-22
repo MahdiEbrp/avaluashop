@@ -16,8 +16,8 @@ const product = {
    description: 'طراحی مینیمال',
    images: [],
    keywords: [],
-   price: 500000,
-   discount: 50000,
+   price: 500_000,
+   discount: 50_000,
    stock: 4,
    isAvailable: true,
    brand: { id: 'brand-1', title: 'آوالونا' },
@@ -36,8 +36,8 @@ describe('product detail information', () => {
       expect(screen.getByRole('button', { name: 'افزودن به سبد خرید' })).toBeInTheDocument()
    })
 
-   it('does not show the add-to-cart action for unavailable products', () => {
-      render(<DataSection product={{ ...product, isAvailable: false }} />)
+   it('does not show the add-to-cart action for unavailable products or brandless products', () => {
+      render(<DataSection product={{ ...product, isAvailable: false, brand: null }} />)
 
       expect(screen.getByText('فعلاً ناموجود')).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'افزودن به سبد خرید' })).not.toBeInTheDocument()

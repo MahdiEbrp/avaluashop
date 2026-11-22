@@ -4,36 +4,32 @@ import { cn } from '@/lib/utils'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import useEmblaCarousel from 'embla-carousel-react'
 import Image from 'next/image'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface CarouselProps {
    images: string[]
    alt?: string
 }
 
-export default function Carousel({ images, alt = 'تصویر محصول' }: Readonly<CarouselProps>) {
+export default function Carousel({
+   images,
+   alt = 'تصویر محصول',
+}: Readonly<CarouselProps>) {
    const [emblaRef, emblaApi] = useEmblaCarousel({ loop: images.length > 1 })
    const [selectedIndex, setSelectedIndex] = useState(0)
-   const [canScrollPrev, setCanScrollPrev] = useState(false)
-   const [canScrollNext, setCanScrollNext] = useState(false)
-
-   const onSelect = useCallback(() => {
-      if (!emblaApi) return
-      setSelectedIndex(emblaApi.selectedScrollSnap())
-      setCanScrollPrev(emblaApi.canScrollPrev())
-      setCanScrollNext(emblaApi.canScrollNext())
-   }, [emblaApi])
 
    useEffect(() => {
-      if (!emblaApi) return
-      onSelect()
-      emblaApi.on('select', onSelect)
-      emblaApi.on('reInit', onSelect)
-      return () => {
-         emblaApi.off('select', onSelect)
-         emblaApi.off('reInit', onSelect)
+      function selectHandler() {
+         const index = emblaApi?.selectedScrollSnap()
+         setSelectedIndex(index || 0)
       }
-   }, [emblaApi, onSelect])
+
+      emblaApi?.on('select', selectHandler)
+
+      return () => {
+         emblaApi?.off('select', selectHandler)
+      }
+   }, [emblaApi])
 
    if (images.length === 0) {
       return (
@@ -45,10 +41,16 @@ export default function Carousel({ images, alt = 'تصویر محصول' }: Read
 
    return (
       <div className="relative">
-         <div className="overflow-hidden rounded-2xl border border-border/70 bg-card" ref={emblaRef}>
+         <div
+            className="overflow-hidden rounded-2xl border border-border/70 bg-card"
+            ref={emblaRef}
+         >
             <div className="flex">
                {images.map((src, index) => (
-                  <div className="relative aspect-[4/5] min-h-80 shrink-0 grow-0 basis-full bg-secondary" key={`${src}-${index}`}>
+                  <div
+                     className="relative aspect-square min-h-80 shrink-0 grow-0 basis-full bg-secondary"
+                     key={`${src}-${index}`}
+                  >
                      <Image
                         src={src}
                         fill
@@ -66,39 +68,40 @@ export default function Carousel({ images, alt = 'تصویر محصول' }: Read
             <>
                <button
                   type="button"
-                  onClick={() => emblaApi?.scrollPrev()}
-                  disabled={!canScrollPrev}
+                  onClick={() => { emblaApi?.scrollPrev() }}
                   aria-label="تصویر قبلی"
-                  className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/90 text-foreground shadow-sm transition hover:bg-background disabled:opacity-40"
+                  className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-border bg-background/90 text-foreground shadow-sm transition hover:bg-background"
                >
                   <ChevronRightIcon className="h-5 w-5" />
                </button>
                <button
                   type="button"
-                  onClick={() => emblaApi?.scrollNext()}
-                  disabled={!canScrollNext}
+                  onClick={() => { emblaApi?.scrollNext() }}
                   aria-label="تصویر بعدی"
-                  className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background/90 text-foreground shadow-sm transition hover:bg-background disabled:opacity-40"
+                  className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-border bg-background/90 text-foreground shadow-sm transition hover:bg-background"
                >
                   <ChevronLeftIcon className="h-5 w-5" />
                </button>
-               <div className="mt-4 flex flex-wrap justify-center gap-2" aria-label="انتخاب تصویر محصول">
-                  {images.map((src, index) => (
-                     <button
-                        key={`${src}-dot-${index}`}
-                        type="button"
-                        onClick={() => emblaApi?.scrollTo(index)}
-                        aria-label={`نمایش تصویر ${index + 1}`}
-                        aria-pressed={selectedIndex === index}
-                        className={cn(
-                           'h-2.5 rounded-full transition-all',
-                           selectedIndex === index ? 'w-7 bg-primary' : 'w-2.5 bg-primary/25 hover:bg-primary/50'
-                        )}
-                     />
-                  ))}
-               </div>
             </>
          ) : null}
+
+         <div
+            className="mt-4 flex flex-wrap justify-center gap-2"
+            aria-label="انتخاب تصویر محصول"
+         >
+            {images.map((src, index) => {
+               const selected = index === selectedIndex
+               return (
+                  <div
+                     key={`${src}-dot-${index}`}
+                     className={cn(
+                        'h-3 w-3 rounded-full transition-all duration-300 bg-primary-foreground',
+                        !selected && 'opacity-50'
+                     )}
+                  />
+               )
+            })}
+         </div>
       </div>
    )
 }

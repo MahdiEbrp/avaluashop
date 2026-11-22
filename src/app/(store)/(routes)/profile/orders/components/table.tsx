@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { DataTable } from '@/components/ui/data-table'
 import type { TableFeatures } from '@/lib/table-features'
 import { type ColumnDef } from '@tanstack/react-table'
-import { CheckIcon, EditIcon as Icon, XIcon } from 'lucide-react'
+import { CheckCircle2Icon, ChevronLeftIcon, XCircleIcon } from 'lucide-react'
 import Link from 'next/link'
 
 export interface OrderColumn {
@@ -18,29 +18,30 @@ export interface OrderColumn {
 export const columns: ColumnDef<TableFeatures, OrderColumn>[] = [
    {
       accessorKey: 'number',
-      header: 'Order Number',
+      header: 'شماره سفارش',
    },
    {
-      accessorKey: 'date',
-      header: 'Date',
+      accessorKey: 'createdAt',
+      header: 'تاریخ ثبت',
    },
    {
       accessorKey: 'payable',
-      header: 'Payable',
+      header: 'مبلغ نهایی',
    },
    {
       accessorKey: 'isPaid',
-      header: 'Paid',
-      cell: (props) => {
-         return props.cell.getValue() ? <CheckIcon /> : <XIcon />
-      },
+      header: 'پرداخت',
+      cell: (props) => props.cell.getValue()
+         ? <span className="inline-flex items-center gap-1 text-success"><CheckCircle2Icon className="h-4 w-4" /> تأیید شده</span>
+         : <span className="inline-flex items-center gap-1 text-muted-foreground"><XCircleIcon className="h-4 w-4" /> تأیید نشده</span>,
    },
    {
       id: 'actions',
       cell: ({ row }) => (
          <Link href={`/profile/orders/${row.original.id}`}>
-            <Button size="icon" variant="outline">
-               <Icon className="h-4" />
+            <Button size="sm" variant="outline">
+               مشاهده جزئیات
+               <ChevronLeftIcon className="ms-1 h-4 w-4" />
             </Button>
          </Link>
       ),
@@ -52,5 +53,5 @@ interface OrdersTableProps {
 }
 
 export const OrdersTable: React.FC<OrdersTableProps> = ({ data }) => {
-   return <DataTable searchKey="products" columns={columns} data={data} />
+   return <DataTable searchKey="number" columns={columns} data={data} />
 }

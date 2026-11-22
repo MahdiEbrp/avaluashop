@@ -11,14 +11,17 @@ describe('storefront homepage discovery', () => {
       prismaMock.category.findMany.mockResolvedValue([
          { id: 'category-1', title: 'زیورآلات', _count: { products: 3 } },
       ])
-      prismaMock.banner.findMany.mockResolvedValue([])
+      prismaMock.banner.findMany.mockResolvedValue([
+         { id: 'b1', image: '/banner-1.png', label: 'فروش ویژه', categories: [{ title: 'کیف' }] },
+         { id: 'b2', image: '/banner-2.png', label: 'تخفیف فصلی', categories: [] },
+      ])
 
       render(await HomePage())
 
       expect(screen.getByRole('heading', { name: 'جزئیات کوچک، زیبایی ماندگار' })).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /زیورآلات/ })).toHaveAttribute(
          'href',
-         '/products?category=%D8%B2%DB%8C%D9%88%D8%B1%D8%A7%D9%84%D8%A7%D8%AA'
+         `/products?category=${encodeURIComponent('زیورآلات')}`
       )
       expect(prismaMock.product.findMany).toHaveBeenCalledWith(
          expect.objectContaining({

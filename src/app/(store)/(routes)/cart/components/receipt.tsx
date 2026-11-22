@@ -8,20 +8,30 @@ import { isVariableValid } from '@/lib/utils'
 import { useCartContext } from '@/state/Cart'
 import Link from 'next/link'
 
+interface ReceiptCartItem {
+   count: number
+   product: {
+      price: number
+      discount: number
+   }
+}
+
 const toman = new Intl.NumberFormat('fa-IR')
 const formatPrice = (value: number) => `${toman.format(Math.round(value))} تومان`
 
 export function Receipt() {
    const { authenticated } = useAuthenticated()
    const { loading, cart } = useCartContext()
-   const items = isVariableValid(cart?.items) ? cart.items : []
+   const items: ReceiptCartItem[] = isVariableValid(cart?.items)
+      ? (cart.items as ReceiptCartItem[])
+      : []
 
    const subtotal = items.reduce(
-      (total, item) => total + item.count * (item.product?.price ?? 0),
+      (total, item) => total + item.count * item.product.price,
       0
    )
    const productDiscount = items.reduce(
-      (total, item) => total + item.count * (item.product?.discount ?? 0),
+      (total, item) => total + item.count * item.product.discount,
       0
    )
    const payableBeforeShippingAndTax = Math.max(0, subtotal - productDiscount)

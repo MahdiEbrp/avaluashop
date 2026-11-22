@@ -7,7 +7,7 @@ vi.mock('@/state/Cart', () => ({
       loading: false,
       cart: {
          items: [
-            { productId: 'p1', count: 2, product: { price: 100000, discount: 10000 } },
+            { productId: 'p1', count: 2, product: { price: 100_000, discount: 10_000 } },
          ],
       },
    }),

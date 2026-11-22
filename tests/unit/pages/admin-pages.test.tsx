@@ -447,6 +447,20 @@ describe('storefront product pages', () => {
       expect(metadata.openGraph?.images).toEqual(['/r.png'])
    })
 
+   it('builds metadata when product description is null', async () => {
+      prismaMock.product.findFirst.mockResolvedValue({
+         ...product,
+         description: null,
+      })
+
+      const metadata = await generateMetadata({
+         params: Promise.resolve({ productId: 'p1' }),
+         searchParams: Promise.resolve({}),
+      } as never)
+
+      expect(metadata.openGraph?.description).toBeUndefined()
+   })
+
    it('falls back to the Persian capture-all title without a product', async () => {
       prismaMock.product.findFirst.mockResolvedValue(null)
 
@@ -530,7 +544,7 @@ describe('storefront profile pages', () => {
 
       render(<OrdersProfilePage />)
 
-      await waitFor(() => expect(screen.getByText('Order #42')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('#۴۲')).toBeInTheDocument())
       vi.unstubAllGlobals()
    })
 
@@ -613,10 +627,23 @@ describe('storefront profile pages', () => {
             new Response(
                JSON.stringify({
                   id: 'o2',
+                  number: 42,
                   status: 'Shipped',
+                  isPaid: true,
+                  payable: 1800,
+                  shipping: 200,
+                  createdAt: '2026-01-01T00:00:00.000Z',
                   shippingMethodName: 'پست پیشتاز',
                   shippingCarrierName: 'پست',
                   shippingTrackingNumber: 'TRK-987',
+                  orderItems: [
+                     {
+                        count: 2,
+                        price: 1000,
+                        discount: 100,
+                        product: { title: 'کیف چرمی' },
+                     },
+                  ],
                })
             )
          )
@@ -636,17 +663,27 @@ describe('storefront profile pages', () => {
 })
 
 describe('wishlist page', () => {
-   it('redirects a guest home once the session resolves', async () => {
+   it('prompts a guest to sign in once the session resolves', async () => {
       render(<WishlistPage />)
 
-      await waitFor(() => expect(routerMock.push).toHaveBeenCalledWith('/'))
+      await waitFor(() =>
+         expect(
+            screen.getByText('برای دیدن علاقه‌مندی‌ها وارد حساب خود شوید.')
+         ).toBeInTheDocument()
+      )
+      expect(screen.getByRole('link', { name: 'ورود به حساب' })).toHaveAttribute('href', '/login')
    })
 
-   it('keeps a signed-in visitor on the page', () => {
+   it('keeps a signed-in visitor on the page and renders saved wishlist products', async () => {
       signIn()
-      const { container } = render(<WishlistPage />)
+      vi.stubGlobal(
+         'fetch',
+         vi.fn(async () => new Response(JSON.stringify([product])))
+      )
+      render(<WishlistPage />)
 
-      expect(container.firstChild).not.toBeNull()
+      await waitFor(() => expect(screen.getByText(product.title)).toBeInTheDocument())
+      vi.unstubAllGlobals()
    })
 })
 
