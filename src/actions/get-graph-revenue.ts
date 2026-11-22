@@ -5,51 +5,38 @@ interface GraphData {
    total: number
 }
 
+const MONTHS = [
+   'Jan',
+   'Feb',
+   'Mar',
+   'Apr',
+   'May',
+   'Jun',
+   'Jul',
+   'Aug',
+   'Sep',
+   'Oct',
+   'Nov',
+   'Dec',
+]
+
 export const getGraphRevenue = async (): Promise<GraphData[]> => {
+   /* The chart is an annual month-by-month view. Revenue uses the final
+      order payable, and the query selects only the two fields it needs. */
    const paidOrders = await prisma.order.findMany({
-      where: {
-         isPaid: true,
-      },
-      include: {
-         orderItems: {
-            include: {
-               product: { include: { categories: true } },
-            },
-         },
-      },
+      where: { isPaid: true },
+      select: { createdAt: true, payable: true },
    })
 
-   const monthlyRevenue: Record<number, number> = {}
+   const monthlyRevenue = Array.from({ length: 12 }, () => 0)
 
-   // Grouping the orders by month and summing the revenue
    for (const order of paidOrders) {
-      const month = order.createdAt.getMonth() // 0 for Jan, 1 for Feb, ...
-
-      // Adding the revenue for this order to the respective month
-      monthlyRevenue[month] = (monthlyRevenue[month] || 0) + order.payable
+      const month = order.createdAt.getMonth()
+      monthlyRevenue[month] += order.payable
    }
 
-   // Converting the grouped data into the format expected by the graph
-   const graphData: GraphData[] = [
-      { name: 'Jan', total: 0 },
-      { name: 'Feb', total: 0 },
-      { name: 'Mar', total: 0 },
-      { name: 'Apr', total: 0 },
-      { name: 'May', total: 0 },
-      { name: 'Jun', total: 0 },
-      { name: 'Jul', total: 0 },
-      { name: 'Aug', total: 0 },
-      { name: 'Sep', total: 0 },
-      { name: 'Oct', total: 0 },
-      { name: 'Nov', total: 0 },
-      { name: 'Dec', total: 0 },
-   ]
-
-   // Filling in the revenue data
-   for (const month in monthlyRevenue) {
-      graphData[Number.parseInt(month)].total =
-         monthlyRevenue[Number.parseInt(month)]
-   }
-
-   return graphData
+   return MONTHS.map((name, index) => ({
+      name,
+      total: monthlyRevenue[index],
+   }))
 }
