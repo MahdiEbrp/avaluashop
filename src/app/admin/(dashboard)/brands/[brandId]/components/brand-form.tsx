@@ -24,8 +24,8 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(2),
-   description: z.string().max(500).optional(),
-   logo: z.union([z.url(), z.literal('')]).optional(),
+   description: z.string().max(500).nullable().optional(),
+   logo: z.union([z.url(), z.literal('')]).nullable().optional(),
 })
 
 type BrandFormValues = z.infer<typeof formSchema>
@@ -152,6 +152,7 @@ export const BrandForm: React.FC<BrandFormProps> = ({ initialData }) => {
                                  disabled={loading}
                                  placeholder="Brand title"
                                  {...field}
+                                 value={field.value ?? ''}
                               />
                            </FormControl>
                            <FormMessage />
