@@ -1,6 +1,7 @@
 import { ProductGrid } from '@/components/native/Product'
 import { Heading } from '@/components/native/heading'
 import prisma from '@/lib/prisma'
+import { AvailableToggle, CategoriesCombobox, SortBy } from './components/options'
 import { SearchIcon } from 'lucide-react'
 import Link from 'next/link'
 
