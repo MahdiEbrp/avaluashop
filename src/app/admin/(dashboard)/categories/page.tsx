@@ -11,15 +11,18 @@ export const dynamic = 'force-dynamic'
 
 export default async function CategoriesPage() {
    const categories = await prisma.category.findMany({
-      include: {
-         products: true,
+      select: {
+         id: true,
+         title: true,
+         _count: { select: { products: true } },
       },
+      orderBy: { title: 'asc' },
    })
 
    const formattedCategories: CategoryColumn[] = categories.map((category) => ({
       id: category.id,
       title: category.title,
-      products: category.products.length,
+      products: category._count.products,
    }))
 
    return (
