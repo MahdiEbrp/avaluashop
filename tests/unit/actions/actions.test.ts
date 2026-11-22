@@ -27,7 +27,7 @@ describe('dashboard aggregates', () => {
 
       await expect(getStockCount()).resolves.toBe(12)
       expect(prismaMock.product.count).toHaveBeenCalledWith({
-         where: { isAvailable: true },
+         where: { isAvailable: true, stock: { gt: 0 } },
       })
    })
 
