@@ -40,8 +40,8 @@ export function SortBy({ initialData }) {
          onValueChange={(nextValue) => {
             const current = new URLSearchParams(searchParams.toString())
             current.set('sort', nextValue)
+            current.delete('page')
             setValue(nextValue)
-            /* `sort` is always set here, so the query string is never empty. */
             router.replace(`${pathname}?${current.toString()}`, { scroll: false })
          }}
       >
@@ -96,6 +96,7 @@ export function CategoriesCombobox({ categories, initialCategory }) {
                               current.set('category', selected)
                               setValue(selected)
                            }
+                           current.delete('page')
                            const query = current.toString()
                            router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
                            setOpen(false)
@@ -126,6 +127,7 @@ export function AvailableToggle({ initialData }) {
             onCheckedChange={(checked: boolean) => {
                const current = new URLSearchParams(searchParams.toString())
                current.set('isAvailable', String(checked))
+               current.delete('page')
                setValue(checked)
                router.replace(`${pathname}?${current.toString()}`, { scroll: false })
             }}
