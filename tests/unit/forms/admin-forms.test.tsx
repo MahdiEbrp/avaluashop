@@ -227,19 +227,16 @@ describe('admin BrandForm', () => {
 })
 
 describe('admin CategoryForm', () => {
-   const banners = [{ id: 'b1', label: 'Summer', image: 'https://cdn/s.png' }]
-
-   it('creates a category with a banner', async () => {
+   it('creates a category with a description', async () => {
       const fetchMock = fetchSpy()
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<CategoryForm banners={banners as never} initialData={null} />)
+      render(<CategoryForm initialData={null} />)
 
       expect(screen.getByText('Create category')).toBeInTheDocument()
 
       await user().type(screen.getByPlaceholderText('Category name'), 'Shoes')
-      await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('Summer').at(-1)!)
+      await user().type(screen.getByPlaceholderText('Category description'), 'Everyday shoes')
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
@@ -247,7 +244,7 @@ describe('admin CategoryForm', () => {
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/categories')
       expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({
          title: 'Shoes',
-         description: 'b1',
+         description: 'Everyday shoes',
       })
       vi.unstubAllGlobals()
    })
@@ -258,7 +255,6 @@ describe('admin CategoryForm', () => {
 
       render(
          <CategoryForm
-            banners={banners as never}
             initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
          />
       )
@@ -307,23 +303,25 @@ describe('admin CategoryForm', () => {
 
 describe('admin ProductForm', () => {
    const categories = [{ id: 'c1', title: 'Shoes' }]
+   const brands = [{ id: 'br1', title: 'Acme' }]
 
    it('creates a product', async () => {
       const fetchMock = fetchSpy()
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<ProductForm categories={categories as never} initialData={null} />)
+      render(<ProductForm categories={categories as never} brands={brands as never} initialData={null} />)
 
       expect(screen.getByText('Create product')).toBeInTheDocument()
 
-      /* The image field appends `{ url }` objects, so it is left untouched here
-         and the remaining fields are filled instead. */
+      /* Images are optional; create the product with its required brand/category. */
       await user().clear(screen.getByPlaceholderText('Product title'))
       await user().type(screen.getByPlaceholderText('Product title'), 'Runner')
       await user().clear(screen.getAllByPlaceholderText('9.99')[0])
       await user().type(screen.getAllByPlaceholderText('9.99')[0], '20')
-      await user().click(screen.getByRole('combobox'))
+      await user().click(screen.getAllByRole('combobox')[0])
       await user().click(screen.getAllByText('Shoes').at(-1)!)
+      await user().click(screen.getAllByRole('combobox')[1])
+      await user().click(screen.getAllByText('Acme').at(-1)!)
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
@@ -339,6 +337,7 @@ describe('admin ProductForm', () => {
       render(
          <ProductForm
             categories={categories as never}
+            brands={brands as never}
             initialData={
                {
                   id: 'p1',
@@ -350,7 +349,7 @@ describe('admin ProductForm', () => {
                   images: ['https://cdn/p.png'],
                   categories,
                   categoryId: 'c1',
-                  brandId: null,
+                  brandId: 'br1',
                   isAvailable: true,
                   isFeatured: false,
                } as never
