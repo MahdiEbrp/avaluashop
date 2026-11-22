@@ -61,8 +61,8 @@ describe('empty admin collections still render their headings', () => {
       ['brands', () => prismaMock.brand.findMany, 'Brands (0)', BrandsPage],
       ['categories', () => prismaMock.category.findMany, 'Categories (0)', CategoriesPage],
       ['products', () => prismaMock.product.findMany, 'Products (0)', ProductsPage],
-      ['users', () => prismaMock.user.findMany, 'Users', UsersPage],
-      ['orders', () => prismaMock.order.findMany, 'Orders (0)', OrdersPage],
+      ['users', () => prismaMock.user.findMany, 'مشتریان (۰)', UsersPage],
+      ['orders', () => prismaMock.order.findMany, 'سفارش‌ها (۰)', OrdersPage],
       ['payments', () => prismaMock.payment.findMany, 'Payments (0)', PaymentsPage],
    ])('%s', async (_name, getDelegate, heading, Page) => {
       getDelegate().mockResolvedValue([])
