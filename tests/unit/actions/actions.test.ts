@@ -35,15 +35,15 @@ describe('dashboard aggregates', () => {
       })
    })
 
-   it('sums the line prices of paid orders', async () => {
+   it('sums the final payable amount of paid orders', async () => {
       prismaMock.order.findMany.mockResolvedValue([
          { orderItems: [{ price: 10 }, { price: 2.5 }] },
          { orderItems: [{ price: 100 }] },
       ])
 
-      await expect(getTotalRevenue()).resolves.toBe(112.5)
+      await expect(getTotalRevenue()).resolves.toBe(212.5)
       expect(prismaMock.order.findMany).toHaveBeenCalledWith(
-         expect.objectContaining({ where: { isPaid: true } })
+         { where: { isPaid: true }, select: { payable: true } }
       )
    })
 
