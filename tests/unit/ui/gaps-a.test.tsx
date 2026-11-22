@@ -217,13 +217,13 @@ describe('admin order filter chrome', () => {
       await user().click(screen.getByRole('combobox'))
       await user().click(await screen.findByText('کمترین مبلغ'))
 
-      expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=least_expensive', {
+      expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=lowest_payable', {
          scroll: false,
       })
    })
 
    it('sets the sort choice with the shared control', async () => {
-      render(<AdminSortBy initialData="featured" />)
+      render(<AdminSortBy initialData="newest" />)
 
       await user().click(screen.getByRole('combobox'))
       await user().click(screen.getAllByText('جدیدترین سفارش').at(-1)!)
