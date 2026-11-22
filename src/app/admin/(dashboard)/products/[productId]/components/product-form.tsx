@@ -35,6 +35,7 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(1),
+   description: z.string().max(10_000).nullable().optional(),
    images: z.string().array(),
    price: z.coerce.number().min(1),
    discount: z.coerce.number().min(0),
@@ -221,6 +222,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                                  disabled={loading}
                                  placeholder="Product title"
                                  {...field}
+                              />
+                           </FormControl>
+                           <FormMessage />
+                        </FormItem>
+                     )}
+                  />
+                  <FormField
+                     control={form.control}
+                     name="description"
+                     render={({ field }) => (
+                        <FormItem>
+                           <FormLabel>Description</FormLabel>
+                           <FormControl>
+                              <Input
+                                 disabled={loading}
+                                 placeholder="Product description"
+                                 {...field}
+                                 value={field.value ?? ''}
                               />
                            </FormControl>
                            <FormMessage />
