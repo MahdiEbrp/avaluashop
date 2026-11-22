@@ -1,5 +1,5 @@
 import { getGraphRevenue } from '@/actions/get-graph-revenue'
-import { getتعداد سفارش‌های پرداخت‌شدهCount } from '@/actions/get-sales-count'
+import { getSalesCount } from '@/actions/get-sales-count'
 import { getStockCount } from '@/actions/get-stock-count'
 import { getTotalRevenue } from '@/actions/get-total-revenue'
 import { Overview } from '@/components/admin/overview'
@@ -46,12 +46,12 @@ export default async function DashboardPage() {
                <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                      <CardTitle className="text-sm font-medium">
-                        Sales
+                        تعداد سفارش‌های پرداخت‌شده
                      </CardTitle>
                      <CreditCard className="h-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                     <div className="text-2xl font-bold">+{new Intl.NumberFormat('fa-IR').format(salesCount)}</div>
+                     <div className="text-2xl font-bold">{new Intl.NumberFormat('fa-IR').format(salesCount)}</div>
                   </CardContent>
                </Card>
                <Card>
