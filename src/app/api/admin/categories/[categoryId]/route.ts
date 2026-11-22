@@ -22,6 +22,7 @@ export async function GET(req: Request, context: RouteContext) {
 
    try {
       const { categoryId } = await context.params
+      if (!categoryId) return NextResponse.json({ message: 'CATEGORY_ID_REQUIRED' }, { status: 400 })
       const category = await prisma.category.findUnique({
          where: { id: categoryId },
          include: { _count: { select: { products: true } } },
@@ -41,6 +42,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 
    try {
       const { categoryId } = await context.params
+      if (!categoryId) return NextResponse.json({ message: 'CATEGORY_ID_REQUIRED' }, { status: 400 })
       const input = categoryPatchSchema.parse(await req.json())
       const category = await prisma.category.update({
          where: { id: categoryId },
@@ -68,6 +70,7 @@ export async function DELETE(req: Request, context: RouteContext) {
 
    try {
       const { categoryId } = await context.params
+      if (!categoryId) return NextResponse.json({ message: 'CATEGORY_ID_REQUIRED' }, { status: 400 })
       const existing = await prisma.category.findUnique({
          where: { id: categoryId },
          select: { id: true },
