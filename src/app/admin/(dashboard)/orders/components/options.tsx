@@ -65,9 +65,9 @@ export function SortBy({ initialData }) {
             <SelectValue placeholder="Sort By" />
          </SelectTrigger>
          <SelectContent>
-            <SelectItem value="featured">Featured</SelectItem>
-            <SelectItem value="most_expensive">Most Expensive</SelectItem>
-            <SelectItem value="least_expensive">Least Expensive</SelectItem>
+            <SelectItem value="newest">جدیدترین سفارش</SelectItem>
+            <SelectItem value="highest_payable">بیشترین مبلغ</SelectItem>
+            <SelectItem value="lowest_payable">کمترین مبلغ</SelectItem>
          </SelectContent>
       </Select>
    )

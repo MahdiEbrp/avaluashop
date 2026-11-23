@@ -12,15 +12,8 @@ import {
 } from '@/components/admin/ui/form'
 import { Heading } from '@/components/admin/ui/heading'
 import { Input } from '@/components/admin/ui/input'
-import {
-   Select,
-   SelectContent,
-   SelectItem,
-   SelectTrigger,
-   SelectValue,
-} from '@/components/admin/ui/select'
 import { Separator } from '@/components/admin/ui/separator'
-import type { Banner, Category } from '@/generated/prisma/client'
+import type { Category } from '@/generated/prisma/client'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
@@ -31,19 +24,17 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(2),
-   description: z.string().min(1),
+   description: z.string().max(500).nullable().optional(),
 })
 
 type CategoryFormValues = z.infer<typeof formSchema>
 
 interface CategoryFormProps {
    initialData: Category | null
-   banners: Banner[]
 }
 
 export const CategoryForm: React.FC<CategoryFormProps> = ({
    initialData,
-   banners,
 }) => {
    const params = useParams()
    const router = useRouter()
@@ -67,17 +58,20 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
    const onSubmit = async (data: CategoryFormValues) => {
       try {
          setLoading(true)
-         await (initialData
+         const response = await (initialData
             ? fetch(`/api/admin/categories/${String(params.categoryId)}`, {
                  method: 'PATCH',
+                 headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(data),
                  cache: 'no-store',
               })
             : fetch(`/api/admin/categories`, {
                  method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(data),
                  cache: 'no-store',
               }))
+         if (!response.ok) throw new Error('Category save failed')
          router.refresh()
          router.push(`/admin/categories`)
          toast.success(toastMessage)
@@ -92,10 +86,11 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
       try {
          setLoading(true)
 
-         await fetch(`/api/admin/categories/${String(params.categoryId)}`, {
+         const response = await fetch(`/api/admin/categories/${String(params.categoryId)}`, {
             method: 'DELETE',
             cache: 'no-store',
          })
+         if (!response.ok) throw new Error('Category delete failed')
 
          router.refresh()
          router.push(`/admin/categories`)
@@ -168,32 +163,14 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
                      name="description"
                      render={({ field }) => (
                         <FormItem>
-                           <FormLabel>Banner</FormLabel>
-                           <Select
-                              disabled={loading}
-                              onValueChange={field.onChange}
-                              value={field.value}
-                              defaultValue={field.value}
-                           >
-                              <FormControl>
-                                 <SelectTrigger>
-                                    <SelectValue
-                                       defaultValue={field.value}
-                                       placeholder="Select a banner"
-                                    />
-                                 </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                 {banners.map((banner) => (
-                                    <SelectItem
-                                       key={banner.id}
-                                       value={banner.id}
-                                    >
-                                       {banner.label}
-                                    </SelectItem>
-                                 ))}
-                              </SelectContent>
-                           </Select>
+                           <FormLabel>Description</FormLabel>
+                           <FormControl>
+                              <Input
+                                 disabled={loading}
+                                 placeholder="Category description"
+                                 {...field}
+                              />
+                           </FormControl>
                            <FormMessage />
                         </FormItem>
                      )}

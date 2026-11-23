@@ -24,8 +24,8 @@ import * as z from 'zod'
 
 const formSchema = z.object({
    title: z.string().min(2),
-   description: z.string().min(1).optional(),
-   logo: z.url().optional(),
+   description: z.string().max(500).nullable().optional(),
+   logo: z.union([z.url(), z.literal('')]).nullable().optional(),
 })
 
 type BrandFormValues = z.infer<typeof formSchema>
@@ -58,17 +58,20 @@ export const BrandForm: React.FC<BrandFormProps> = ({ initialData }) => {
    const onSubmit = async (data: BrandFormValues) => {
       try {
          setLoading(true)
-         await (initialData
+         const response = await (initialData
             ? fetch(`/api/admin/brands/${String(params.brandId)}`, {
                  method: 'PATCH',
+                 headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(data),
                  cache: 'no-store',
               })
             : fetch(`/api/admin/brands`, {
                  method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(data),
                  cache: 'no-store',
               }))
+         if (!response.ok) throw new Error('Brand save failed')
          router.refresh()
          router.push(`/admin/brands`)
          toast.success(toastMessage)
@@ -83,10 +86,11 @@ export const BrandForm: React.FC<BrandFormProps> = ({ initialData }) => {
       try {
          setLoading(true)
 
-         await fetch(`/api/admin/brands/${String(params.brandId)}`, {
+         const response = await fetch(`/api/admin/brands/${String(params.brandId)}`, {
             method: 'DELETE',
             cache: 'no-store',
          })
+         if (!response.ok) throw new Error('Brand delete failed')
 
          router.refresh()
          router.push(`/admin/brands`)

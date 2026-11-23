@@ -22,7 +22,7 @@ export const Overview: React.FC<OverviewProps> = ({ data }) => {
                fontSize={12}
                tickLine={false}
                axisLine={false}
-               tickFormatter={(value) => `$${String(value)}`}
+               tickFormatter={(value) => new Intl.NumberFormat('fa-IR').format(Number(value))}
             />
             <Bar dataKey="total" fill="#3498db" radius={[4, 4, 0, 0]} />
          </BarChart>

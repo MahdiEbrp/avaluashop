@@ -67,8 +67,8 @@ vi.mock('next/navigation', async (importOriginal) => {
 })
 
 const banner = { id: 'b1', label: 'Summer', image: '/s.png', createdAt: new Date('2024-01-02') }
-const brand = { id: 'br1', title: 'Acme', products: [{}, {}] }
-const category = { id: 'c1', title: 'Shoes', products: [{}], description: 'b1' }
+const brand = { id: 'br1', title: 'Acme', products: [{}, {}], _count: { products: 2 } }
+const category = { id: 'c1', title: 'Shoes', products: [{}], description: 'b1', _count: { products: 1 } }
 const product = {
    id: 'p1',
    title: 'Runner',
@@ -82,6 +82,8 @@ const product = {
    categories: [{ id: 'c1', title: 'Shoes' }],
    brand: { id: 'br1', title: 'Acme' },
    orders: [{}],
+   brandId: 'br1',
+   _count: { orders: 1 },
    createdAt: new Date('2024-01-03'),
 }
 const order = {
@@ -107,6 +109,7 @@ const user = {
    addresses: [{ id: 'ad1' }],
    payments: [],
    orders: [order],
+   _count: { orders: 1 },
 }
 const payment = {
    id: 'pay1',
@@ -153,21 +156,25 @@ describe('admin list pages', () => {
    })
 
    it('products list', async () => {
-      prismaMock.product.findMany.mockResolvedValue([product])
+      prismaMock.product.findMany.mockResolvedValue([
+         product,
+         { ...product, id: 'p2', title: 'Uncategorized', categories: [] },
+      ])
 
       render(await ProductsPage())
 
-      expect(screen.getByText('Products (1)')).toBeInTheDocument()
+      expect(screen.getByText('Products (2)')).toBeInTheDocument()
       expect(screen.getByText('Runner')).toBeInTheDocument()
    })
 
    it('orders list', async () => {
       prismaMock.order.findMany.mockResolvedValue([order])
+      prismaMock.order.count.mockResolvedValue(1)
 
-      render(await OrdersPage({ searchParams: {} }))
+      render(await OrdersPage({ searchParams: Promise.resolve({}) }))
 
-      expect(screen.getByText('Orders (1)')).toBeInTheDocument()
-      expect(screen.getByText('Order #42')).toBeInTheDocument()
+      expect(screen.getByText('سفارش‌ها (۱)')).toBeInTheDocument()
+      expect(screen.getByText('سفارش #۴۲')).toBeInTheDocument()
    })
 
    it('orders list honours every filter', async () => {
@@ -175,18 +182,16 @@ describe('admin list pages', () => {
 
       render(
          await OrdersPage({
-            /* This page reads the params synchronously, so a plain object is
-               enough to drive every filter. */
-            searchParams: {
+            searchParams: Promise.resolve({
                userId: 'u1',
                sort: 'highest_payable',
                isPaid: 'true',
                brand: 'Acme',
                category: 'Shoes',
-               page: 2,
+               page: '2',
                minPayable: '10',
                maxPayable: '100',
-            },
+            }),
          })
       )
 
@@ -195,35 +200,51 @@ describe('admin list pages', () => {
       expect(args.orderBy).toEqual({ payable: 'desc' })
       expect(args.where).toMatchObject({
          userId: 'u1',
-         isPaid: 'true',
+         isPaid: true,
       })
    })
 
-   it('orders list defaults to the first page with no filters', async () => {
+   it('orders list defaults to the first page with no filters, invalid page, or multi-page results', async () => {
       prismaMock.order.findMany.mockResolvedValue([])
+      prismaMock.order.count.mockResolvedValue(25)
 
-      render(await OrdersPage({ searchParams: {} }))
+      const { unmount } = render(await OrdersPage({ searchParams: Promise.resolve({ page: 'abc', maxPayable: '50', category: 'Shoes', brand: '' }) }))
+      unmount()
+      render(await OrdersPage({ searchParams: Promise.resolve({ minPayable: '10', brand: 'Acme' }) }))
 
       const args = prismaMock.order.findMany.mock.calls[0][0]
       expect(args.skip).toBe(0)
       expect(args.orderBy).toEqual({ createdAt: 'desc' })
+      expect(screen.getByRole('link', { name: 'بعدی' })).toBeInTheDocument()
    })
 
    it('orders list sorts by cheapest on demand', async () => {
       prismaMock.order.findMany.mockResolvedValue([])
 
-      render(await OrdersPage({ searchParams: { sort: 'lowest_payable' } }))
+      render(await OrdersPage({ searchParams: Promise.resolve({ sort: 'lowest_payable' }) }))
 
       expect(prismaMock.order.findMany.mock.calls[0][0].orderBy).toEqual({ payable: 'asc' })
    })
 
-   it('users list', async () => {
-      prismaMock.user.findMany.mockResolvedValue([user])
+   it('users list with nullable fields and pagination', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+         user,
+         { ...user, id: 'u2', name: null, email: null, phone: null },
+      ])
+      prismaMock.user.count.mockResolvedValue(45)
 
-      render(await UsersPage())
+      const { unmount } = render(await UsersPage({ searchParams: Promise.resolve({ page: '2' }) }))
 
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByText('مشتریان (۴۵)')).toBeInTheDocument()
       expect(screen.getByText('Ada')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'قبلی' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'بعدی' })).toBeInTheDocument()
+      unmount()
+
+      prismaMock.user.findMany.mockResolvedValue([])
+      prismaMock.user.count.mockResolvedValue(0)
+      render(await UsersPage({ searchParams: Promise.resolve({ page: 'invalid' }) }))
+      expect(screen.getByText('مشتریان (۰)')).toBeInTheDocument()
    })
 
    it('payments list', async () => {
@@ -281,6 +302,7 @@ describe('admin detail pages', () => {
    it('product detail', async () => {
       prismaMock.product.findUnique.mockResolvedValue(product)
       prismaMock.category.findMany.mockResolvedValue([category])
+      prismaMock.brand.findMany.mockResolvedValue([brand])
 
       render(await ProductPage({ params: Promise.resolve({ productId: 'p1' }) }))
 

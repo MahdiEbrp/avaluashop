@@ -11,15 +11,18 @@ export const dynamic = 'force-dynamic'
 
 export default async function BrandsPage() {
    const brands = await prisma.brand.findMany({
-      include: {
-         products: true,
+      select: {
+         id: true,
+         title: true,
+         _count: { select: { products: true } },
       },
+      orderBy: { title: 'asc' },
    })
 
    const formattedBrands: BrandColumn[] = brands.map((brand) => ({
       id: brand.id,
       title: brand.title,
-      products: brand.products.length,
+      products: brand._count.products,
    }))
 
    return (

@@ -215,18 +215,18 @@ describe('admin order filter chrome', () => {
       render(<AdminSortBy initialData="highest_payable" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(await screen.findByText('Least Expensive'))
+      await user().click(await screen.findByText('کمترین مبلغ'))
 
-      expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=least_expensive', {
+      expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=lowest_payable', {
          scroll: false,
       })
    })
 
    it('sets the sort choice with the shared control', async () => {
-      render(<AdminSortBy initialData="featured" />)
+      render(<AdminSortBy initialData="newest" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('Featured').at(-1)!)
+      await user().click(screen.getAllByText('جدیدترین سفارش').at(-1)!)
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
    })
@@ -273,7 +273,7 @@ describe('product form image field', () => {
    const categories = [{ id: 'c1', title: 'Shoes' }]
 
    it('appends an uploaded image and removes it', async () => {
-      render(<ProductForm categories={categories as never} initialData={null} />)
+      render(<ProductForm categories={categories as never} brands={[] as never} initialData={null} />)
 
       act(() => {
          widgetState.onSuccess?.({ info: { secure_url: 'https://cdn/new.png' } })
@@ -286,7 +286,7 @@ describe('product form image field', () => {
    })
 
    it('toggles the featured and available switches', async () => {
-      render(<ProductForm categories={categories as never} initialData={null} />)
+      render(<ProductForm categories={categories as never} brands={[] as never} initialData={null} />)
 
       const switches = screen.getAllByRole('checkbox')
       await user().click(switches[0])

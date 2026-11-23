@@ -347,7 +347,6 @@ describe('admin forms request failures', () => {
 
       render(
          <CategoryForm
-            banners={[]}
             initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
          />
       )
@@ -376,6 +375,7 @@ describe('admin forms request failures', () => {
       render(
          <ProductForm
             categories={[{ id: 'c1', title: 'Shoes' }] as never}
+            brands={[] as never}
             initialData={
                {
                   id: 'p1',
