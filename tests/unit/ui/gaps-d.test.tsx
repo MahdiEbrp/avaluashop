@@ -62,7 +62,7 @@ afterEach(() => {
 
 describe('profile edit form', () => {
    it('creates the profile through /api/products', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserForm initialData={null} />)
@@ -71,13 +71,13 @@ describe('profile edit form', () => {
       await user().type(screen.getByPlaceholderText('Full Name'), 'Ada')
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/products')
       expect(routerMock.refresh).toHaveBeenCalled()
    })
 
    it('patches the profile when there is existing data', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(
@@ -88,28 +88,28 @@ describe('profile edit form', () => {
 
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/products/p1')
       expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PATCH' })
    })
 
    it('reports a rejected request', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<UserForm initialData={null} />)
 
       await user().type(screen.getByPlaceholderText('Full Name'), 'Ada')
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
    })
 })
 
 describe('profile order form', () => {
    it('reports a failed cancellation', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(
          <ProfileOrderForm
@@ -129,14 +129,14 @@ describe('profile order form', () => {
 
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
    })
 })
 
 describe('category form failure', () => {
    it('reports a rejected save', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(
          <CategoryForm
@@ -148,7 +148,7 @@ describe('category form failure', () => {
       await user().type(screen.getByPlaceholderText('Category description'), 'Shoes')
       await user().click(screen.getByRole('button', { name: /create/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
    })
 })
 
@@ -210,7 +210,7 @@ describe('admin table status cells', () => {
             <tbody>
                <tr>
                   <td>
-                     {(Cell as never as { cell: (p: unknown) => unknown }).cell({
+                     {(Cell as { cell: (p: unknown) => unknown }).cell({
                         cell: { getValue: () => false },
                      }) as never}
                   </td>
@@ -244,7 +244,7 @@ describe('admin chrome', () => {
    })
 
    it('reloads the page after logging out', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
@@ -252,17 +252,17 @@ describe('admin chrome', () => {
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(reload).toHaveBeenCalled())
+      await waitFor(() => { expect(reload).toHaveBeenCalled(); })
    })
 
    it('logs a failed logout request', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 })
@@ -331,7 +331,7 @@ describe('carousel without images', () => {
 
 describe('cart item storage failures', () => {
    it('logs when localStorage refuses the write', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       const setItem = vi
          .spyOn(Storage.prototype, 'setItem')
          .mockImplementation(() => {
@@ -347,11 +347,11 @@ describe('cart item storage failures', () => {
          images: ['/a.png'],
       }
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await user().click(screen.getAllByRole('button').at(-1)!)
+      await user().click(screen.getAllByRole('button').at(-1))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       setItem.mockRestore()
       errorSpy.mockRestore()
    })
@@ -359,7 +359,7 @@ describe('cart item storage failures', () => {
 
 describe('product cart button failures', () => {
    it('logs a failed guest adjustment', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
       /* Both reads and writes fail, so the guest path cannot recover. */
       const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
@@ -379,14 +379,14 @@ describe('product cart button failures', () => {
                   price: 100,
                   discount: 0,
                   images: ['/a.png'],
-               } as never
+               }
             }
          />
       )
 
-      await user().click(screen.getAllByRole('button').at(-1)!)
+      await user().click(screen.getAllByRole('button').at(-1))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       getItem.mockRestore()
       setItem.mockRestore()
       errorSpy.mockRestore()
@@ -401,7 +401,7 @@ describe('product listing search params', () => {
 
       const { default: Products } = await import('@/app/(store)/(routes)/products/page')
 
-      const element = await Products({ searchParams: undefined } as never)
+      const element = await Products({ searchParams: undefined })
       render(element)
 
       expect(prismaMock.product.findMany).toHaveBeenCalled()
@@ -414,7 +414,7 @@ describe('product listing search params', () => {
 
       const { default: Products } = await import('@/app/(store)/(routes)/products/page')
 
-      const element = await Products({ searchParams: Promise.resolve(null) } as never)
+      const element = await Products({ searchParams: Promise.resolve(null) })
       render(element)
 
       expect(prismaMock.product.findMany).toHaveBeenCalled()
@@ -460,12 +460,12 @@ describe('profile pages without a session', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(
-                  JSON.stringify([
+            () =>
+               Promise.resolve(Response.json(
+                  [
                      { id: 'a1', city: 'T', address: 'A', phone: '1', postalCode: '2' },
-                  ])
-               )
+                  ]
+               ))
          )
       )
 
@@ -528,7 +528,7 @@ describe('cart controls with a nonsensical negative count', () => {
 
       render(
          <CartContextProvider>
-            <Item cartItem={{ productId: 'p1', product, count: -2 } as never} />
+            <Item cartItem={{ productId: 'p1', product, count: -2 }} />
          </CartContextProvider>
       )
 

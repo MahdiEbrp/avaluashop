@@ -43,7 +43,7 @@ if (!globalThis.ResizeObserver) {
       observe() {}
       unobserve() {}
       disconnect() {}
-   } as unknown as typeof ResizeObserver
+   }
 }
 
 if (typeof Element !== 'undefined') {

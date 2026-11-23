@@ -1,7 +1,7 @@
 import prisma from '@/lib/prisma'
 
-export async function releasePendingOrder(orderId: string, paymentId?: string) {
-   return prisma.$transaction(async (tx) => {
+export function releasePendingOrder(orderId: string, paymentId?: string) {
+   return Promise.resolve(prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
          where: { id: orderId },
          include: { orderItems: true },
@@ -38,11 +38,11 @@ export async function releasePendingOrder(orderId: string, paymentId?: string) {
       }
 
       return true
-   })
+   }))
 }
 
-export async function completePendingOrder(orderId: string, paymentId: string) {
-   return prisma.$transaction(async (tx) => {
+export function completePendingOrder(orderId: string, paymentId: string) {
+   return Promise.resolve(prisma.$transaction(async (tx) => {
       const paid = await tx.payment.updateMany({
          where: { id: paymentId, orderId, status: 'Processing' },
          data: { status: 'Paid', isSuccessful: true },
@@ -76,8 +76,7 @@ export async function completePendingOrder(orderId: string, paymentId: string) {
                },
             })
             if (!cartLine) continue
-            if (cartLine.count > item.count) {
-               await tx.cartItem.update({
+            await (cartLine.count > item.count ? tx.cartItem.update({
                   where: {
                      UniqueCartItem: {
                         cartId: order.userId,
@@ -85,20 +84,17 @@ export async function completePendingOrder(orderId: string, paymentId: string) {
                      },
                   },
                   data: { count: { decrement: item.count } },
-               })
-            } else {
-               await tx.cartItem.delete({
+               }) : tx.cartItem.delete({
                   where: {
                      UniqueCartItem: {
                         cartId: order.userId,
                         productId: item.productId,
                      },
                   },
-               })
-            }
+               }));
          }
       }
 
       return true
-   })
+   }))
 }

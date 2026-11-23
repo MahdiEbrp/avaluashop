@@ -96,9 +96,9 @@ const CRUD = [
 
 export function createPrismaMock(): PrismaMock {
    const mock = {
-      $queryRaw: vi.fn(async () => [{ '?column?': 1 }]),
-      $connect: vi.fn(async () => undefined),
-      $disconnect: vi.fn(async () => undefined),
+      $queryRaw: vi.fn(() => Promise.resolve([{ '?column?': 1 }])),
+      $connect: vi.fn(() => {return Promise.resolve(); }),
+      $disconnect: vi.fn(() => {return Promise.resolve(); }),
    } as PrismaMock
 
    mock.$transaction = vi.fn(async (arg: unknown) => {
@@ -106,18 +106,18 @@ export function createPrismaMock(): PrismaMock {
 
       if (Array.isArray(arg)) return await Promise.all(arg)
 
-      return undefined
+      return
    })
 
    for (const table of TABLES) {
       const delegate: TableMock = {}
 
       for (const method of CRUD) {
-         delegate[method] = vi.fn(async () => {
-            if (method === 'findMany') return []
-            if (method.startsWith('find')) return null
-            if (method === 'count') return 0
-            return null
+         delegate[method] = vi.fn(() => {
+            if (method === 'findMany') return Promise.resolve([])
+            if (method.startsWith('find')) return Promise.resolve(null)
+            if (method === 'count') return Promise.resolve(0)
+            return Promise.resolve(null)
          })
       }
 
@@ -141,11 +141,11 @@ export function resetPrismaMock() {
       for (const method of CRUD) delegate[method].mockReset()
 
       for (const method of CRUD) {
-         delegate[method].mockImplementation(async () => {
-            if (method === 'findMany') return []
-            if (method.startsWith('find')) return null
-            if (method === 'count') return 0
-            return null
+         delegate[method].mockImplementation(() => {
+            if (method === 'findMany') return Promise.resolve([])
+            if (method.startsWith('find')) return Promise.resolve(null)
+            if (method === 'count') return Promise.resolve(0)
+            return Promise.resolve(null)
          })
       }
    }
@@ -157,11 +157,11 @@ export function resetPrismaMock() {
       if (typeof arg === 'function')
          return await (arg as (tx: unknown) => unknown)(prismaMock)
       if (Array.isArray(arg)) return await Promise.all(arg)
-      return undefined
+      return
    })
 }
 
 /** Async factory used by `vi.mock('@/lib/prisma')` in every test file. */
-export async function prismaModule() {
-   return { default: prismaMock }
+export function prismaModule() {
+   return Promise.resolve({ default: prismaMock })
 }

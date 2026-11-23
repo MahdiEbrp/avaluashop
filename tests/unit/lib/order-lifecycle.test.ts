@@ -22,7 +22,7 @@ const orderWithItems = {
 }
 
 beforeEach(() => {
-   vi.spyOn(console, 'error').mockImplementation(() => {})
+   vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
    prismaMock.order.findUnique.mockResolvedValue(orderWithItems)
    prismaMock.order.updateMany.mockResolvedValue({ count: 1 })
    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 })
@@ -204,7 +204,7 @@ describe('redirectToPayment', () => {
 
    it('hands the gateway URL to the browser', async () => {
       const assign = vi.fn()
-      vi.stubGlobal('window', { location: { assign } })
+      vi.stubGlobal('location', { ...globalThis.location, assign })
 
       const { redirectToPayment } = await import('@/lib/payments/redirect')
       redirectToPayment('https://api.tabapay.ir/pay/abc')

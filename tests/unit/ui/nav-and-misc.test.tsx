@@ -43,7 +43,7 @@ const emblaHandlers: Record<string, () => void> = {}
 const emblaState = { snap: 1 }
 vi.mock('embla-carousel-react', () => ({
    default: () => [
-      () => {},
+      () => {/* noop */ },
       {
          selectedScrollSnap: () => emblaState.snap,
          on: (event: string, handler: () => void) => {
@@ -110,7 +110,7 @@ describe('admin chrome', () => {
    })
 
    it('logout button posts and reloads', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, reload })
@@ -119,18 +119,18 @@ describe('admin chrome', () => {
       await userEvent.setup().click(screen.getByRole('button'))
 
       expect(fetchMock).toHaveBeenCalledWith('/api/admin/auth/logout', { cache: 'no-store' })
-      await waitFor(() => expect(reload).toHaveBeenCalled())
+      await waitFor(() => { expect(reload).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('logout button swallows a network failure', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<LogoutButton />)
       await userEvent.setup().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -230,7 +230,7 @@ describe('storefront shell navigation', () => {
    })
 
    it('user nav logs out through the API', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, reload })
@@ -241,8 +241,7 @@ describe('storefront shell navigation', () => {
       const logOut = await screen.findByText(/خروج از حساب/i)
       await userEvent.setup().click(logOut)
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' })
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' }); }
       )
       vi.unstubAllGlobals()
    })
@@ -252,9 +251,9 @@ describe('command menu', () => {
    it('opens with the keyboard shortcut and navigates', async () => {
       render(<CommandMenu />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
-      })
+      return Promise.resolve(); })
 
       const link = await screen.findByText('فروشگاه اکسسوری')
       await userEvent.setup().click(link)
@@ -275,9 +274,9 @@ describe('command menu', () => {
    it('ignores other keys', async () => {
       render(<CommandMenu />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.keyDown(document, { key: 'j' })
-      })
+      return Promise.resolve(); })
 
       expect(screen.queryByPlaceholderText('Type a command or search...')).not.toBeInTheDocument()
    })
@@ -421,7 +420,7 @@ describe('compare image slider', () => {
          />
       )
 
-      const slider = container.firstElementChild!
+      const slider = container.firstElementChild
       fireEvent.mouseMove(slider, { clientX: 50, buttons: 1 })
       fireEvent.mouseDown(slider)
       act(() => {

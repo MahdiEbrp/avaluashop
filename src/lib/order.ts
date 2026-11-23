@@ -1,7 +1,7 @@
 /* The "is this order discounted at all" question is answered by the caller
    (a discount object is either attached or it is not), so this only computes
    the amount for a discount that is actually applicable. */
-export function calculateDiscountAmount(totalAmount: number, discountObject) {
+export function calculateDiscountAmount(totalAmount: number, discountObject?) {
    if (discountObject && isDiscountAcceptable(discountObject)) {
       const { maxAmount, percentage } = discountObject
 

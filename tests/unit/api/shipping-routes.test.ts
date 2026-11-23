@@ -6,7 +6,7 @@ import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-beforeEach(() => silenceConsole())
+beforeEach(() => { silenceConsole(); })
 
 describe('GET /api/shipping-methods', () => {
    it('returns active methods and only safe carrier fields', async () => {
@@ -99,7 +99,7 @@ describe('admin shipping method routes', () => {
          code: 'post-standard',
          title: 'پست پیشتاز',
          type: 'FlatRate',
-         amount: 25000,
+         amount: 25_000,
          allowedCities: [' تهران ', 'تهران'],
       }, USER))
 
@@ -107,7 +107,7 @@ describe('admin shipping method routes', () => {
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
          data: expect.objectContaining({
             code: 'post-standard',
-            amount: 25000,
+            amount: 25_000,
             allowedCities: ['تهران'],
             isActive: true,
             sortOrder: 0,

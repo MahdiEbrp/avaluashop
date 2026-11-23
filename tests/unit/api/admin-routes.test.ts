@@ -29,7 +29,7 @@ import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
 
-beforeEach(() => silenceConsole())
+beforeEach(() => { silenceConsole(); })
 
 describe('admin banners', () => {
    it('GET/POST require a session', async () => {

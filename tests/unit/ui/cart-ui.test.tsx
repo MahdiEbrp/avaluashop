@@ -88,13 +88,13 @@ describe('cart Item', () => {
 
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify(product)))
+         vi.fn(() => Promise.resolve(Response.json(product)))
       )
-      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
       const dispatched = cartValue.dispatchCart.mock.calls[0][0]
@@ -109,29 +109,29 @@ describe('cart Item', () => {
          JSON.stringify({ items: [{ productId: 'p1', product, count: 2 }] })
       )
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 2 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 2 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
       /* The dispatched guest cart carries the decremented line. */
       expect(
-         cartValue.dispatchCart.mock.calls.at(-1)![0].items[0].count
+         cartValue.dispatchCart.mock.calls.at(-1)[0].items[0].count
       ).toBe(1)
    })
 
    it('replaces the local line from the API for authenticated users', async () => {
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
       expect(fetchMock).toHaveBeenCalledWith(
          '/api/cart',
@@ -143,7 +143,7 @@ describe('cart Item', () => {
    it('renders the quantity controls for a line in the cart', () => {
       cartValue.cart = { items: [{ productId: 'p1', product, count: 2 }] } as never
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 2 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 2 }} />)
 
       expect(screen.getAllByRole('link')[0]).toHaveAttribute('href', '/products/p1')
    })
@@ -186,9 +186,9 @@ describe('product page CartButton', () => {
       cartValue.cart = { items: [] } as never
 
       render(<ButtonComponent product={product} />)
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
    })
@@ -196,25 +196,24 @@ describe('product page CartButton', () => {
    it('sends the increment to the API when signed in', async () => {
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ userId: 'u1', items: [] })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ userId: 'u1', items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: '1' }))
-      })
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      return Promise.resolve(); })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/cart',
             expect.objectContaining({
                body: JSON.stringify({ productId: 'p1', count: 2 }),
             })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -225,25 +224,25 @@ describe('product page CartButton', () => {
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
       /* Guest decrement to zero splices the line out of the local cart. */
       expect(cartValue.dispatchCart).toHaveBeenCalled()
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items).toHaveLength(0)
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items).toHaveLength(0)
    })
 
    it('swallows a network failure', async () => {
       authValue.authenticated = true
       cartValue.cart = { items: [] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<ButtonComponent product={product} />)
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
       expect(errorSpy).toHaveBeenCalled()
       vi.unstubAllGlobals()
@@ -260,12 +259,12 @@ describe('WishlistButton', () => {
 
    it('loads the wishlist and toggles the product in', async () => {
       authValue.authenticated = true
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify([])))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json([])))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<WishlistButton product={product} />)
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/wishlist', expect.anything()))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith('/api/wishlist', expect.anything()); })
       vi.unstubAllGlobals()
    })
 
@@ -273,67 +272,64 @@ describe('WishlistButton', () => {
       authValue.authenticated = true
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify([{ id: 'p1' }])))
+         vi.fn(() => Promise.resolve(Response.json([{ id: 'p1' }])))
       )
 
       render(<WishlistButton product={product} />)
 
-      await waitFor(() =>
-         expect(screen.getByRole('button').querySelector('svg')).not.toBeNull()
+      await waitFor(() => { expect(screen.getByRole('button').querySelector('svg')).not.toBeNull(); }
       )
       vi.unstubAllGlobals()
    })
 
    it('removes a saved product on click', async () => {
       authValue.authenticated = true
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify([{ id: 'p1' }])))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json([{ id: 'p1' }])))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<WishlistButton product={product} />)
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(1); })
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button'))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/wishlist',
             expect.objectContaining({ method: 'DELETE' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
 
    it('adds an unsaved product on click', async () => {
       authValue.authenticated = true
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify([])))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json([])))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<WishlistButton product={product} />)
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(1); })
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button'))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/wishlist',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
 
    it('swallows a network failure while loading', async () => {
       authValue.authenticated = true
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistButton product={product} />)
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -342,35 +338,35 @@ describe('WishlistButton', () => {
 
 describe('cart removal request failures', () => {
    it('logs a rejected removal on the cart page', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
 
    it('logs a rejected removal on the product page', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })

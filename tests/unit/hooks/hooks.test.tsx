@@ -109,10 +109,10 @@ describe('useLocalCart', () => {
    it('reads what publishLocalCart wrote', () => {
       const { result } = renderHook(() => useLocalCart())
 
-      act(() => publishLocalCart({ items: [{ productId: 'p1', count: 2 }] }))
+      act(() => { publishLocalCart({ items: [{ productId: 'p1', count: 2 }] }); })
 
       expect(result.current).toEqual({ items: [{ productId: 'p1', count: 2 }] })
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toEqual({
+      expect(JSON.parse(localStorage.getItem('Cart'))).toEqual({
          items: [{ productId: 'p1', count: 2 }],
       })
    })
@@ -165,7 +165,7 @@ describe('useSyncedState', () => {
          initialProps: { source: 'first' },
       })
 
-      act(() => result.current[1]('edited'))
+      act(() => { result.current[1]('edited'); })
       expect(result.current[0]).toBe('edited')
 
       rerender({ source: 'first' })
@@ -192,7 +192,7 @@ describe('providers', () => {
    it('ToastProvider renders the hot-toast region', async () => {
       const { container } = render(<ToastProvider />)
 
-      await waitFor(() => expect(container.firstChild).not.toBeNull())
+      await waitFor(() => { expect(container.firstChild).not.toBeNull(); })
    })
 
    it('ThemeProvider hands next-themes down to consumers', () => {

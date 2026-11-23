@@ -34,7 +34,7 @@ vi.mock('next-mdx-remote', () => ({
    MDXRemote: ({ source }: { source: string }) => <article>{source}</article>,
 }))
 vi.mock('next-mdx-remote/serialize', () => ({
-   serialize: async (source: string) => ({ source }),
+   serialize: (source: string) => Promise.resolve(({ source })),
 }))
 
 describe('root layout', () => {
@@ -261,7 +261,7 @@ describe('metadata routes', () => {
       const entries = await sitemap()
 
       expect(entries.map((entry) => entry.url)).toEqual([
-         `${process.env.NEXT_PUBLIC_URL}`,
+         process.env.NEXT_PUBLIC_URL,
          `${process.env.NEXT_PUBLIC_URL}/products`,
          `${process.env.NEXT_PUBLIC_URL}/blog`,
          `${process.env.NEXT_PUBLIC_URL}/products/p1`,

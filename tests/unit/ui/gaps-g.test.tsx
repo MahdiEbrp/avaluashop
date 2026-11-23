@@ -37,7 +37,7 @@ function AdminFormHarness({ withError = false }: { withError?: boolean }) {
       <Form {...form}>
          <form
             onSubmit={(event) => {
-               void form.handleSubmit(() => {})(event)
+               void form.handleSubmit(() => {/* noop */ })(event)
             }}
          >
             <FormField
@@ -70,7 +70,7 @@ function StoreFormHarness() {
       <StoreForm {...form}>
          <form
             onSubmit={(event) => {
-               void form.handleSubmit(() => {})(event)
+               void form.handleSubmit(() => {/* noop */ })(event)
             }}
          >
             <StoreFormField

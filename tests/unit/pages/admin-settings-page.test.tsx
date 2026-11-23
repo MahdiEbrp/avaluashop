@@ -23,7 +23,7 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 function stubFetch(...responses: Promise<unknown>[]) {
-   for (const r of responses) r.catch(() => {})
+   for (const r of responses) r.catch(() => {/* noop */ })
    const queue = [...responses]
    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
       const next = queue.shift()

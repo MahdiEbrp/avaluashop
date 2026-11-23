@@ -29,8 +29,8 @@ vi.mock('react-hot-toast', () => ({
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const fetchSpy = (ok = true) =>
-   vi.fn(async (_url: string, _init?: RequestInit) =>
-      new Response('{}', { status: ok ? 200 : 500 }))
+   vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(new Response('{}', { status: ok ? 200 : 500 })))
 
 beforeEach(() => {
    widgetState.opens = 0
@@ -54,7 +54,7 @@ describe('admin BannerForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/banners')
       expect(toast.success).toHaveBeenCalledWith('Banner created.')
       vi.unstubAllGlobals()
@@ -74,11 +74,10 @@ describe('admin BannerForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/banners/b1',
             expect.objectContaining({ method: 'PATCH' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -96,7 +95,7 @@ describe('admin BannerForm', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
 
       await waitFor(() =>
@@ -104,20 +103,19 @@ describe('admin BannerForm', () => {
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/banners/b1',
             expect.objectContaining({ method: 'DELETE' })
-         )
+         ); }
       )
       expect(toast.success).toHaveBeenCalledWith('Banner deleted.')
       vi.unstubAllGlobals()
    })
 
    it('reports a failed delete with the banner hint', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
       const { toast } = await import('react-hot-toast')
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
          <BannerForm
@@ -127,17 +125,16 @@ describe('admin BannerForm', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith(
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith(
             'Make sure you removed all categories using this banner first.'
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -161,7 +158,7 @@ describe('admin BrandForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/brands')
       vi.unstubAllGlobals()
    })
@@ -178,7 +175,7 @@ describe('admin BrandForm', () => {
                   title: 'Acme',
                   description: 'Shoes',
                   logo: 'https://cdn/logo.png',
-               } as never
+               }
             }
          />
       )
@@ -186,11 +183,10 @@ describe('admin BrandForm', () => {
       expect(screen.getByText('Edit Brand')).toBeInTheDocument()
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/brands/br1',
             expect.objectContaining({ method: 'PATCH' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -202,22 +198,21 @@ describe('admin BrandForm', () => {
 
       render(
          <BrandForm
-            initialData={{ id: 'br1', title: 'Acme', description: 'Shoes', logo: '' } as never}
+            initialData={{ id: 'br1', title: 'Acme', description: 'Shoes', logo: '' }}
          />
       )
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith(
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith(
             'Make sure you removed all products using this brand first.'
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -229,25 +224,24 @@ describe('admin BrandForm', () => {
       render(
          <BrandForm
             initialData={
-               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' } as never
+               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' }
             }
          />
       )
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/brands/br1',
             expect.objectContaining({ method: 'DELETE' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -267,7 +261,7 @@ describe('admin CategoryForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/categories')
       expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({
          title: 'Shoes',
@@ -289,11 +283,10 @@ describe('admin CategoryForm', () => {
       expect(screen.getByText('Edit category')).toBeInTheDocument()
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/categories/c1',
             expect.objectContaining({ method: 'PATCH' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -310,17 +303,16 @@ describe('admin CategoryForm', () => {
       )
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith(
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith(
             'Make sure you removed all products using this category first.'
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -337,18 +329,17 @@ describe('admin CategoryForm', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/categories/c1',
             expect.objectContaining({ method: 'DELETE' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -372,13 +363,13 @@ describe('admin ProductForm', () => {
       await user().clear(screen.getAllByPlaceholderText('9.99')[0])
       await user().type(screen.getAllByPlaceholderText('9.99')[0], '20')
       await user().click(screen.getAllByRole('combobox')[0])
-      await user().click(screen.getAllByText('Shoes').at(-1)!)
+      await user().click(screen.getAllByText('Shoes').at(-1))
       await user().click(screen.getAllByRole('combobox')[1])
-      await user().click(screen.getAllByText('Acme').at(-1)!)
+      await user().click(screen.getAllByText('Acme').at(-1))
 
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/products')
       vi.unstubAllGlobals()
    })
@@ -414,11 +405,10 @@ describe('admin ProductForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/products/p1',
             expect.objectContaining({ method: 'PATCH' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -432,7 +422,7 @@ describe('admin ProductForm', () => {
             .mockResolvedValueOnce(new Response('{}', { status: 500 }))
             .mockResolvedValueOnce(new Response('{}', { status: 500 }))
             .mockResolvedValueOnce(
-               new Response(JSON.stringify({ archived: true }), { status: 200 })
+               Response.json({ archived: true }, { status: 200 })
             )
       )
 
@@ -460,21 +450,20 @@ describe('admin ProductForm', () => {
       )
 
       await user().click(screen.getAllByRole('combobox')[0])
-      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      await user().click((await screen.findAllByText('Shoes')).at(-1))
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
-      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+      await waitFor(() => { expect(toast.error).toHaveBeenCalled(); })
 
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
-      await waitFor(() =>
-         expect(toast.success).toHaveBeenCalledWith('Product archived to preserve history.')
+      await waitFor(() => { expect(toast.success).toHaveBeenCalledWith('Product archived to preserve history.'); }
       )
       vi.unstubAllGlobals()
    })
@@ -508,25 +497,24 @@ describe('admin ProductForm', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/products/p1',
             expect.objectContaining({ method: 'DELETE' })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
 })
 
 describe('ImageUpload widgets', () => {
-   it('lists the current images and removes one', async () => {
+   it('lists the current images and removes one', () => {
       const onRemove = vi.fn()
 
       render(
@@ -536,7 +524,7 @@ describe('ImageUpload widgets', () => {
       fireEvent.click(screen.getAllByRole('button')[0])
 
       expect(onRemove).toHaveBeenCalledWith('https://cdn/a.png')
-   })
+   return Promise.resolve(); })
 
    it('opens the widget and forwards a successful upload', () => {
       const onChange = vi.fn()
@@ -556,7 +544,7 @@ describe('ImageUpload widgets', () => {
       render(<AdminImageUpload value={[]} onChange={onChange} onRemove={vi.fn()} />)
 
       widgetState.onSuccess?.({ info: {} })
-      widgetState.onSuccess?.(undefined)
+      widgetState.onSuccess?.()
 
       expect(onChange).not.toHaveBeenCalled()
    })
@@ -569,7 +557,7 @@ describe('ImageUpload widgets', () => {
          <StoreImageUpload value={['https://cdn/a.png']} onChange={onChange} onRemove={onRemove} />
       )
 
-      fireEvent.click(screen.getAllByRole('button').at(-1)!)
+      fireEvent.click(screen.getAllByRole('button').at(-1))
       expect(widgetState.opens).toBe(1)
       widgetState.onSuccess?.({ info: { secure_url: 'https://cdn/store.png' } })
       expect(onChange).toHaveBeenCalledWith('https://cdn/store.png')

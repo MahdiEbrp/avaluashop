@@ -98,7 +98,7 @@ describe('forget', () => {
    })
 
    it('is a no-op for an unknown key', () => {
-      expect(() => forget('never-seen')).not.toThrow()
+      expect(() => { forget('never-seen'); }).not.toThrow()
    })
 })
 

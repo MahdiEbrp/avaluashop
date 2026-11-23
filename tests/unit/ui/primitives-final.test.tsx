@@ -250,7 +250,7 @@ describe('storefront user nav items', () => {
 
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(2))
+      await waitFor(() => { expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(2); })
       expect(screen.getAllByText('سفارش‌های من').length).toBeGreaterThan(0)
    })
 })

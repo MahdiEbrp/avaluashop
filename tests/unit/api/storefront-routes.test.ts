@@ -8,7 +8,7 @@ import { call, get, json, prismaMock, silenceConsole, USER, bodyOf } from './hel
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-const cachedProducts = vi.fn(async () => '[]')
+const cachedProducts = vi.fn(() => Promise.resolve('[]'))
 
 vi.mock('@/lib/catalog', async () => {
    const actual = await vi.importActual<typeof import('@/lib/catalog')>('@/lib/catalog')
@@ -16,7 +16,7 @@ vi.mock('@/lib/catalog', async () => {
    return { ...actual, getProductsJson: () => cachedProducts() }
 })
 
-beforeEach(() => silenceConsole())
+beforeEach(() => { silenceConsole(); })
 
 describe('GET /api/health', () => {
    it('reports reachable with no cache headers', async () => {

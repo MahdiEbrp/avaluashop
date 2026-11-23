@@ -51,8 +51,8 @@ async function getConfig(requireActive = true) {
    }
 }
 
-export async function validateTabapayConfiguration() {
-   return getConfig()
+export function validateTabapayConfiguration() {
+   return Promise.resolve(getConfig())
 }
 
 export function isTabapayAmountValid(amountRial: number) {

@@ -52,7 +52,7 @@ beforeEach(() => {
 
 describe('admin PaymentForm', () => {
    it('patches the payment and returns to the list', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -60,11 +60,11 @@ describe('admin PaymentForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/payments/pay1')
       expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'PATCH' })
       /* The payment form reuses the order copy. */
-      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Order updated.'))
+      await waitFor(() => { expect(toast.success).toHaveBeenCalledWith('Order updated.'); })
       vi.unstubAllGlobals()
    })
 
@@ -77,35 +77,35 @@ describe('admin PaymentForm', () => {
    it('surfaces the API message when the patch fails', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify({ message: 'NOPE' }), { status: 409 }))
+         vi.fn(() => Promise.resolve(Response.json({ message: 'NOPE' }, { status: 409 })))
       )
       const { toast } = await import('react-hot-toast')
 
       render(<PaymentForm initialData={orderData as never} />)
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('NOPE'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('NOPE'); })
       vi.unstubAllGlobals()
    })
 
    it('falls back to the status code when the body is unreadable', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response('not json', { status: 500 }))
+         vi.fn(() => Promise.resolve(new Response('not json', { status: 500 })))
       )
       const { toast } = await import('react-hot-toast')
 
       render(<PaymentForm initialData={orderData as never} />)
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('500'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('500'); })
       vi.unstubAllGlobals()
    })
 })
 
 describe('admin OrderForm', () => {
    it('patches the order status', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -113,18 +113,18 @@ describe('admin OrderForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/orders/o1')
       const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
       expect(payload.status).toBe('Processing')
       expect(payload).not.toHaveProperty('isPaid')
       expect(payload).not.toHaveProperty('isCompleted')
-      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Order updated.'))
+      await waitFor(() => { expect(toast.success).toHaveBeenCalledWith('Order updated.'); })
       vi.unstubAllGlobals()
    })
 
    it('submits a valid fulfilment status with its tracking number', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminOrderForm initialData={{ ...orderData, isPaid: true } as never} />)
@@ -133,7 +133,7 @@ describe('admin OrderForm', () => {
       await user().type(screen.getByPlaceholderText('کد رهگیری را وارد کنید'), 'TRK-42')
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
       expect(payload).toEqual({ status: 'Shipped', shippingTrackingNumber: 'TRK-42' })
       vi.unstubAllGlobals()
@@ -142,14 +142,14 @@ describe('admin OrderForm', () => {
    it('shows the API message on a failed patch', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify({ message: 'LOCKED' }), { status: 400 }))
+         vi.fn(() => Promise.resolve(Response.json({ message: 'LOCKED' }, { status: 400 })))
       )
       const { toast } = await import('react-hot-toast')
 
       render(<AdminOrderForm initialData={orderData as never} />)
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('LOCKED'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('LOCKED'); })
       vi.unstubAllGlobals()
    })
 
@@ -162,7 +162,7 @@ describe('admin OrderForm', () => {
    })
 
    it('populates and submits the shipment tracking number', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(
@@ -177,7 +177,7 @@ describe('admin OrderForm', () => {
       await user().type(input, 'TRK-777')
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
       expect(payload.shippingTrackingNumber).toBe('TRK-777')
       vi.unstubAllGlobals()
@@ -194,7 +194,7 @@ describe('admin UserForm', () => {
    }
 
    it('patches the user and returns to the list', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const { toast } = await import('react-hot-toast')
 
@@ -202,19 +202,19 @@ describe('admin UserForm', () => {
 
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/users/u1')
-      await waitFor(() => expect(toast.success).toHaveBeenCalledWith('User updated.'))
+      await waitFor(() => { expect(toast.success).toHaveBeenCalledWith('User updated.'); })
       vi.unstubAllGlobals()
    })
 
    it('shows the conflict message when the user cannot be saved', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () =>
-            new Response(JSON.stringify({ message: 'EMAIL OR PHONE ALREADY IN USE' }), {
+         vi.fn(() =>
+            Promise.resolve(Response.json({ message: 'EMAIL OR PHONE ALREADY IN USE' }, {
                status: 409,
-            })
+            }))
          )
       )
       const { toast } = await import('react-hot-toast')
@@ -222,8 +222,7 @@ describe('admin UserForm', () => {
       render(<AdminUserForm initialData={userData as never} />)
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith('EMAIL OR PHONE ALREADY IN USE')
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('EMAIL OR PHONE ALREADY IN USE'); }
       )
       vi.unstubAllGlobals()
    })
@@ -239,7 +238,7 @@ describe('admin UserForm', () => {
 
 describe('storefront login form', () => {
    it('asks for an email and enables the button once it is valid', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -249,13 +248,13 @@ describe('storefront login form', () => {
       setParams({ email: 'buyer@example.com' })
       await user().type(screen.getByPlaceholderText('name@example.com'), 'a')
 
-      await waitFor(() => expect(routerMock.replace).toHaveBeenCalled())
+      await waitFor(() => { expect(routerMock.replace).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('requests an OTP and switches to the verification step', async () => {
       setParams({ email: 'buyer@example.com' })
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -272,7 +271,7 @@ describe('storefront login form', () => {
 
    it('stays on the email step when the request fails logically', async () => {
       setParams({ email: 'buyer@example.com' })
-      vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 })))
+      vi.stubGlobal('fetch', vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 500 }))))
 
       render(<UserAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
@@ -283,20 +282,20 @@ describe('storefront login form', () => {
 
    it('logs a network failure', async () => {
       setParams({ email: 'buyer@example.com' })
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<UserAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
 
    it('requests an OTP by phone', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<UserAuthForm />)
@@ -340,7 +339,7 @@ describe('storefront login form', () => {
    it('verifies the OTP, clears the guest cart and redirects home', async () => {
       setParams({ email: 'buyer@example.com', OTP: '12345' })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
@@ -354,7 +353,7 @@ describe('storefront login form', () => {
       await user().type(screen.getByPlaceholderText('12345'), '1')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(assign).toHaveBeenCalled())
+      await waitFor(() => { expect(assign).toHaveBeenCalled(); })
       expect(localStorage.getItem('Cart')).toBe('{"items":[]}')
       vi.unstubAllGlobals()
    })
@@ -375,7 +374,7 @@ describe('storefront login form', () => {
 
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); })
       expect(assign).not.toHaveBeenCalled()
       vi.unstubAllGlobals()
    })
@@ -384,14 +383,14 @@ describe('storefront login form', () => {
 describe('admin login form', () => {
    it('uses the admin OTP endpoints', async () => {
       setParams({ email: 'owner@example.com' })
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminAuthForm />)
 
       await user().click(screen.getByRole('button', { name: /login with email/i }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/auth/otp/email/try')
 
       /* Verifying lands the owner in the dashboard. */
@@ -400,25 +399,24 @@ describe('admin login form', () => {
       setParams({ email: 'owner@example.com', OTP: '12345' })
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/admin/auth/otp/email/verify',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
-      await waitFor(() => expect(assign).toHaveBeenCalledWith('http://localhost/admin'))
+      await waitFor(() => { expect(assign).toHaveBeenCalledWith('http://localhost/admin'); })
       vi.unstubAllGlobals()
    })
 
    it('stays on the email step when the OTP request fails', async () => {
       setParams({ email: 'owner@example.com' })
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 }))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 500 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminAuthForm />)
 
       await user().click(screen.getByRole('button', { name: /login with email/i }))
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
 
       /* Same email step: the OTP boxes are not rendered. */
       expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument()
@@ -426,11 +424,11 @@ describe('admin login form', () => {
       vi.unstubAllGlobals()
    })
 
-   it('keeps the raw email when no query params are set', async () => {
+   it('keeps the raw email when no query params are set', () => {
       setParams({})
       render(<AdminAuthForm />)
 
       const input = screen.getByPlaceholderText('name@example.com')
       expect(input).toHaveValue('')
-   })
+   return Promise.resolve(); })
 })

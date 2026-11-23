@@ -33,7 +33,7 @@ beforeEach(() => {
    params.clear()
    routerMock.replace.mockClear()
    assignMock.mockClear()
-   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200 })))
+   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))))
    vi.stubGlobal('location', {
       ...globalThis.location,
       origin: 'http://localhost',
@@ -75,7 +75,7 @@ describe('admin login form — phone validation', () => {
       setParams({ method: 'phone', phone: '09123456789' })
       const secret = process.env.JWT_SECRET_KEY
       delete process.env.JWT_SECRET_KEY
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
@@ -88,19 +88,19 @@ describe('admin login form — phone validation', () => {
 
    it('logs a network failure when requesting an OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
    it('keeps the OTP field closed for a failed request', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 429 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 429 }))))
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
@@ -113,16 +113,16 @@ describe('admin login form — phone validation', () => {
 
    it('logs a network failure when verifying an OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
@@ -130,7 +130,7 @@ describe('admin login form — phone validation', () => {
       setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response('{}', { status: 200 })).mockResolvedValueOnce(
+         vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))).mockResolvedValueOnce(
             new Response('{}', { status: 200 })
          )
       )
@@ -139,10 +139,10 @@ describe('admin login form — phone validation', () => {
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       expect(assignMock).not.toHaveBeenCalled()
    })
 
@@ -175,7 +175,7 @@ describe('admin login form — email flow', () => {
       setParams({ method: 'email', email: 'admin@example.com' })
       const secret = process.env.JWT_SECRET_KEY
       delete process.env.JWT_SECRET_KEY
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
 
@@ -190,29 +190,27 @@ describe('admin login form — email flow', () => {
 
    it('requests an email OTP then verifies it', async () => {
       setParams({ method: 'email', email: 'admin@example.com' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/auth/otp/email/try',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
 
       await screen.findByText('One-Time Password')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/admin/auth/otp/email/verify',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
-      await waitFor(() => expect(assignMock).toHaveBeenCalledWith('http://localhost/admin'))
+      await waitFor(() => { expect(assignMock).toHaveBeenCalledWith('http://localhost/admin'); })
    })
 
    it('reports the email digits back into the URL as they are typed', async () => {
@@ -223,11 +221,10 @@ describe('admin login form — email flow', () => {
       await user().type(screen.getByPlaceholderText('name@example.com'), 'a@b.co')
 
       /* Each keystroke rewrites the query string. */
-      await waitFor(() =>
-         expect(routerMock.replace).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(routerMock.replace).toHaveBeenLastCalledWith(
             '/admin/login?method=email&email=a%40b.co',
             { scroll: false }
-         )
+         ); }
       )
    })
 
@@ -246,41 +243,39 @@ describe('admin login form — email flow', () => {
 describe('storefront login form', () => {
    it('requests and verifies a phone OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/auth/otp/phone/try',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
 
       await screen.findByText('One-Time Password')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/auth/otp/phone/verify',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
    })
 
    it('logs a network failure while verifying', async () => {
       setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
@@ -319,7 +314,7 @@ describe('storefront login form', () => {
 
    it('keeps the storefront OTP field closed for a failed request', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 500 }))))
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
@@ -336,11 +331,11 @@ describe('storefront login form', () => {
       render(<StoreAuthForm />)
 
       const button = screen.getByRole('button', { name: /login with email/i })
-      await act(async () => {
+      await act(() => {
          fireEvent.click(button)
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
    })
 })
 
@@ -375,8 +370,8 @@ describe('storefront login form — phone entry', () => {
       await screen.findByText('One-Time Password')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(assignMock).toHaveBeenCalledWith('http://localhost/'))
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toEqual({ items: [] })
+      await waitFor(() => { expect(assignMock).toHaveBeenCalledWith('http://localhost/'); })
+      expect(JSON.parse(localStorage.getItem('Cart'))).toEqual({ items: [] })
    })
 
    it('keeps the cart when the OTP is rejected', async () => {
@@ -387,11 +382,11 @@ describe('storefront login form — phone entry', () => {
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toMatchObject({
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
+      expect(JSON.parse(localStorage.getItem('Cart'))).toMatchObject({
          items: [{ productId: 'p1' }],
       })
    })
@@ -400,7 +395,7 @@ describe('storefront login form — phone entry', () => {
 describe('storefront login form — email verification', () => {
    it('verifies through the email endpoint', async () => {
       setParams({ method: 'email', email: 'shopper@example.com', OTP: '12345' })
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<StoreAuthForm />)
@@ -408,11 +403,10 @@ describe('storefront login form — email verification', () => {
       await screen.findByText('One-Time Password')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/auth/otp/email/verify',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
    })
 })
@@ -425,22 +419,22 @@ describe('admin login form — email verification failure path', () => {
       await user().click(screen.getByRole('button', { name: /login with email/i }))
       await screen.findByText('One-Time Password')
 
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       expect(assignMock).not.toHaveBeenCalled()
    })
 
    it('logs a network failure while requesting an email OTP', async () => {
       setParams({ method: 'email', email: 'admin@example.com' })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 })
@@ -448,25 +442,25 @@ describe('admin login form — email verification failure path', () => {
 describe('storefront login form — rejected OTP request', () => {
    it('logs a network failure while requesting a phone OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
    it('logs a network failure while requesting an email OTP', async () => {
       setParams({ method: 'email', email: 'shopper@example.com' })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 })

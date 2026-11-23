@@ -16,7 +16,7 @@ const patchSchema = z.object({
    message: 'EMPTY_PATCH',
 })
 
-type Context = { params: Promise<{ methodId: string }> }
+interface Context { params: Promise<{ methodId: string }> }
 
 function isAdmin(req: Request) {
    return Boolean(req.headers.get('X-USER-ID'))
@@ -32,7 +32,7 @@ export async function PATCH(req: Request, { params }: Context) {
       if (!current) return NextResponse.json({ message: 'SHIPPING_METHOD_NOT_FOUND' }, { status: 404 })
 
       const nextType = input.type ?? current.type
-      const nextThreshold = input.freeAbove !== undefined ? input.freeAbove : current.freeAbove
+      const nextThreshold = input.freeAbove === undefined ? current.freeAbove : input.freeAbove
       if (nextType === 'FreeAbove' && nextThreshold == null) {
          return NextResponse.json({ message: 'FREE_THRESHOLD_REQUIRED' }, { status: 400 })
       }

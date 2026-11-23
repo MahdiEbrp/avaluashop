@@ -4,7 +4,7 @@
  * to be constructible; the type surface is exercised through `@/types/prisma`.
  */
 export class PrismaClient {
-   constructor(public readonly options?: unknown) {}
+   constructor(public readonly options?: unknown) {/* noop */ }
 }
 
 export class Prisma {

@@ -100,7 +100,7 @@ describe('POST /api/auth/otp/email/try', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const response = await emailTry(brokenRequest() as never)
+      const response = await emailTry(brokenRequest())
 
       expect(response.status).toBe(500)
    })

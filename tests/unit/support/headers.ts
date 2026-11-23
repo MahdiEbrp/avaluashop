@@ -15,7 +15,7 @@ export function createCookieJar(initial: Record<string, string> = {}): CookieJar
 
    return {
       get: (name: string) =>
-         jar.has(name) ? { name, value: jar.get(name) as string } : undefined,
+         jar.has(name) ? { name, value: jar.get(name) } : undefined,
       getAll: () => [...jar].map(([name, value]) => ({ name, value })),
       has: (name: string) => jar.has(name),
       set: vi.fn((name: string, value: string) => {
@@ -31,29 +31,29 @@ export function createCookieJar(initial: Record<string, string> = {}): CookieJar
 
 export const headersState = { value: new Map<string, string>() }
 
-export const cookies = vi.fn(async () => currentCookies)
+export const cookies = vi.fn(() => Promise.resolve(currentCookies))
 
-export const headers = vi.fn(async () => ({
+export const headers = vi.fn(() => Promise.resolve(({
    get: (name: string) => headersState.value.get(name.toLowerCase()) ?? null,
    has: (name: string) => headersState.value.has(name.toLowerCase()),
    entries: () => headersState.value.entries(),
    keys: () => headersState.value.keys(),
    values: () => headersState.value.values(),
    forEach: (cb: (value: string, key: string) => void) =>
-      headersState.value.forEach((value, key) => cb(value, key)),
-}))
+      { for (const [key, value] of headersState.value.entries()) cb(value, key) },
+})))
 
-export const draftMode = vi.fn(async () => ({
+export const draftMode = vi.fn(() => Promise.resolve(({
    isEnabled: false,
    enable: vi.fn(),
    disable: vi.fn(),
-}))
+})))
 
 let currentCookies = createCookieJar()
 
 export function setCookies(initial: Record<string, string> = {}) {
    currentCookies = createCookieJar(initial)
-   cookies.mockImplementation(async () => currentCookies)
+   cookies.mockImplementation(() => Promise.resolve(currentCookies))
    return currentCookies
 }
 

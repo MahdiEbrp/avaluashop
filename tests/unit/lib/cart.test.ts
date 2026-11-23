@@ -77,7 +77,7 @@ describe('lib/cart', () => {
 
       it('returns -1 for a missing product or an undefined id', () => {
          expect(findLocalCartIndexById(cart, 'nope')).toBe(-1)
-         expect(findLocalCartIndexById(cart, undefined)).toBe(-1)
+         expect(findLocalCartIndexById(cart)).toBe(-1)
       })
    })
 

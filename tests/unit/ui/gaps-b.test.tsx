@@ -139,7 +139,7 @@ describe('empty storefront listings reveal their empty states', () => {
 })
 
 describe('profile pages when the API payloads are unusable', () => {
-   const empty = () => vi.fn(async () => new Response(JSON.stringify(null)))
+   const empty = () => vi.fn(() => Promise.resolve(Response.json(null)))
 
    it('addresses page stays on the loader for a null payload', async () => {
       signIn()
@@ -147,7 +147,7 @@ describe('profile pages when the API payloads are unusable', () => {
 
       render(<AddressesPage />)
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       expect(screen.queryByRole('table')).not.toBeInTheDocument()
       vi.unstubAllGlobals()
    })
@@ -158,7 +158,7 @@ describe('profile pages when the API payloads are unusable', () => {
 
       render(<EditProfilePage />)
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
@@ -168,17 +168,17 @@ describe('profile pages when the API payloads are unusable', () => {
 
       render(<ProfileOrdersPage />)
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('every profile loader logs a network failure', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AddressesPage />)
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -186,42 +186,41 @@ describe('profile pages when the API payloads are unusable', () => {
    it('wishlist refreshes its own items for a signed-in visitor', async () => {
       signIn()
       const fetchMock = vi.fn(
-         async () => new Response(JSON.stringify({ wishlist: { items: ['p1'] } }))
+         () => Promise.resolve(Response.json({ wishlist: { items: ['p1'] } }))
       )
       vi.stubGlobal('fetch', fetchMock)
 
       render(<WishlistPage />)
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith('/api/wishlist', expect.anything())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith('/api/wishlist', expect.anything()); }
       )
       vi.unstubAllGlobals()
    })
 
    it('wishlist logs a network failure', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistPage />)
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
 })
 
 describe('admin form upload and delete wiring', () => {
-   it('banner form clears the image through the upload widget', async () => {
+   it('banner form clears the image through the upload widget', () => {
       render(
          <BannerForm initialData={{ id: 'b1', label: 'Sale', image: 'https://cdn/x.png' } as never} />
       )
 
       expect(screen.getByText('Edit banner')).toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 
    it('banner create path clears the uploaded image', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}'))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}')))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<BannerForm initialData={null} />)
@@ -240,7 +239,7 @@ describe('admin form upload and delete wiring', () => {
       render(
          <BrandForm
             initialData={
-               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' } as never
+               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' }
             }
          />
       )
@@ -249,7 +248,7 @@ describe('admin form upload and delete wiring', () => {
    })
 
    it('category form delete closes the modal', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}'))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}')))
       vi.stubGlobal('fetch', fetchMock)
 
       render(
@@ -260,7 +259,7 @@ describe('admin form upload and delete wiring', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Cancel' }))
 
@@ -277,7 +276,7 @@ describe('admin form upload and delete wiring', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Cancel' }))
 
@@ -288,7 +287,7 @@ describe('admin form upload and delete wiring', () => {
 describe('wishlist button while the request is in flight', () => {
    it('renders a spinner', async () => {
       document.cookie = 'logged-in=true'
-      let release: (value: Response) => void = () => {}
+      let release: (value: Response) => void = () => {/* noop */ }
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -301,7 +300,7 @@ describe('wishlist button while the request is in flight', () => {
 
       await waitFor(() => expect(screen.getByRole('button')).toBeDisabled())
 
-      release(new Response(JSON.stringify([])))
+      release(Response.json([]))
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
       vi.unstubAllGlobals()
       document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
@@ -322,17 +321,17 @@ describe('admin users table without rows', () => {
 describe('profile order detail loader', () => {
    it('logs a network failure for the detail fetch', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const { default: ProfileOrderPage } = await import(
          '@/app/(store)/(routes)/profile/orders/[orderId]/page'
       )
-      await act(async () => {
+      await act(() => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o1' })} />)
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -341,12 +340,12 @@ describe('profile order detail loader', () => {
 describe('profile orders loader', () => {
    it('logs a network failure while listing orders', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<ProfileOrdersPage />)
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })

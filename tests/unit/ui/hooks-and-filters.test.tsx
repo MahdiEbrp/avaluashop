@@ -103,7 +103,7 @@ describe('catalog filter controls', () => {
       )
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('shoes').at(-1)!)
+      await user().click(screen.getAllByText('shoes').at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/products', { scroll: false })
    })
@@ -276,7 +276,7 @@ describe('toast store', () => {
          handle.update({ id: handle.id, title: 'updated' })
       })
 
-      await waitFor(() => expect(handle.id).toBeTruthy())
+      await waitFor(() => { expect(handle.id).toBeTruthy(); })
       act(() => {
          handle.dismiss()
       })
@@ -337,7 +337,7 @@ describe('browser-state hooks', () => {
 
       render(<Harness />)
 
-      expect(screen.getByText(window.location.origin)).toBeInTheDocument()
+      expect(screen.getByText(globalThis.location.origin)).toBeInTheDocument()
    })
 
    it('useAuthenticated reads the cookie synchronously', () => {
@@ -358,7 +358,7 @@ describe('browser-state hooks', () => {
             throw new Error('blocked')
          },
       })
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       const Harness = () => <p>{String(useAuthenticated().authenticated)}</p>
 
       render(<Harness />)
@@ -450,7 +450,7 @@ describe('storefront image upload remove', () => {
          widgetState.onSuccess?.({ info: {} })
       })
       act(() => {
-         widgetState.onSuccess?.(undefined)
+         widgetState.onSuccess?.()
       })
 
       expect(onChange).not.toHaveBeenCalled()

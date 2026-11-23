@@ -31,7 +31,7 @@ describe('admin order filters with no query string', () => {
       render(<AdminCategoriesCombobox initialCategory="Shoes" categories={[{ id: 'c1', title: 'Shoes' }]} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      await user().click((await screen.findAllByText('Shoes')).at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
    })
@@ -40,7 +40,7 @@ describe('admin order filters with no query string', () => {
       render(<AdminBrandCombobox initialBrand="Acme" brands={[{ id: 'b1', title: 'Acme' }]} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Acme')).at(-1)!)
+      await user().click((await screen.findAllByText('Acme')).at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
    })

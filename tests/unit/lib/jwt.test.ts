@@ -2,7 +2,7 @@ import { SignJWT } from 'jose'
 
 import { signJWT, verifyJWT } from '@/lib/jwt'
 
-const SECRET = process.env.JWT_SECRET_KEY as string
+const SECRET = process.env.JWT_SECRET_KEY
 const encoder = () => new TextEncoder().encode(SECRET)
 
 describe('jwt', () => {
@@ -26,7 +26,7 @@ describe('jwt', () => {
    })
 
    it('rejects a token signed with another secret and logs the failure', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const foreign = await new SignJWT({ role: 'admin' })
          .setProtectedHeader({ alg: 'HS256' })
@@ -40,7 +40,7 @@ describe('jwt', () => {
    })
 
    it('rejects an expired token', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const expired = await new SignJWT({ role: 'user' })
          .setProtectedHeader({ alg: 'HS256' })
@@ -63,7 +63,7 @@ describe('jwt', () => {
    })
 
    it('rejects a token signed with an asymmetric algorithm', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const { privateKey } = (await crypto.subtle.generateKey(
          {
@@ -74,7 +74,7 @@ describe('jwt', () => {
          },
          true,
          ['sign', 'verify']
-      )) as CryptoKeyPair
+      ))
 
       const rs256 = await new SignJWT({ role: 'admin' })
          .setProtectedHeader({ alg: 'RS256' })

@@ -95,7 +95,7 @@ describe('isMacOs', () => {
 
 describe('getErrorResponse', () => {
    it('labels 4xx as fail', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const response = getErrorResponse(404, 'NOT FOUND')
 
@@ -109,7 +109,7 @@ describe('getErrorResponse', () => {
    })
 
    it('labels 5xx as error and defaults to 500', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const response = getErrorResponse(undefined, 'BOOM')
 
@@ -118,12 +118,12 @@ describe('getErrorResponse', () => {
    })
 
    it('flattens validation errors', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const schema = z.object({ email: z.string().email(), age: z.number() })
       const parsed = schema.safeParse({ email: 'nope', age: 'old' })
 
-      const response = getErrorResponse(422, 'INVALID', parsed.error!)
+      const response = getErrorResponse(422, 'INVALID', parsed.error)
       const body = (await response.json()) as {
          errors: { fieldErrors: Record<string, string[]> }
       }

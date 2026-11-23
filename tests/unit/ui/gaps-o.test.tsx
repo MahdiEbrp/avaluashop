@@ -30,8 +30,8 @@ describe('wishlist lookup', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(JSON.stringify([{ id: 'other-1' }, { id: 'other-2' }]))
+            () =>
+               Promise.resolve(Response.json([{ id: 'other-1' }, { id: 'other-2' }]))
          )
       )
 
@@ -45,8 +45,8 @@ describe('wishlist lookup', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(JSON.stringify([{ id: 'other-1' }, { id: 'p1' }, { id: 'other-2' }]))
+            () =>
+               Promise.resolve(Response.json([{ id: 'other-1' }, { id: 'p1' }, { id: 'other-2' }]))
          )
       )
 
@@ -60,23 +60,23 @@ describe('wishlist lookup', () => {
    it('removes the product once it is in the list', async () => {
       const fetchMock = vi
          .fn()
-         .mockResolvedValueOnce(new Response(JSON.stringify([{ id: 'other' }, { id: 'p1' }])))
-         .mockResolvedValueOnce(new Response(JSON.stringify([{ id: 'other' }])))
+         .mockResolvedValueOnce(Response.json([{ id: 'other' }, { id: 'p1' }]))
+         .mockResolvedValueOnce(Response.json([{ id: 'other' }]))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<WishlistButton product={product} />)
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button'))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); })
       expect(fetchMock.mock.calls[1][1]).toMatchObject({ method: 'DELETE' })
    })
 
    it('handles a null payload by treating the list as empty', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(null))))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(Response.json(null))))
 
       render(<WishlistButton product={product} />)
 

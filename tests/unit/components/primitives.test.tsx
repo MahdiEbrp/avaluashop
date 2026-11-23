@@ -300,7 +300,7 @@ describe('Toast', () => {
    it('auto-dismisses after five seconds', async () => {
       render(<Toast message="Saved" />)
 
-      await waitFor(() => expect(screen.queryByRole('alert')).toBeNull(), {
+      await waitFor(() => { expect(screen.queryByRole('alert')).toBeNull(); }, {
          timeout: 7000,
       })
    })
@@ -336,7 +336,7 @@ describe('useToast store', () => {
                >
                   dismiss
                </button>
-               <button onClick={() => dismiss()}>dismiss all</button>
+               <button onClick={() => { dismiss(); }}>dismiss all</button>
             </div>
          )
       }

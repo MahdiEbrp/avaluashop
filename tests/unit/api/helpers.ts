@@ -1,4 +1,4 @@
-import { prismaMock } from '../support/db'
+
 
 export const USER = { 'X-USER-ID': 'user-1' }
 
@@ -20,9 +20,11 @@ export const call = <T extends Record<string, string>>(params: T) => ({
 
 export const bodyOf = async (response: Response) => (await response.json()) as never
 
-export { prismaMock }
+
 
 /** Silence the route handlers' error logging; failures are asserted on status. */
 export function silenceConsole() {
-   vi.spyOn(console, 'error').mockImplementation(() => {})
+   vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 }
+
+export {prismaMock} from '../support/db'

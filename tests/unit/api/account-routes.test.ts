@@ -18,7 +18,7 @@ import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-beforeEach(() => silenceConsole())
+beforeEach(() => { silenceConsole(); })
 
 describe('GET /api/profile', () => {
    it('rejects an anonymous caller', async () => {

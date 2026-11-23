@@ -173,14 +173,14 @@ describe('default contexts without a provider', () => {
 
    it('UserContextProvider refreshes through the API', async () => {
       document.cookie = 'logged-in=true'
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'u1', name: 'Ada' })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ id: 'u1', name: 'Ada' })))
       vi.stubGlobal('fetch', fetchMock)
 
       const { result } = renderHook(() => useUserContext(), {
          wrapper: UserContextProvider,
       })
 
-      await waitFor(() => expect(result.current.user).not.toBeNull())
+      await waitFor(() => { expect(result.current.user).not.toBeNull(); })
       expect(result.current.user).toEqual({ id: 'u1', name: 'Ada' })
       vi.unstubAllGlobals()
       document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
@@ -188,12 +188,12 @@ describe('default contexts without a provider', () => {
 
    it('UserContextProvider logs a refused profile read', async () => {
       document.cookie = 'logged-in=true'
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
 
       renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
       errorSpy.mockRestore()
@@ -204,9 +204,9 @@ describe('default contexts without a provider', () => {
          wrapper: CartContextProvider,
       })
 
-      await waitFor(() => expect(result.current.loading).toBe(false))
+      await waitFor(() => { expect(result.current.loading).toBe(false); })
 
-      await act(async () => {
+      await act(() => {
          result.current.dispatchCart({
             items: [
                {
@@ -215,10 +215,10 @@ describe('default contexts without a provider', () => {
                   product: { id: 'p1', title: 'Shoe', images: ['/a.png'], description: 'Blue' },
                },
             ],
-         } as never)
-      })
+         })
+      return Promise.resolve(); })
 
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toMatchObject({
+      expect(JSON.parse(localStorage.getItem('Cart'))).toMatchObject({
          items: [expect.objectContaining({ productId: 'p1', count: 2 })],
       })
    })
@@ -246,7 +246,7 @@ describe('toast removal queue', () => {
          toast({ title: 'queued' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       /* Dismissing schedules the removal timer that clears the queue. */
       act(() => {
@@ -258,7 +258,7 @@ describe('toast removal queue', () => {
          item.onOpenChange?.(false)
       })
 
-      await waitFor(() => expect(result.current.toasts.every((t) => !t.open)).toBe(true))
+      await waitFor(() => { expect(result.current.toasts.every((t) => !t.open)).toBe(true); })
    })
 
    it('exposes a dismiss handle that closes its toast', async () => {
@@ -269,13 +269,13 @@ describe('toast removal queue', () => {
          handle = toast({ title: 'dismissable' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       act(() => {
          handle.dismiss()
       })
 
-      await waitFor(() => expect(result.current.toasts.every((t) => !t.open)).toBe(true))
+      await waitFor(() => { expect(result.current.toasts.every((t) => !t.open)).toBe(true); })
    })
 })
 
@@ -422,7 +422,7 @@ describe('toast open-change callback', () => {
          toast({ title: 'stays' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       const entry = result.current.toasts[0]
 
@@ -449,7 +449,7 @@ describe('admin modal dismissal', () => {
          onOpenChange(false) and therefore the modal's own wrapper. */
       fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
-      await waitFor(() => expect(onClose).toHaveBeenCalled())
+      await waitFor(() => { expect(onClose).toHaveBeenCalled(); })
    })
 })
 
@@ -463,6 +463,6 @@ describe('storefront modal dismissal', () => {
 
       fireEvent.click(await screen.findByRole('button', { name: 'Close' }))
 
-      await waitFor(() => expect(onClose).toHaveBeenCalled())
+      await waitFor(() => { expect(onClose).toHaveBeenCalled(); })
    })
 })

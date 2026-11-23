@@ -67,22 +67,21 @@ describe('authenticated cart mutations', () => {
    it('posts the increment for a signed-in cart line', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/cart',
             expect.objectContaining({
                body: JSON.stringify({ productId: 'p1', count: 2 }),
             })
-         )
+         ); }
       )
       expect(cartValue.dispatchCart).toHaveBeenCalled()
       vi.unstubAllGlobals()
@@ -91,46 +90,45 @@ describe('authenticated cart mutations', () => {
    it('posts the decrement for a signed-in cart line', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 2 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 2 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 2 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/cart',
             expect.objectContaining({
                body: JSON.stringify({ productId: 'p1', count: 1 }),
             })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
 
    it('hides the quantity stepper behind a spinner while a guest add is in flight', async () => {
       cartValue.cart = { items: [] } as never
-      let release: (value: Response) => void = () => {}
+      let release: (value: Response) => void = () => {/* noop */ }
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
-      vi.stubGlobal('fetch', vi.fn(async () => pending))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(pending)))
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
 
       /* The "+ افزودن" control is replaced by a disabled spinner button for the
          duration of the product lookup. */
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
       expect(screen.getByRole('button')).toBeDisabled()
 
       await act(async () => {
-         release(new Response(JSON.stringify(product)))
+         release(Response.json(product))
          await pending
       })
       vi.unstubAllGlobals()
@@ -145,14 +143,14 @@ describe('authenticated cart mutations', () => {
          JSON.stringify({ items: [{ productId: 'other', product, count: 3 }] })
       )
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: 'کاهش تعداد' }))
-      })
+      return Promise.resolve(); })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
-      const dispatched = cartValue.dispatchCart.mock.calls.at(-1)![0]
+      const dispatched = cartValue.dispatchCart.mock.calls.at(-1)[0]
       expect(dispatched.items).toHaveLength(1)
       expect(dispatched.items[0].productId).toBe('other')
    })
@@ -160,15 +158,15 @@ describe('authenticated cart mutations', () => {
    it('logs a failed authenticated add', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
-      await act(async () => {
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -178,20 +176,19 @@ describe('cart button authenticated remove', () => {
    it('posts the decrement when the visitor is signed in', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/cart',
             expect.objectContaining({ body: JSON.stringify({ productId: 'p1', count: 0 }) })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -202,11 +199,11 @@ describe('cart button authenticated remove', () => {
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items).toHaveLength(0)
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items).toHaveLength(0)
    })
 })
 
@@ -226,7 +223,7 @@ describe('admin order filter chrome', () => {
       render(<AdminSortBy initialData="newest" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click(screen.getAllByText('جدیدترین سفارش').at(-1)!)
+      await user().click(screen.getAllByText('جدیدترین سفارش').at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
    })
@@ -300,7 +297,7 @@ describe('admin login form phone flow', () => {
    it('requests an OTP by phone and verifies it', async () => {
       searchParams.set('method', 'phone')
       searchParams.set('phone', '09123456789')
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
       vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
@@ -316,13 +313,12 @@ describe('admin login form phone flow', () => {
 
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenLastCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/admin/auth/otp/phone/verify',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
-      await waitFor(() => expect(assign).toHaveBeenCalledWith('http://localhost/admin'))
+      await waitFor(() => { expect(assign).toHaveBeenCalledWith('http://localhost/admin'); })
       vi.unstubAllGlobals()
    })
 

@@ -2,8 +2,8 @@
 export const slugify = (input: string) =>
    input
       .normalize('NFKD')
-      .replace(/[\u064B-\u0652]/g, '')
-      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .replaceAll(/[\u064B-\u0652]/g, '')
+      .replaceAll(/[^\p{L}\p{N}\s-]/gu, '')
       .trim()
-      .replace(/\s+/g, '-')
+      .replaceAll(/\s+/g, '-')
       .toLowerCase()

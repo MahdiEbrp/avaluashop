@@ -42,7 +42,7 @@ describe('generateSerial', () => {
       const segments = serial.split('-')
 
       expect(segments).toHaveLength(3)
-      segments.forEach((segment) => expect(segment).toMatch(/^\d{4}$/))
+      for (const segment of segments) expect(segment).toMatch(/^\d{4}$/)
    })
 
    it('produces uppercase alphanumerics when asked', () => {
@@ -99,7 +99,7 @@ describe('google oauth', () => {
    it('posts the exchange and returns the token payload', async () => {
       const { getGoogleTokens } = await load()
       const fetchMock = vi.fn().mockResolvedValue(
-         new Response(JSON.stringify({ access_token: 'at', id_token: 'it' }), {
+         Response.json({ access_token: 'at', id_token: 'it' }, {
             headers: { 'content-type': 'application/json' },
          })
       )
@@ -133,7 +133,7 @@ describe('google oauth', () => {
    it('fetches the profile with the bearer token', async () => {
       const { getGoogleUser } = await load()
       const fetchMock = vi.fn().mockResolvedValue(
-         new Response(JSON.stringify({ email: 'a@b.co' }), {
+         Response.json({ email: 'a@b.co' }, {
             headers: { 'content-type': 'application/json' },
          })
       )
@@ -151,7 +151,7 @@ describe('google oauth', () => {
    it('logs and rethrows profile failures', async () => {
       const { getGoogleUser } = await load()
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('bad token')))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       await expect(getGoogleUser({ id_token: 'i', access_token: 'a' })).rejects.toThrow(
          'bad token'
@@ -161,8 +161,8 @@ describe('google oauth', () => {
 
    it('normalises non-Error profile failures', async () => {
       const { getGoogleUser } = await load()
-      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(undefined))
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(null))
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       await expect(getGoogleUser({ id_token: 'i', access_token: 'a' })).rejects.toThrow(
          'Unknown error'
@@ -206,7 +206,7 @@ describe('getTweets', () => {
    })
 
    it('expands authors, media and referenced tweets', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(payload))))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(payload)))
 
       const tweets = await getTweets(['t1', 't0'])
 
@@ -223,11 +223,11 @@ describe('getTweets', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn().mockResolvedValue(
-            new Response(
-               JSON.stringify({
+            Response.json(
+               {
                   data: [{ id: 't9', text: 'plain', author_id: 'a1' }],
                   includes: { users: [{ id: 'a1' }], tweets: [], media: [] },
-               })
+               }
             )
          )
       )
@@ -239,13 +239,13 @@ describe('getTweets', () => {
    })
 
    it('returns an empty list when the API has no data', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({}))))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({})))
 
       await expect(getTweets(['t'])).resolves.toEqual([])
    })
 
    it('asks for the documented expansions', async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] })))
+      const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: [] }))
       vi.stubGlobal('fetch', fetchMock)
 
       await getTweets(['a', 'b'])
@@ -264,7 +264,7 @@ describe('lib/prisma', () => {
 
    it('creates one client with the pg adapter and reuses it', async () => {
       const constructorSpy = vi.spyOn(PrismaPg.prototype as any, 'constructor')
-      void constructorSpy
+      constructorSpy
 
       const { default: prisma } = await import('@/lib/prisma')
       const { default: again } = await import('@/lib/prisma')
@@ -285,4 +285,4 @@ describe('lib/prisma', () => {
    })
 })
 
-void prismaMock
+prismaMock

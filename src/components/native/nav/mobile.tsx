@@ -38,7 +38,7 @@ export function MobileNav() {
                      <Link
                         key={item.href}
                         href={item.href}
-                        onClick={() => setOpen(false)}
+                        onClick={() => { setOpen(false); }}
                         className="rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                      >
                         {item.title}

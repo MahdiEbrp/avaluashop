@@ -7,7 +7,7 @@ import * as AdminAlert from '@/components/admin/ui/alert'
 import { ApiAlert } from '@/components/admin/ui/api-alert'
 import * as AvatarUI from '@/components/ui/avatar'
 import * as AdminAvatar from '@/components/admin/ui/avatar'
-import { Badge } from '@/components/ui/badge'
+import { Badge, badgeVariants } from '@/components/ui/badge'
 import * as AdminBadge from '@/components/admin/ui/badge'
 import * as AdminCard from '@/components/admin/ui/card'
 import * as CardUI from '@/components/ui/card'
@@ -47,9 +47,8 @@ import * as AdminTabs from '@/components/admin/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { Toggle, toggleVariants } from '@/components/ui/toggle'
 import { buttonVariants } from '@/components/ui/button'
-import { badgeVariants } from '@/components/ui/badge'
 
-const noop = () => {}
+const noop = () => {/* noop */ }
 
 describe('ui/card parts', () => {
    it('renders every slot with its variant', () => {
@@ -177,8 +176,8 @@ describe('heading and api alert', () => {
       expect(screen.getByText('All of them')).toBeInTheDocument()
    })
 
-   it('renders an api alert and copies the route', async () => {
-      const writeText = vi.fn(async () => {})
+   it('renders an api alert and copies the route', () => {
+      const writeText = vi.fn(() => {return Promise.resolve(); })
       Object.defineProperty(navigator, 'clipboard', {
          value: { writeText },
          configurable: true,
@@ -194,7 +193,7 @@ describe('heading and api alert', () => {
       fireEvent.click(screen.getAllByRole('button')[0])
 
       expect(writeText).toHaveBeenCalledWith('/api/products')
-   })
+   return Promise.resolve(); })
 })
 
 describe('checkbox and switch', () => {
@@ -448,7 +447,7 @@ describe('popovers', () => {
 })
 
 describe('selects', () => {
-   it('selects a storefront option', async () => {
+   it('selects a storefront option', () => {
       render(
          <SelectUI.Select defaultValue="a">
             <SelectUI.SelectTrigger>
@@ -466,9 +465,9 @@ describe('selects', () => {
       )
 
       expect(screen.getByText('A')).toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 
-   it('opens the admin select', async () => {
+   it('opens the admin select', () => {
       render(
          <AdminSelect.Select defaultValue="a">
             <AdminSelect.SelectTrigger>
@@ -481,7 +480,7 @@ describe('selects', () => {
       )
 
       expect(screen.getByText('Admin A')).toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 })
 
 describe('tables', () => {
@@ -577,7 +576,7 @@ describe('toggle', () => {
 })
 
 describe('navigation menu', () => {
-   it('opens a dropdown of links', async () => {
+   it('opens a dropdown of links', () => {
       render(
          <NavMenu.NavigationMenu>
             <NavMenu.NavigationMenuList>
@@ -594,7 +593,7 @@ describe('navigation menu', () => {
       )
 
       expect(screen.getByText('Products')).toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 })
 
 describe('command palette', () => {
@@ -641,7 +640,7 @@ describe('command palette', () => {
       expect(screen.getByText('Nothing found')).toBeInTheDocument()
    })
 
-   it('opens the dialog variant', async () => {
+   it('opens the dialog variant', () => {
       render(
          <CommandUI.CommandDialog open>
             <CommandUI.CommandInput placeholder="Search..." />
@@ -652,7 +651,7 @@ describe('command palette', () => {
       )
 
       expect(screen.getByText('Dialog item')).toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 
    it('renders the admin command palette', () => {
       render(

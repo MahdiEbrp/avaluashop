@@ -15,16 +15,16 @@ class ManualResizeObserver {
       ManualResizeObserver.instances.push(this)
    }
 
-   observe() {}
+   observe() {/* noop */ }
 
-   unobserve() {}
+   unobserve() {/* noop */ }
 
-   disconnect() {}
+   disconnect() {/* noop */ }
 
    trigger(width: number) {
       this.callback(
          [{ target: { getBoundingClientRect: () => ({ width, height: width }) } }] as never,
-         this as never
+         this
       )
    }
 }
@@ -66,14 +66,14 @@ const renderLoaded = async (props: Partial<Parameters<typeof CompareImage>[0]> =
       />
    )
 
-   await act(async () => {
+   await act(() => {
       fireEvent.load(screen.getByTestId('left-image'))
       fireEvent.load(screen.getByTestId('right-image'))
-   })
+   return Promise.resolve(); })
 
-   await act(async () => {
+   await act(() => {
       for (const observer of ManualResizeObserver.instances) observer.trigger(500)
-   })
+   return Promise.resolve(); })
 
    return { ...view, onSliderPositionChange }
 }
@@ -110,7 +110,7 @@ describe('CompareImage', () => {
    })
 
    it('accepts a custom handle', async () => {
-      await renderLoaded({ handle: <span data-testid="custom-handle">grip</span> } as never)
+      await renderLoaded({ handle: <span data-testid="custom-handle">grip</span> })
 
       expect(screen.getByTestId('custom-handle')).toBeInTheDocument()
    })
@@ -119,9 +119,9 @@ describe('CompareImage', () => {
       const { onSliderPositionChange } = await renderLoaded()
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseDown(container, { pageX: 250, pageY: 10 })
-      })
+      return Promise.resolve(); })
 
       expect(onSliderPositionChange).toHaveBeenCalled()
       const [position] = onSliderPositionChange.mock.calls[0]
@@ -133,10 +133,10 @@ describe('CompareImage', () => {
       const { onSliderPositionChange } = await renderLoaded()
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseDown(container, { pageX: -10_000, pageY: 0 })
          fireEvent.mouseMove(document, { pageX: 10_000, pageY: 0 })
-      })
+      return Promise.resolve(); })
 
       const positions = onSliderPositionChange.mock.calls.map(([value]) => value as number)
       expect(Math.min(...positions)).toBeGreaterThanOrEqual(0)
@@ -147,37 +147,37 @@ describe('CompareImage', () => {
       const { onSliderPositionChange } = await renderLoaded()
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseDown(container, { pageX: 100, pageY: 0 })
-      })
+      return Promise.resolve(); })
       const afterDown = onSliderPositionChange.mock.calls.length
 
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseUp(document)
          fireEvent.mouseMove(document, { pageX: 400, pageY: 0 })
-      })
+      return Promise.resolve(); })
 
       expect(onSliderPositionChange.mock.calls.length).toBe(afterDown)
    })
 
    it('follows the pointer on hover instead of drag', async () => {
-      const { onSliderPositionChange } = await renderLoaded({ hover: true } as never)
+      const { onSliderPositionChange } = await renderLoaded({ hover: true })
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseMove(container, { pageX: 300, pageY: 0 })
-      })
+      return Promise.resolve(); })
 
       expect(onSliderPositionChange).toHaveBeenCalled()
    })
 
    it('supports a vertical slider', async () => {
-      const { onSliderPositionChange } = await renderLoaded({ vertical: true } as never)
+      const { onSliderPositionChange } = await renderLoaded({ vertical: true })
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseDown(container, { pageX: 0, pageY: 250 })
-      })
+      return Promise.resolve(); })
 
       expect(onSliderPositionChange).toHaveBeenCalled()
    })
@@ -186,11 +186,11 @@ describe('CompareImage', () => {
       const { onSliderPositionChange } = await renderLoaded()
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.touchStart(container, { touches: [{ pageX: 120, pageY: 0 }] })
          fireEvent.touchMove(document, { touches: [{ pageX: 200, pageY: 0 }] })
          fireEvent.touchEnd(document)
-      })
+      return Promise.resolve(); })
 
       expect(onSliderPositionChange).toHaveBeenCalled()
    })
@@ -204,9 +204,9 @@ describe('CompareImage', () => {
    it('resets the loaded flag when the left image changes', async () => {
       const { rerender } = await renderLoaded()
 
-      await act(async () => {
+      await act(() => {
          rerender(<CompareImage leftImage="/next.png" rightImage="/right.png" />)
-      })
+      return Promise.resolve(); })
 
       expect(screen.getByTestId('container')).toHaveStyle({ display: 'none' })
    })
@@ -214,9 +214,9 @@ describe('CompareImage', () => {
    it('resets the loaded flag when the right image changes', async () => {
       const { rerender } = await renderLoaded()
 
-      await act(async () => {
+      await act(() => {
          rerender(<CompareImage leftImage="/left.png" rightImage="/next.png" />)
-      })
+      return Promise.resolve(); })
 
       expect(screen.getByTestId('container')).toHaveStyle({ display: 'none' })
    })
@@ -229,7 +229,7 @@ describe('CompareImage', () => {
          handleSize: 60,
          leftImageCss: { opacity: 0.9 },
          rightImageCss: { filter: 'grayscale(1)' },
-      } as never)
+      })
 
       expect(screen.getByTestId('left-image')).toHaveStyle({ opacity: '0.9' })
    })
@@ -271,25 +271,25 @@ describe('CompareImage with a container narrower than the cursor offset', () => 
          />
       )
 
-      await act(async () => {
+      await act(() => {
          fireEvent.load(screen.getByTestId('left-image'))
          fireEvent.load(screen.getByTestId('right-image'))
-      })
-      await act(async () => {
+      return Promise.resolve(); })
+      await act(() => {
          for (const observer of ManualResizeObserver.instances) observer.trigger(10)
-      })
+      return Promise.resolve(); })
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          container.dispatchEvent(mouseAt('mousedown', 0))
-      })
+      return Promise.resolve(); })
       onSliderPositionChange.mockClear()
 
-      await act(async () => {
+      await act(() => {
          document.dispatchEvent(mouseAt('mousemove', 4000))
-      })
+      return Promise.resolve(); })
 
-      const [position] = onSliderPositionChange.mock.calls.at(-1)!
+      const [position] = onSliderPositionChange.mock.calls.at(-1)
       expect(position).toBeLessThan(1)
       expect(position).toBeGreaterThan(0)
    })
@@ -307,25 +307,25 @@ describe('CompareImage clamped movement', () => {
          />
       )
 
-      await act(async () => {
+      await act(() => {
          fireEvent.load(screen.getByTestId('left-image'))
          fireEvent.load(screen.getByTestId('right-image'))
-      })
-      await act(async () => {
+      return Promise.resolve(); })
+      await act(() => {
          for (const observer of ManualResizeObserver.instances) observer.trigger(500)
-      })
+      return Promise.resolve(); })
 
       const container = screen.getByTestId('container')
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseDown(container, { pageX: 100, pageY: 0 })
-      })
+      return Promise.resolve(); })
       onSliderPositionChange.mockClear()
 
       /* jsdom reports a zero rect, so a huge pageX is what pushes the cursor
          past the right edge of the image. */
-      await act(async () => {
+      await act(() => {
          fireEvent.mouseMove(document, { pageX: 4000, pageY: 0 })
-      })
+      return Promise.resolve(); })
 
       const positions = onSliderPositionChange.mock.calls.map(([value]) => value as number)
       expect(positions.length).toBeGreaterThan(0)
