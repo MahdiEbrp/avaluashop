@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/admin-dashboard-foundation
+      - feat/admin-discount-code-management
   push:
     branches:
       - main
@@ -16,11 +17,11 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/avaluashop?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,11 +41,18 @@ jobs:
       - name: Typecheck tests
         run: npm run typecheck:tests
 
-      - name: Focused admin unit tests
-        run: >-
-          npm run test:unit --
-          tests/unit/actions/actions.test.ts
-          tests/unit/api/admin-routes.test.ts
-          tests/unit/api/admin-routes-2.test.ts
-          tests/unit/api/admin-discount-codes-route.test.ts
-          tests/unit/forms/admin-forms.test.tsx
+      - name: Lint changed application source files
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          FILES=$(git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" -- 'src/**/*.ts' 'src/**/*.tsx' || true)
+          if [ -z "$FILES" ]; then
+            echo "No changed application source files to lint."
+            exit 0
+          fi
+          echo "$FILES" | xargs npx eslint --max-warnings 0
+
+      - name: Unit tests with 100% coverage
+        run: npm run test:unit:coverage

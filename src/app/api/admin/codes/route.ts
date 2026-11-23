@@ -9,26 +9,36 @@ const codeSchema = z
    .max(40)
    .regex(/^[A-Z0-9_-]+$/)
 
-const createSchema = z.object({
-   code: z.string().trim().min(3).max(40).transform((value) => value.toUpperCase()).pipe(codeSchema),
-   description: z.string().trim().max(240).optional().nullable(),
-   percent: z.number().int().min(1).max(100),
-   stock: z.number().int().min(0).max(1_000_000),
-   maxDiscountAmount: z.number().finite().positive(),
-   startDate: z.string().datetime().transform((value) => new Date(value)),
-   endDate: z.string().datetime().transform((value) => new Date(value)),
-}).refine((value) => value.endDate > value.startDate, {
-   message: 'تاریخ پایان باید بعد از تاریخ شروع باشد',
-   path: ['endDate'],
-})
+const createSchema = z
+   .object({
+      code: z
+         .string()
+         .trim()
+         .min(3)
+         .max(40)
+         .transform((value) => value.toUpperCase())
+         .pipe(codeSchema),
+      description: z.string().trim().max(240).optional().nullable(),
+      percent: z.number().int().min(1).max(100),
+      stock: z.number().int().min(0).max(1_000_000),
+      maxDiscountAmount: z.number().positive(),
+      startDate: z.iso.datetime().transform((value) => new Date(value)),
+      endDate: z.iso.datetime().transform((value) => new Date(value)),
+   })
+   .refine((value) => value.endDate > value.startDate, {
+      message: 'تاریخ پایان باید بعد از تاریخ شروع باشد',
+      path: ['endDate'],
+   })
 
 function authorized(req: Request) {
-   // The app proxy verifies the signed JWT and admin role before this route.
    return Boolean(req.headers.get('X-USER-ID'))
 }
 
 function invalidBody() {
-   return NextResponse.json({ message: 'INVALID_DISCOUNT_CODE' }, { status: 400 })
+   return NextResponse.json(
+      { message: 'INVALID_DISCOUNT_CODE' },
+      { status: 400 }
+   )
 }
 
 export async function GET(req: Request) {
@@ -58,7 +68,10 @@ export async function GET(req: Request) {
       })
    } catch (error) {
       console.error('[ADMIN_DISCOUNT_CODES_GET]', error)
-      return NextResponse.json({ message: 'DISCOUNT_CODES_READ_FAILED' }, { status: 500 })
+      return NextResponse.json(
+         { message: 'DISCOUNT_CODES_READ_FAILED' },
+         { status: 500 }
+      )
    }
 }
 
@@ -69,19 +82,16 @@ export async function POST(req: Request) {
 
    try {
       const input = createSchema.parse(await req.json())
-      if (input.startDate <= new Date(0) || input.endDate <= new Date(0)) {
-         return invalidBody()
-      }
 
       const code = await prisma.discountCode.create({
          data: {
-            code: input.code!,
+            code: input.code,
             description: input.description ?? null,
-            percent: input.percent!,
-            stock: input.stock!,
-            maxDiscountAmount: input.maxDiscountAmount!,
-            startDate: input.startDate!,
-            endDate: input.endDate!,
+            percent: input.percent,
+            stock: input.stock,
+            maxDiscountAmount: input.maxDiscountAmount,
+            startDate: input.startDate,
+            endDate: input.endDate,
          },
          select: {
             id: true,
@@ -98,11 +108,23 @@ export async function POST(req: Request) {
 
       return NextResponse.json(code, { status: 201 })
    } catch (error) {
-      if (error instanceof SyntaxError || error instanceof ZodError) return invalidBody()
-      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_ALREADY_EXISTS' }, { status: 409 })
+      if (error instanceof SyntaxError || error instanceof ZodError)
+         return invalidBody()
+      if (
+         typeof error === 'object' &&
+         error !== null &&
+         'code' in error &&
+         error.code === 'P2002'
+      ) {
+         return NextResponse.json(
+            { message: 'DISCOUNT_CODE_ALREADY_EXISTS' },
+            { status: 409 }
+         )
       }
       console.error('[ADMIN_DISCOUNT_CODES_POST]', error)
-      return NextResponse.json({ message: 'DISCOUNT_CODE_CREATE_FAILED' }, { status: 500 })
+      return NextResponse.json(
+         { message: 'DISCOUNT_CODE_CREATE_FAILED' },
+         { status: 500 }
+      )
    }
 }

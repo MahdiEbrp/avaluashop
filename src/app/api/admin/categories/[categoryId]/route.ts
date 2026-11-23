@@ -4,7 +4,9 @@ import { revalidateTag } from 'next/cache'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 
-type RouteContext = { params: Promise<{ categoryId: string }> }
+interface RouteContext {
+   params: Promise<{ categoryId: string }>
+}
 
 const categoryPatchSchema = z.object({
    title: z.string().trim().min(2).max(100).optional(),

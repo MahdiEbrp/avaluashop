@@ -195,6 +195,33 @@ describe('admin BrandForm', () => {
       vi.unstubAllGlobals()
    })
 
+   it('reports non-OK brand save and delete responses', async () => {
+      const fetchMock = fetchSpy(false)
+      vi.stubGlobal('fetch', fetchMock)
+      const { toast } = await import('react-hot-toast')
+
+      render(
+         <BrandForm
+            initialData={{ id: 'br1', title: 'Acme', description: 'Shoes', logo: '' } as never}
+         />
+      )
+
+      await user().click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+
+      const destructive = screen
+         .getAllByRole('button')
+         .find((button) => button.className.includes('destructive'))!
+      await user().click(destructive)
+      await user().click(await screen.findByRole('button', { name: 'Continue' }))
+      await waitFor(() =>
+         expect(toast.error).toHaveBeenCalledWith(
+            'Make sure you removed all products using this brand first.'
+         )
+      )
+      vi.unstubAllGlobals()
+   })
+
    it('deletes a brand', async () => {
       const fetchMock = fetchSpy()
       vi.stubGlobal('fetch', fetchMock)
@@ -266,6 +293,33 @@ describe('admin CategoryForm', () => {
          expect(fetchMock).toHaveBeenCalledWith(
             '/api/admin/categories/c1',
             expect.objectContaining({ method: 'PATCH' })
+         )
+      )
+      vi.unstubAllGlobals()
+   })
+
+   it('reports non-OK category save and delete responses', async () => {
+      const fetchMock = fetchSpy(false)
+      vi.stubGlobal('fetch', fetchMock)
+      const { toast } = await import('react-hot-toast')
+
+      render(
+         <CategoryForm
+            initialData={{ id: 'c1', title: 'Shoes', description: 'b1' } as never}
+         />
+      )
+
+      await user().click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+
+      const destructive = screen
+         .getAllByRole('button')
+         .find((button) => button.className.includes('destructive'))!
+      await user().click(destructive)
+      await user().click(await screen.findByRole('button', { name: 'Continue' }))
+      await waitFor(() =>
+         expect(toast.error).toHaveBeenCalledWith(
+            'Make sure you removed all products using this category first.'
          )
       )
       vi.unstubAllGlobals()
@@ -365,6 +419,62 @@ describe('admin ProductForm', () => {
             '/api/admin/products/p1',
             expect.objectContaining({ method: 'PATCH' })
          )
+      )
+      vi.unstubAllGlobals()
+   })
+
+   it('handles non-OK save/delete and archived product deletion on ProductForm', async () => {
+      const { toast } = await import('react-hot-toast')
+      vi.stubGlobal(
+         'fetch',
+         vi
+            .fn()
+            .mockResolvedValueOnce(new Response('{}', { status: 500 }))
+            .mockResolvedValueOnce(new Response('{}', { status: 500 }))
+            .mockResolvedValueOnce(
+               new Response(JSON.stringify({ archived: true }), { status: 200 })
+            )
+      )
+
+      render(
+         <ProductForm
+            categories={categories as never}
+            brands={brands as never}
+            initialData={
+               {
+                  id: 'p1',
+                  title: 'Runner',
+                  description: 'Fast',
+                  price: 20,
+                  discount: 0,
+                  stock: 3,
+                  images: [],
+                  categories: [],
+                  categoryId: 'c1',
+                  brandId: 'br1',
+                  isAvailable: true,
+                  isFeatured: false,
+               } as never
+            }
+         />
+      )
+
+      await user().click(screen.getAllByRole('combobox')[0])
+      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      await user().click(screen.getByRole('button', { name: 'Save changes' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+
+      const destructive = screen
+         .getAllByRole('button')
+         .find((button) => button.className.includes('destructive'))!
+      await user().click(destructive)
+      await user().click(await screen.findByRole('button', { name: 'Continue' }))
+      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+
+      await user().click(destructive)
+      await user().click(await screen.findByRole('button', { name: 'Continue' }))
+      await waitFor(() =>
+         expect(toast.success).toHaveBeenCalledWith('Product archived to preserve history.')
       )
       vi.unstubAllGlobals()
    })

@@ -67,10 +67,7 @@ describe('empty admin collections still render their headings', () => {
    ])('%s', async (_name, getDelegate, heading, Page) => {
       getDelegate().mockResolvedValue([])
 
-      const element =
-         _name === 'orders'
-            ? await (Page as (props: { searchParams: object }) => Promise<never>)({ searchParams: {} })
-            : await (Page as () => Promise<never>)()
+      const element = await (Page as () => Promise<never>)()
       render(element)
 
       expect(screen.getByText(heading)).toBeInTheDocument()
@@ -317,7 +314,7 @@ describe('admin users table without rows', () => {
 
       render(await UsersPage({ searchParams: Promise.resolve({}) }))
 
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByText('مشتریان (۰)')).toBeInTheDocument()
       expect(screen.getByText('No results.')).toBeInTheDocument()
    })
 })

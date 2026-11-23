@@ -103,10 +103,14 @@ describe('admin products', () => {
       expect((await productsPOST(json(validProduct, USER))).status).toBe(400)
    })
 
-   it('POST answers 500 on a database failure', async () => {
+   it('POST creates a product without description and answers 500 on a database failure', async () => {
       prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
       prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
-      prismaMock.product.create.mockRejectedValue(new Error('down'))
+      prismaMock.product.create.mockResolvedValueOnce({ id: 'p2' })
+      const { description: _desc, ...withoutDesc } = validProduct
+      expect((await productsPOST(json(withoutDesc, USER))).status).toBe(201)
+
+      prismaMock.product.create.mockRejectedValueOnce(new Error('down'))
       expect((await productsPOST(json(validProduct, USER))).status).toBe(500)
    })
 
@@ -171,6 +175,51 @@ describe('admin products', () => {
       expect(
          (await productPATCH(json({ stock: 3 }, USER), call({ productId: '' }))).status
       ).toBe(400)
+   })
+
+   it('PATCH validates brandId, categoryId, zero stock, and empty payloads', async () => {
+      expect((await productPATCH(json({}, USER), call({ productId: 'p1' }))).status).toBe(400)
+
+      prismaMock.product.findUnique.mockResolvedValue({
+         id: 'p1',
+         price: 100,
+         discount: 10,
+         stock: 5,
+      })
+
+      prismaMock.brand.findUnique.mockResolvedValueOnce(null)
+      expect(
+         (await productPATCH(json({ brandId: 'missing' }, USER), call({ productId: 'p1' }))).status
+      ).toBe(400)
+
+      prismaMock.brand.findUnique.mockResolvedValueOnce({ id: 'br1' })
+      prismaMock.category.findUnique.mockResolvedValueOnce(null)
+      expect(
+         (
+            await productPATCH(
+               json({ brandId: 'br1', categoryId: 'missing' }, USER),
+               call({ productId: 'p1' })
+            )
+         ).status
+      ).toBe(400)
+
+      prismaMock.brand.findUnique.mockResolvedValueOnce({ id: 'br1' })
+      prismaMock.category.findUnique.mockResolvedValueOnce({ id: 'c1' })
+      prismaMock.product.update.mockResolvedValueOnce({ id: 'p1' })
+      const res = await productPATCH(
+         json({ brandId: 'br1', categoryId: 'c1', stock: 0 }, USER),
+         call({ productId: 'p1' })
+      )
+      expect(res.status).toBe(200)
+      expect(prismaMock.product.update).toHaveBeenCalledWith(
+         expect.objectContaining({
+            data: expect.objectContaining({
+               brand: { connect: { id: 'br1' } },
+               categories: { set: [{ id: 'c1' }] },
+               isAvailable: false,
+            }),
+         })
+      )
    })
 
    it('PATCH answers 500 on a database failure', async () => {

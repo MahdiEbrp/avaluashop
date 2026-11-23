@@ -156,11 +156,14 @@ describe('admin list pages', () => {
    })
 
    it('products list', async () => {
-      prismaMock.product.findMany.mockResolvedValue([product])
+      prismaMock.product.findMany.mockResolvedValue([
+         product,
+         { ...product, id: 'p2', title: 'Uncategorized', categories: [] },
+      ])
 
       render(await ProductsPage())
 
-      expect(screen.getByText('Products (1)')).toBeInTheDocument()
+      expect(screen.getByText('Products (2)')).toBeInTheDocument()
       expect(screen.getByText('Runner')).toBeInTheDocument()
    })
 
@@ -201,14 +204,18 @@ describe('admin list pages', () => {
       })
    })
 
-   it('orders list defaults to the first page with no filters', async () => {
+   it('orders list defaults to the first page with no filters, invalid page, or multi-page results', async () => {
       prismaMock.order.findMany.mockResolvedValue([])
+      prismaMock.order.count.mockResolvedValue(25)
 
-      render(await OrdersPage({ searchParams: Promise.resolve({}) }))
+      const { unmount } = render(await OrdersPage({ searchParams: Promise.resolve({ page: 'abc', maxPayable: '50', category: 'Shoes', brand: '' }) }))
+      unmount()
+      render(await OrdersPage({ searchParams: Promise.resolve({ minPayable: '10', brand: 'Acme' }) }))
 
       const args = prismaMock.order.findMany.mock.calls[0][0]
       expect(args.skip).toBe(0)
       expect(args.orderBy).toEqual({ createdAt: 'desc' })
+      expect(screen.getByRole('link', { name: 'بعدی' })).toBeInTheDocument()
    })
 
    it('orders list sorts by cheapest on demand', async () => {
@@ -219,14 +226,25 @@ describe('admin list pages', () => {
       expect(prismaMock.order.findMany.mock.calls[0][0].orderBy).toEqual({ payable: 'asc' })
    })
 
-   it('users list', async () => {
-      prismaMock.user.findMany.mockResolvedValue([user])
-      prismaMock.user.count.mockResolvedValue(1)
+   it('users list with nullable fields and pagination', async () => {
+      prismaMock.user.findMany.mockResolvedValue([
+         user,
+         { ...user, id: 'u2', name: null, email: null, phone: null },
+      ])
+      prismaMock.user.count.mockResolvedValue(45)
 
-      render(await UsersPage({ searchParams: Promise.resolve({}) }))
+      const { unmount } = render(await UsersPage({ searchParams: Promise.resolve({ page: '2' }) }))
 
-      expect(screen.getByText('مشتریان (۱)')).toBeInTheDocument()
+      expect(screen.getByText('مشتریان (۴۵)')).toBeInTheDocument()
       expect(screen.getByText('Ada')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'قبلی' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'بعدی' })).toBeInTheDocument()
+      unmount()
+
+      prismaMock.user.findMany.mockResolvedValue([])
+      prismaMock.user.count.mockResolvedValue(0)
+      render(await UsersPage({ searchParams: Promise.resolve({ page: 'invalid' }) }))
+      expect(screen.getByText('مشتریان (۰)')).toBeInTheDocument()
    })
 
    it('payments list', async () => {

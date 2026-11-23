@@ -13,7 +13,7 @@ export default async function UsersPage({
    searchParams,
 }: {
    searchParams?: Promise<{ page?: string }>
-}) {
+} = {}) {
    const params = (await searchParams) ?? {}
    const requestedPage = Number.parseInt(params.page ?? '1', 10)
    const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1

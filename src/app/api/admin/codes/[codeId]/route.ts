@@ -2,25 +2,31 @@ import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 
-type RouteContext = { params: Promise<{ codeId: string }> }
+interface RouteContext {
+   params: Promise<{ codeId: string }>
+}
 
-const patchSchema = z.object({
-   description: z.string().trim().max(240).nullable().optional(),
-   percent: z.number().int().min(1).max(100).optional(),
-   stock: z.number().int().min(0).max(1_000_000).optional(),
-   maxDiscountAmount: z.number().finite().positive().optional(),
-   startDate: z.string().datetime().transform((value) => new Date(value)).optional(),
-   endDate: z.string().datetime().transform((value) => new Date(value)).optional(),
-}).refine((value) => Object.values(value).some((entry) => entry !== undefined), {
-   message: 'حداقل یک فیلد برای ویرایش لازم است',
-})
+const patchSchema = z
+   .object({
+      description: z.string().trim().max(240).nullable().optional(),
+      percent: z.number().int().min(1).max(100).optional(),
+      stock: z.number().int().min(0).max(1_000_000).optional(),
+      maxDiscountAmount: z.number().positive().optional(),
+      startDate: z.iso
+         .datetime()
+         .transform((value) => new Date(value))
+         .optional(),
+      endDate: z.iso
+         .datetime()
+         .transform((value) => new Date(value))
+         .optional(),
+   })
+   .refine((value) => Object.values(value).some((entry) => entry !== undefined), {
+      message: 'حداقل یک فیلد برای ویرایش لازم است',
+   })
 
 function authorized(req: Request) {
    return Boolean(req.headers.get('X-USER-ID'))
-}
-
-function isPrismaError(error: unknown, code: string) {
-   return typeof error === 'object' && error !== null && 'code' in error && error.code === code
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
@@ -37,13 +43,19 @@ export async function PATCH(req: Request, context: RouteContext) {
       })
 
       if (!current) {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_NOT_FOUND' }, { status: 404 })
+         return NextResponse.json(
+            { message: 'DISCOUNT_CODE_NOT_FOUND' },
+            { status: 404 }
+         )
       }
 
       const startDate = input.startDate ?? current.startDate
       const endDate = input.endDate ?? current.endDate
       if (endDate <= startDate) {
-         return NextResponse.json({ message: 'INVALID_DISCOUNT_DATE_RANGE' }, { status: 400 })
+         return NextResponse.json(
+            { message: 'INVALID_DISCOUNT_DATE_RANGE' },
+            { status: 400 }
+         )
       }
 
       const updated = await prisma.discountCode.update({
@@ -65,13 +77,16 @@ export async function PATCH(req: Request, context: RouteContext) {
       return NextResponse.json(updated)
    } catch (error) {
       if (error instanceof SyntaxError || error instanceof ZodError) {
-         return NextResponse.json({ message: 'INVALID_DISCOUNT_CODE' }, { status: 400 })
-      }
-      if (isPrismaError(error, 'P2025')) {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_NOT_FOUND' }, { status: 404 })
+         return NextResponse.json(
+            { message: 'INVALID_DISCOUNT_CODE' },
+            { status: 400 }
+         )
       }
       console.error('[ADMIN_DISCOUNT_CODE_PATCH]', error)
-      return NextResponse.json({ message: 'DISCOUNT_CODE_UPDATE_FAILED' }, { status: 500 })
+      return NextResponse.json(
+         { message: 'DISCOUNT_CODE_UPDATE_FAILED' },
+         { status: 500 }
+      )
    }
 }
 
@@ -101,21 +116,24 @@ export async function DELETE(req: Request, context: RouteContext) {
       })
 
       if (deleted === 'missing') {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_NOT_FOUND' }, { status: 404 })
+         return NextResponse.json(
+            { message: 'DISCOUNT_CODE_NOT_FOUND' },
+            { status: 404 }
+         )
       }
       if (deleted === 'in-use') {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_IN_USE' }, { status: 409 })
+         return NextResponse.json(
+            { message: 'DISCOUNT_CODE_IN_USE' },
+            { status: 409 }
+         )
       }
 
       return NextResponse.json({ deleted: true })
    } catch (error) {
-      if (isPrismaError(error, 'P2025')) {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_NOT_FOUND' }, { status: 404 })
-      }
-      if (isPrismaError(error, 'P2003') || isPrismaError(error, 'P2014')) {
-         return NextResponse.json({ message: 'DISCOUNT_CODE_IN_USE' }, { status: 409 })
-      }
       console.error('[ADMIN_DISCOUNT_CODE_DELETE]', error)
-      return NextResponse.json({ message: 'DISCOUNT_CODE_DELETE_FAILED' }, { status: 500 })
+      return NextResponse.json(
+         { message: 'DISCOUNT_CODE_DELETE_FAILED' },
+         { status: 500 }
+      )
    }
 }

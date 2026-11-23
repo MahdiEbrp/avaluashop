@@ -2,7 +2,9 @@ import { DELETE, PATCH } from '@/app/api/admin/codes/[codeId]/route'
 import { GET, POST } from '@/app/api/admin/codes/route'
 import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
 
-vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
+vi.mock('@/lib/prisma', () =>
+   import('../support/db').then((m) => m.prismaModule())
+)
 
 const startDate = '2026-11-01T00:00:00.000Z'
 const endDate = '2026-12-01T00:00:00.000Z'
@@ -22,12 +24,16 @@ beforeEach(() => {
 
 describe('/api/admin/codes', () => {
    it('rejects unauthenticated list and create requests', async () => {
-      expect((await GET(get())).status).toBe(401)
-      expect((await POST(json(validCode))).status).toBe(401)
+      const getRes = await GET(get())
+      const postRes = await POST(json(validCode))
+      expect(getRes.status).toBe(401)
+      expect(postRes.status).toBe(401)
    })
 
    it('lists only the admin-facing discount fields without caching', async () => {
-      prismaMock.discountCode.findMany.mockResolvedValue([{ id: 'code-1', code: 'WINTER-20' }])
+      prismaMock.discountCode.findMany.mockResolvedValue([
+         { id: 'code-1', code: 'WINTER-20' },
+      ])
 
       const response = await GET(get(USER))
 
@@ -36,13 +42,19 @@ describe('/api/admin/codes', () => {
       expect(prismaMock.discountCode.findMany).toHaveBeenCalledWith(
          expect.objectContaining({
             orderBy: { createdAt: 'desc' },
-            select: expect.objectContaining({ code: true, _count: { select: { order: true } } }),
+            select: expect.objectContaining({
+               code: true,
+               _count: { select: { order: true } },
+            }),
          })
       )
    })
 
    it('normalizes the code and creates a validated discount', async () => {
-      prismaMock.discountCode.create.mockResolvedValue({ id: 'code-1', code: 'WINTER-20' })
+      prismaMock.discountCode.create.mockResolvedValue({
+         id: 'code-1',
+         code: 'WINTER-20',
+      })
 
       const response = await POST(json(validCode, USER))
 
@@ -78,6 +90,25 @@ describe('/api/admin/codes', () => {
       expect(response.status).toBe(409)
    })
 
+   it('handles GET and POST database failures and optional description', async () => {
+      prismaMock.discountCode.findMany.mockRejectedValueOnce(new Error('down'))
+      const failedGet = await GET(get(USER))
+      expect(failedGet.status).toBe(500)
+
+      prismaMock.discountCode.create.mockResolvedValueOnce({
+         id: 'code-2',
+         code: 'WINTER-20',
+      })
+      const createdWithoutDesc = await POST(
+         json({ ...validCode, description: undefined }, USER)
+      )
+      expect(createdWithoutDesc.status).toBe(201)
+
+      prismaMock.discountCode.create.mockRejectedValueOnce(new Error('down'))
+      const failedPost = await POST(json(validCode, USER))
+      expect(failedPost.status).toBe(500)
+   })
+
    it('rejects malformed JSON', async () => {
       const response = await POST(
          new Request('http://localhost/api/admin/codes', {
@@ -93,7 +124,8 @@ describe('/api/admin/codes', () => {
 
 describe('/api/admin/codes/[codeId]', () => {
    it('rejects an unauthenticated update', async () => {
-      expect((await PATCH(json({ stock: 10 }), call({ codeId: 'code-1' }))).status).toBe(401)
+      const res = await PATCH(json({ stock: 10 }), call({ codeId: 'code-1' }))
+      expect(res.status).toBe(401)
    })
 
    it('updates permitted fields and preserves the date range', async () => {
@@ -102,7 +134,10 @@ describe('/api/admin/codes/[codeId]', () => {
          startDate: new Date(startDate),
          endDate: new Date(endDate),
       })
-      prismaMock.discountCode.update.mockResolvedValue({ id: 'code-1', stock: 10 })
+      prismaMock.discountCode.update.mockResolvedValue({
+         id: 'code-1',
+         stock: 10,
+      })
 
       const response = await PATCH(
          json({ stock: 10 }, USER),
@@ -111,7 +146,10 @@ describe('/api/admin/codes/[codeId]', () => {
 
       expect(response.status).toBe(200)
       expect(prismaMock.discountCode.update).toHaveBeenCalledWith(
-         expect.objectContaining({ where: { id: 'code-1' }, data: { stock: 10 } })
+         expect.objectContaining({
+            where: { id: 'code-1' },
+            data: { stock: 10 },
+         })
       )
    })
 
@@ -149,6 +187,47 @@ describe('/api/admin/codes/[codeId]', () => {
 
       expect(response.status).toBe(409)
       expect(prismaMock.discountCode.delete).not.toHaveBeenCalled()
+   })
+
+   it('covers PATCH validation, endDate update, and 500 failure, plus DELETE 401/404/500 paths', async () => {
+      const emptyPatch = await PATCH(
+         json({}, USER),
+         call({ codeId: 'code-1' })
+      )
+      expect(emptyPatch.status).toBe(400)
+
+      prismaMock.discountCode.findUnique.mockResolvedValueOnce({
+         id: 'code-1',
+         startDate: new Date(startDate),
+         endDate: new Date(endDate),
+      })
+      prismaMock.discountCode.update.mockResolvedValueOnce({ id: 'code-1' })
+      const updatedEnd = await PATCH(
+         json({ endDate: '2026-12-15T00:00:00.000Z' }, USER),
+         call({ codeId: 'code-1' })
+      )
+      expect(updatedEnd.status).toBe(200)
+
+      prismaMock.discountCode.findUnique.mockRejectedValueOnce(new Error('down'))
+      const failedPatch = await PATCH(
+         json({ stock: 5 }, USER),
+         call({ codeId: 'code-1' })
+      )
+      expect(failedPatch.status).toBe(500)
+
+      const unauthDelete = await DELETE(get(), call({ codeId: 'code-1' }))
+      expect(unauthDelete.status).toBe(401)
+
+      prismaMock.discountCode.findUnique.mockResolvedValueOnce(null)
+      const missingDelete = await DELETE(
+         get(USER),
+         call({ codeId: 'missing' })
+      )
+      expect(missingDelete.status).toBe(404)
+
+      prismaMock.discountCode.findUnique.mockRejectedValueOnce(new Error('down'))
+      const failedDelete = await DELETE(get(USER), call({ codeId: 'code-1' }))
+      expect(failedDelete.status).toBe(500)
    })
 
    it('deletes an unused code', async () => {

@@ -91,9 +91,9 @@ describe('admin product form image list', () => {
       const { toast: hot } = await import('react-hot-toast')
       vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
 
-      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[] as never} initialData={null} />)
+      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[{ id: 'b1', title: 'Nike' }] as never} initialData={null} />)
 
-      /* price, stock and category are required before the submit handler runs */
+      /* price, stock, category and brand are required before the submit handler runs */
       await user().type(screen.getByPlaceholderText('Product title'), 'Shoe')
       await user().type(screen.getAllByPlaceholderText('9.99')[0], '100')
 
@@ -103,6 +103,8 @@ describe('admin product form image list', () => {
 
       await user().click(screen.getAllByRole('combobox')[0])
       await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      await user().click(screen.getAllByRole('combobox')[1])
+      await user().click((await screen.findAllByText('Nike')).at(-1)!)
 
       await user().click(screen.getByRole('button', { name: /create/i }))
 

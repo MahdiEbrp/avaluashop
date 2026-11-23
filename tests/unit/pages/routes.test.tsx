@@ -194,10 +194,10 @@ describe('dashboard shell', () => {
 
       render(await AdminDashboard())
 
-      expect(screen.getByText('Total Revenue')).toBeInTheDocument()
-      expect(screen.getByText('$100.00')).toBeInTheDocument()
-      expect(screen.getByText('Sales')).toBeInTheDocument()
-      expect(screen.getByText('Products In Stock')).toBeInTheDocument()
+      expect(screen.getByText('درآمد کل سفارش‌های پرداخت‌شده')).toBeInTheDocument()
+      expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
+      expect(screen.getByText('تعداد سفارش‌های پرداخت‌شده')).toBeInTheDocument()
+      expect(screen.getByText('محصولات دارای موجودی')).toBeInTheDocument()
    })
 })
 

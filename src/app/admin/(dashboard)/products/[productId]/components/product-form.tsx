@@ -240,7 +240,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                                  disabled={loading}
                                  placeholder="Product description"
                                  {...field}
-                                 value={field.value ?? ''}
                               />
                            </FormControl>
                            <FormMessage />

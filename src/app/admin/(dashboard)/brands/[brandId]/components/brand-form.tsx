@@ -152,7 +152,6 @@ export const BrandForm: React.FC<BrandFormProps> = ({ initialData }) => {
                                  disabled={loading}
                                  placeholder="Brand title"
                                  {...field}
-                                 value={field.value ?? ''}
                               />
                            </FormControl>
                            <FormMessage />
