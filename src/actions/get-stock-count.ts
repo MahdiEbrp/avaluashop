@@ -1,9 +1,10 @@
 import prisma from '@/lib/prisma'
 
 export const getStockCount = async () => {
-   return await prisma.product.count({
+   return prisma.product.count({
       where: {
          isAvailable: true,
+         stock: { gt: 0 },
       },
    })
 }

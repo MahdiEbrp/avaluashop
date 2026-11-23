@@ -6,11 +6,7 @@ import { prismaMock } from '../support/db'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-const paidOrder = (createdAt: Date, payable: number, items: { price: number }[]) => ({
-   createdAt,
-   payable,
-   orderItems: items,
-})
+const paidOrder = (createdAt: Date, payable: number) => ({ createdAt, payable })
 
 describe('dashboard aggregates', () => {
    beforeEach(() => {
@@ -31,19 +27,19 @@ describe('dashboard aggregates', () => {
 
       await expect(getStockCount()).resolves.toBe(12)
       expect(prismaMock.product.count).toHaveBeenCalledWith({
-         where: { isAvailable: true },
+         where: { isAvailable: true, stock: { gt: 0 } },
       })
    })
 
-   it('sums the line prices of paid orders', async () => {
+   it('sums the final payable amount of paid orders', async () => {
       prismaMock.order.findMany.mockResolvedValue([
-         { orderItems: [{ price: 10 }, { price: 2.5 }] },
-         { orderItems: [{ price: 100 }] },
+         { payable: 112.5 },
+         { payable: 100 },
       ])
 
-      await expect(getTotalRevenue()).resolves.toBe(112.5)
+      await expect(getTotalRevenue()).resolves.toBe(212.5)
       expect(prismaMock.order.findMany).toHaveBeenCalledWith(
-         expect.objectContaining({ where: { isPaid: true } })
+         { where: { isPaid: true }, select: { payable: true } }
       )
    })
 
@@ -78,14 +74,23 @@ describe('getGraphRevenue', () => {
          'Dec',
       ])
       expect(graph.every((point) => point.total === 0)).toBe(true)
+      const year = new Date().getFullYear()
+      expect(prismaMock.order.findMany).toHaveBeenCalledWith({
+         where: {
+            isPaid: true,
+            createdAt: { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) },
+         },
+         select: { createdAt: true, payable: true },
+      })
    })
 
    it('adds each paid order onto the month it was created in', async () => {
+      const year = new Date().getFullYear()
       prismaMock.order.findMany.mockResolvedValue([
-         paidOrder(new Date('2024-01-15T00:00:00Z'), 100, []),
-         paidOrder(new Date('2024-01-20T00:00:00Z'), 50, []),
-         paidOrder(new Date('2024-07-02T00:00:00Z'), 25, []),
-         paidOrder(new Date('2024-12-31T00:00:00Z'), 5, []),
+         paidOrder(new Date(year, 0, 15), 100),
+         paidOrder(new Date(year, 0, 20), 50),
+         paidOrder(new Date(year, 6, 2), 25),
+         paidOrder(new Date(year, 11, 31), 5),
       ])
 
       const graph = await getGraphRevenue()

@@ -20,7 +20,7 @@ export function MainNav({
       { href: '/admin/shipping', label: 'Shipping' },
       { href: '/admin/users', label: 'Users' },
       { href: '/admin/brands', label: 'Brands' },
-      { href: '/codes', label: 'Codes' },
+      { href: '/admin/codes', label: 'Discount Codes' },
    ]
 
    return (

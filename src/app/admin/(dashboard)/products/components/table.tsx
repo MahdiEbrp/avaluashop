@@ -22,6 +22,7 @@ export interface ProductColumn {
    discount: string
    category: string
    sales: number
+   stock: number
    isAvailable: boolean
 }
 
@@ -41,6 +42,10 @@ export const columns: ColumnDef<TableFeatures, ProductColumn>[] = [
    {
       accessorKey: 'category',
       header: 'Category',
+   },
+   {
+      accessorKey: 'stock',
+      header: 'Stock',
    },
    {
       accessorKey: 'sales',

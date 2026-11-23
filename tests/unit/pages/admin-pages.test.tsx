@@ -67,8 +67,8 @@ vi.mock('next/navigation', async (importOriginal) => {
 })
 
 const banner = { id: 'b1', label: 'Summer', image: '/s.png', createdAt: new Date('2024-01-02') }
-const brand = { id: 'br1', title: 'Acme', products: [{}, {}] }
-const category = { id: 'c1', title: 'Shoes', products: [{}], description: 'b1' }
+const brand = { id: 'br1', title: 'Acme', products: [{}, {}], _count: { products: 2 } }
+const category = { id: 'c1', title: 'Shoes', products: [{}], description: 'b1', _count: { products: 1 } }
 const product = {
    id: 'p1',
    title: 'Runner',
@@ -82,6 +82,8 @@ const product = {
    categories: [{ id: 'c1', title: 'Shoes' }],
    brand: { id: 'br1', title: 'Acme' },
    orders: [{}],
+   brandId: 'br1',
+   _count: { orders: 1 },
    createdAt: new Date('2024-01-03'),
 }
 const order = {
@@ -107,6 +109,7 @@ const user = {
    addresses: [{ id: 'ad1' }],
    payments: [],
    orders: [order],
+   _count: { orders: 1 },
 }
 const payment = {
    id: 'pay1',
@@ -163,11 +166,12 @@ describe('admin list pages', () => {
 
    it('orders list', async () => {
       prismaMock.order.findMany.mockResolvedValue([order])
+      prismaMock.order.count.mockResolvedValue(1)
 
-      render(await OrdersPage({ searchParams: {} }))
+      render(await OrdersPage({ searchParams: Promise.resolve({}) }))
 
-      expect(screen.getByText('Orders (1)')).toBeInTheDocument()
-      expect(screen.getByText('Order #42')).toBeInTheDocument()
+      expect(screen.getByText('سفارش‌ها (۱)')).toBeInTheDocument()
+      expect(screen.getByText('سفارش #۴۲')).toBeInTheDocument()
    })
 
    it('orders list honours every filter', async () => {
@@ -175,18 +179,16 @@ describe('admin list pages', () => {
 
       render(
          await OrdersPage({
-            /* This page reads the params synchronously, so a plain object is
-               enough to drive every filter. */
-            searchParams: {
+            searchParams: Promise.resolve({
                userId: 'u1',
                sort: 'highest_payable',
                isPaid: 'true',
                brand: 'Acme',
                category: 'Shoes',
-               page: 2,
+               page: '2',
                minPayable: '10',
                maxPayable: '100',
-            },
+            }),
          })
       )
 
@@ -195,14 +197,14 @@ describe('admin list pages', () => {
       expect(args.orderBy).toEqual({ payable: 'desc' })
       expect(args.where).toMatchObject({
          userId: 'u1',
-         isPaid: 'true',
+         isPaid: true,
       })
    })
 
    it('orders list defaults to the first page with no filters', async () => {
       prismaMock.order.findMany.mockResolvedValue([])
 
-      render(await OrdersPage({ searchParams: {} }))
+      render(await OrdersPage({ searchParams: Promise.resolve({}) }))
 
       const args = prismaMock.order.findMany.mock.calls[0][0]
       expect(args.skip).toBe(0)
@@ -212,17 +214,18 @@ describe('admin list pages', () => {
    it('orders list sorts by cheapest on demand', async () => {
       prismaMock.order.findMany.mockResolvedValue([])
 
-      render(await OrdersPage({ searchParams: { sort: 'lowest_payable' } }))
+      render(await OrdersPage({ searchParams: Promise.resolve({ sort: 'lowest_payable' }) }))
 
       expect(prismaMock.order.findMany.mock.calls[0][0].orderBy).toEqual({ payable: 'asc' })
    })
 
    it('users list', async () => {
       prismaMock.user.findMany.mockResolvedValue([user])
+      prismaMock.user.count.mockResolvedValue(1)
 
-      render(await UsersPage())
+      render(await UsersPage({ searchParams: Promise.resolve({}) }))
 
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByText('مشتریان (۱)')).toBeInTheDocument()
       expect(screen.getByText('Ada')).toBeInTheDocument()
    })
 
@@ -281,6 +284,7 @@ describe('admin detail pages', () => {
    it('product detail', async () => {
       prismaMock.product.findUnique.mockResolvedValue(product)
       prismaMock.category.findMany.mockResolvedValue([category])
+      prismaMock.brand.findMany.mockResolvedValue([brand])
 
       render(await ProductPage({ params: Promise.resolve({ productId: 'p1' }) }))
 

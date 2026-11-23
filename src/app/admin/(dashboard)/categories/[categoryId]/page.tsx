@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic'
 const CategoryPage = async ({
    params,
 }: {
-   params: Promise<{ categoryId: string; id: string }>
+   params: Promise<{ categoryId: string }>
 }) => {
-   const { categoryId, id } = await params
+   const { categoryId } = await params
 
    const category = await prisma.category.findUnique({
       where: {
@@ -17,16 +17,10 @@ const CategoryPage = async ({
       },
    })
 
-   const banners = await prisma.banner.findMany({
-      where: {
-         id: id,
-      },
-   })
-
    return (
       <div className="flex-col">
          <div className="flex-1 space-y-4 p-8 pt-6">
-            <CategoryForm banners={banners} initialData={category} />
+            <CategoryForm initialData={category} />
          </div>
       </div>
    )

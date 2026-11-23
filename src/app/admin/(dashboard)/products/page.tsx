@@ -12,14 +12,18 @@ export const dynamic = 'force-dynamic'
 
 export default async function ProductsPage() {
    const products = await prisma.product.findMany({
-      include: {
-         orders: true,
-         categories: true,
-         brand: true,
+      select: {
+         id: true,
+         title: true,
+         price: true,
+         discount: true,
+         stock: true,
+         isAvailable: true,
+         categories: { select: { title: true } },
+         brand: { select: { title: true } },
+         _count: { select: { orders: true } },
       },
-      orderBy: {
-         createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
    })
 
    const formattedProducts: ProductColumn[] = products.map((product) => ({
@@ -27,8 +31,9 @@ export default async function ProductsPage() {
       title: product.title,
       price: formatter.format(product.price),
       discount: formatter.format(product.discount),
-      category: product.categories[0].title,
-      sales: product.orders.length,
+      category: product.categories[0]?.title ?? '—',
+      sales: product._count.orders,
+      stock: product.stock,
       isAvailable: product.isAvailable,
    }))
 

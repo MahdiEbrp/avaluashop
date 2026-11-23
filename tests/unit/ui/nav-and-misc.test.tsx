@@ -88,7 +88,7 @@ describe('admin chrome', () => {
          'href',
          '/admin/banners'
       )
-      expect(screen.getByRole('link', { name: 'Codes' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Discount Codes' })).toBeInTheDocument()
    })
 
    it('theme toggle flips the theme', async () => {
@@ -148,7 +148,7 @@ describe('admin chrome', () => {
       render(<Overview data={[{ name: 'Jan', total: 10 }, { name: 'Feb', total: 20 }]} />)
 
       expect(screen.getByTestId('bars')).toHaveAttribute('data-count', '2')
-      expect(screen.getByText('$12')).toBeInTheDocument()
+      expect(screen.getByText('۱۲')).toBeInTheDocument()
    })
 })
 

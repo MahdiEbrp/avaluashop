@@ -140,14 +140,12 @@ describe('category form failure', () => {
 
       render(
          <CategoryForm
-            banners={[{ id: 'b1', label: 'Sale' }] as never}
             initialData={null}
          />
       )
 
       await user().type(screen.getByPlaceholderText('Category name'), 'Shoes')
-      await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Sale')).at(-1)!)
+      await user().type(screen.getByPlaceholderText('Category description'), 'Shoes')
       await user().click(screen.getByRole('button', { name: /create/i }))
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))

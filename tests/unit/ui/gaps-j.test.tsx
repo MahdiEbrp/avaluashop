@@ -90,6 +90,7 @@ describe('product form delete failure', () => {
       render(
          <ProductForm
             categories={[{ id: 'c1', title: 'Shoes' }] as never}
+            brands={[] as never}
             initialData={
                {
                   id: 'p1',

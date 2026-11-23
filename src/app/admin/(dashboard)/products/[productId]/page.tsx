@@ -21,12 +21,15 @@ export default async function ProductPage({
       },
    })
 
-   const categories = await prisma.category.findMany()
+   const [categories, brands] = await Promise.all([
+      prisma.category.findMany({ orderBy: { title: 'asc' } }),
+      prisma.brand.findMany({ orderBy: { title: 'asc' } }),
+   ])
 
    return (
       <div className="flex-col">
          <div className="flex-1 space-y-4 pt-6 pb-12">
-            <ProductForm categories={categories} initialData={product} />
+            <ProductForm categories={categories} brands={brands} initialData={product} />
          </div>
       </div>
    )

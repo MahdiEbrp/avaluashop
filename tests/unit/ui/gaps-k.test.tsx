@@ -28,7 +28,7 @@ const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 describe('admin product form image list', () => {
    it('appends an upload and removes it again', async () => {
-      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} initialData={null} />)
+      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[] as never} initialData={null} />)
 
       act(() => {
          widgetState.onSuccess?.({ info: { secure_url: 'https://cdn/first.png' } })
@@ -59,6 +59,7 @@ describe('admin product form image list', () => {
       render(
          <ProductForm
             categories={[{ id: 'c1', title: 'Shoes' }] as never}
+            brands={[] as never}
             initialData={
                {
                   id: 'p1',
@@ -90,7 +91,7 @@ describe('admin product form image list', () => {
       const { toast: hot } = await import('react-hot-toast')
       vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
 
-      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} initialData={null} />)
+      render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[] as never} initialData={null} />)
 
       /* price, stock and category are required before the submit handler runs */
       await user().type(screen.getByPlaceholderText('Product title'), 'Shoe')
@@ -100,7 +101,7 @@ describe('admin product form image list', () => {
       await user().clear(stock)
       await user().type(stock, '5')
 
-      await user().click(screen.getByRole('combobox'))
+      await user().click(screen.getAllByRole('combobox')[0])
       await user().click((await screen.findAllByText('Shoes')).at(-1)!)
 
       await user().click(screen.getByRole('button', { name: /create/i }))
