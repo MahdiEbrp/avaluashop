@@ -35,7 +35,7 @@ export function CommandMenu(
          }
       }
       document.addEventListener('keydown', down)
-      return () => document.removeEventListener('keydown', down)
+      return () => { document.removeEventListener('keydown', down); }
    }, [])
 
    return (
@@ -44,7 +44,7 @@ export function CommandMenu(
             variant="search"
             aria-label="جستجو در فروشگاه"
             className="h-10 w-10 shrink-0 px-0 sm:w-40 sm:justify-start sm:gap-2 sm:px-3 lg:w-64"
-            onClick={() => setOpen(true)}
+            onClick={() => { setOpen(true); }}
             {...props}
          >
             <SearchIcon className="h-4 w-4 shrink-0" />

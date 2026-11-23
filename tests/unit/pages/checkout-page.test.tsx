@@ -1,7 +1,14 @@
+import { noop } from '../support/noop'
+import { jsonBody, rejectWith } from '../support/http'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderToString } from 'react-dom/server'
 
 import CheckoutPage from '@/app/(store)/(routes)/checkout/page'
+
+/* Rejection reasons that are deliberately not Error instances (the app must cope with them). */
+const NON_ERROR_REASON = 'plain string failure'
+const NON_ERROR_QUOTE = 'قطعی موقت'
 
 /* The page composes both providers itself, so the doubles replace the hooks
    rather than the providers — that keeps the real nesting under test. */
@@ -63,7 +70,7 @@ const address = {
 }
 
 const jsonResponse = (body: unknown, status = 200) =>
-   new Response(JSON.stringify(body), {
+   Response.json(body, {
       status,
       headers: { 'content-type': 'application/json' },
    })
@@ -79,11 +86,11 @@ beforeEach(() => {
    userState.loading = false
    cartState.cart = cartWithItems
    cartState.loading = false
-   stubFetch(async () => jsonResponse([]))
+   stubFetch(() => Promise.resolve(jsonResponse([])))
 })
 
 afterEach(() => {
-   window.history.replaceState({}, '', '/')
+   globalThis.history.replaceState({}, '', '/')
    vi.unstubAllGlobals()
    vi.restoreAllMocks()
 })
@@ -95,6 +102,16 @@ function summaryRow(label: string) {
 }
 
 describe('checkout — gating states', () => {
+   it('server-renders the signed-out prompt without a browser location', () => {
+      userState.user = null
+
+      /* renderToString takes the server snapshot path: the URL is not read,
+         so the payment-notice store must not touch globalThis.location. */
+      const html = renderToString(<CheckoutPage />)
+
+      expect(html).toContain('برای ادامه خرید وارد حساب کاربری شوید')
+   })
+
    it('shows the loading copy while the profile or cart is in flight', () => {
       userState.loading = true
 
@@ -132,7 +149,7 @@ describe('checkout — gating states', () => {
 
 describe('checkout — address selection', () => {
    it('preselects the first stored address', async () => {
-      stubFetch(async () => jsonResponse([address]))
+      stubFetch(() => Promise.resolve(jsonResponse([address])))
 
       render(<CheckoutPage />)
 
@@ -150,7 +167,7 @@ describe('checkout — address selection', () => {
    })
 
    it('surfaces a failed address lookup', async () => {
-      stubFetch(async () => new Response('nope', { status: 500 }))
+      stubFetch(() => Promise.resolve(new Response('nope', { status: 500 })))
 
       render(<CheckoutPage />)
 
@@ -160,11 +177,11 @@ describe('checkout — address selection', () => {
    })
 
    it('saves a new address through the API and selects it', async () => {
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
          if (url === '/api/addresses' && _init?.method === 'POST') {
-            return jsonResponse({ ...address, id: 'ad2' })
+            return Promise.resolve(jsonResponse({ ...address, id: 'ad2' }))
          }
-         return jsonResponse([])
+         return Promise.resolve(jsonResponse([]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -178,8 +195,7 @@ describe('checkout — address selection', () => {
       await user().type(screen.getByLabelText('کد پستی'), '1234567890')
       await user().click(screen.getByRole('button', { name: 'ذخیره نشانی' }))
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/addresses',
             expect.objectContaining({
                method: 'POST',
@@ -190,7 +206,7 @@ describe('checkout — address selection', () => {
                   postalCode: '1234567890',
                }),
             })
-         )
+         ); }
       )
       /* The saved address is appended and becomes the selection. */
       await waitFor(() => expect(screen.getByRole('radio')).toBeChecked())
@@ -199,9 +215,9 @@ describe('checkout — address selection', () => {
    })
 
    it('reports a rejected address save and keeps the form open', async () => {
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-         if (_init?.method === 'POST') return new Response('bad', { status: 400 })
-         return jsonResponse([])
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+         if (_init?.method === 'POST') return Promise.resolve(new Response('bad', { status: 400 }))
+         return Promise.resolve(jsonResponse([]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -235,7 +251,7 @@ describe('checkout — address selection', () => {
 
 describe('checkout — order summary', () => {
    it('shows Persian line items and the Toman totals with 9% tax', async () => {
-      stubFetch(async () => jsonResponse([address]))
+      stubFetch(() => Promise.resolve(jsonResponse([address])))
 
       render(<CheckoutPage />)
       await screen.findByRole('radio')
@@ -250,7 +266,7 @@ describe('checkout — order summary', () => {
    })
 
    it('tells the shopper that online payment is not wired up', async () => {
-      stubFetch(async () => jsonResponse([address]))
+      stubFetch(() => Promise.resolve(jsonResponse([address])))
 
       render(<CheckoutPage />)
       await screen.findByRole('radio')
@@ -261,12 +277,12 @@ describe('checkout — order summary', () => {
    })
 
    it('shows payment success only after the authenticated orders API confirms it', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      const fetchMock = vi.fn(async (url: string) => {
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      const fetchMock = vi.fn((url: string) => {
          if (url === '/api/orders') {
-            return jsonResponse([{ id: 'o1', number: 42, isPaid: true }])
+            return Promise.resolve(jsonResponse([{ id: 'o1', number: 42, isPaid: true }]))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -277,14 +293,14 @@ describe('checkout — order summary', () => {
    })
 
    it('does not trust a success query when the order is still unpaid', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (url: string) => {
+         vi.fn((url: string) => {
             if (url === '/api/orders') {
-               return jsonResponse([{ id: 'o1', number: 42, isPaid: false }])
+               return Promise.resolve(jsonResponse([{ id: 'o1', number: 42, isPaid: false }]))
             }
-            return jsonResponse([address])
+            return Promise.resolve(jsonResponse([address]))
          })
       )
 
@@ -299,12 +315,12 @@ describe('checkout — order summary', () => {
 
 describe('checkout — submitting the order', () => {
    it('creates the order, initializes Tabapay, and redirects to the payment page', async () => {
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/sandbox/pay/token' })
+            return Promise.resolve(jsonResponse({ paymentUrl: 'https://api.tabapay.ir/sandbox/pay/token' }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -336,13 +352,13 @@ describe('checkout — submitting the order', () => {
    })
 
    it('explains a stock conflict in plain Persian', async () => {
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
          if (url === '/api/orders') {
-            return new Response('One or more products no longer have enough stock', {
+            return Promise.resolve(new Response('One or more products no longer have enough stock', {
                status: 409,
-            })
+            }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -361,9 +377,9 @@ describe('checkout — submitting the order', () => {
    })
 
    it('falls back to the server message for other failures', async () => {
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-         if (url === '/api/orders') return new Response('Internal error', { status: 500 })
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+         if (url === '/api/orders') return Promise.resolve(new Response('Internal error', { status: 500 }))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -379,8 +395,8 @@ describe('checkout — submitting the order', () => {
 
 describe('checkout — switching the selected address', () => {
    it('lets the shopper pick a different stored address', async () => {
-      stubFetch(async () =>
-         jsonResponse([address, { ...address, id: 'ad2', city: 'شیراز', address: 'زندیه' }])
+      stubFetch(() =>
+         Promise.resolve(jsonResponse([address, { ...address, id: 'ad2', city: 'شیراز', address: 'زندیه' }]))
       )
 
       render(<CheckoutPage />)
@@ -393,9 +409,9 @@ describe('checkout — switching the selected address', () => {
    })
 
    it('refuses to submit when no address is selected', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 1 })
-         return jsonResponse([])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 1 }))
+         return Promise.resolve(jsonResponse([]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -413,16 +429,16 @@ describe('checkout — switching the selected address', () => {
 
 describe('checkout — returning from the gateway', () => {
    afterEach(() => {
-      window.history.replaceState({}, '', '/checkout')
+      globalThis.history.replaceState({}, '', '/checkout')
    })
 
    it('confirms a verified payment through the authenticated orders API', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      stubFetch(async (url) => {
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch((url) => {
          if (url === '/api/orders') {
-            return jsonResponse([{ id: 'o1', number: 42, isPaid: true }])
+            return Promise.resolve(jsonResponse([{ id: 'o1', number: 42, isPaid: true }]))
          }
-         return jsonResponse([])
+         return Promise.resolve(jsonResponse([]))
       })
 
       render(<CheckoutPage />)
@@ -434,8 +450,8 @@ describe('checkout — returning from the gateway', () => {
 
    it('refuses to claim success without an order reference', async () => {
       /* A forged `?payment=success` must not produce a receipt. */
-      window.history.replaceState({}, '', '/checkout?payment=success')
-      stubFetch(async () => jsonResponse([]))
+      globalThis.history.replaceState({}, '', '/checkout?payment=success')
+      stubFetch(() => Promise.resolve(jsonResponse([])))
 
       render(<CheckoutPage />)
 
@@ -445,12 +461,12 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('does not claim success when the order is still unpaid', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      stubFetch(async (url) => {
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch((url) => {
          if (url === '/api/orders') {
-            return jsonResponse([{ id: 'o1', number: 42, isPaid: false }])
+            return Promise.resolve(jsonResponse([{ id: 'o1', number: 42, isPaid: false }]))
          }
-         return jsonResponse([])
+         return Promise.resolve(jsonResponse([]))
       })
 
       render(<CheckoutPage />)
@@ -461,10 +477,10 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('reports a failed order lookup after the redirect', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      stubFetch(async (url) => {
-         if (url === '/api/orders') return new Response('nope', { status: 500 })
-         return jsonResponse([])
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch((url) => {
+         if (url === '/api/orders') return Promise.resolve(new Response('nope', { status: 500 }))
+         return Promise.resolve(jsonResponse([]))
       })
 
       render(<CheckoutPage />)
@@ -475,10 +491,10 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('ignores a non-Error rejection while confirming the payment', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      stubFetch(async (url) => {
-         if (url === '/api/orders') throw 'plain string failure'
-         return jsonResponse([])
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      stubFetch((url) => {
+         if (url === '/api/orders') return rejectWith(NON_ERROR_REASON);
+         return Promise.resolve(jsonResponse([]))
       })
 
       render(<CheckoutPage />)
@@ -489,16 +505,16 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('ignores a payment check that rejects after unmount', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      let reject: (reason: Error) => void = () => {}
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      let reject: (reason: Error) => void = noop
       const pending = new Promise<Response>((_resolve, rejectFn) => {
          reject = rejectFn
       })
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (url: string) => {
-            if (url === '/api/orders') return pending
-            return jsonResponse([])
+         vi.fn((url: string) => {
+            if (url === '/api/orders') return Promise.resolve(pending)
+            return Promise.resolve(jsonResponse([]))
          })
       )
 
@@ -514,8 +530,8 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('explains a failed payment', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=failed')
-      stubFetch(async () => jsonResponse([]))
+      globalThis.history.replaceState({}, '', '/checkout?payment=failed')
+      stubFetch(() => Promise.resolve(jsonResponse([])))
 
       render(<CheckoutPage />)
 
@@ -525,8 +541,8 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('explains an uncertain payment and asks the shopper not to retry', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=pending')
-      stubFetch(async () => jsonResponse([]))
+      globalThis.history.replaceState({}, '', '/checkout?payment=pending')
+      stubFetch(() => Promise.resolve(jsonResponse([])))
 
       render(<CheckoutPage />)
 
@@ -536,16 +552,16 @@ describe('checkout — returning from the gateway', () => {
    })
 
    it('does not update state when the payment check resolves after unmount', async () => {
-      window.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      let release: (value: Response) => void = () => {}
+      globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (url: string) => {
-            if (url === '/api/orders') return pending
-            return jsonResponse([])
+         vi.fn((url: string) => {
+            if (url === '/api/orders') return Promise.resolve(pending)
+            return Promise.resolve(jsonResponse([]))
          })
       )
 
@@ -563,12 +579,12 @@ describe('checkout — returning from the gateway', () => {
 
 describe('checkout — gateway initialization', () => {
    it('creates the order then hands the shopper to the gateway', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' })
+            return Promise.resolve(jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -578,10 +594,9 @@ describe('checkout — gateway initialization', () => {
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
-      await waitFor(() =>
-         expect(redirectToPayment).toHaveBeenCalledWith(
+      await waitFor(() => { expect(redirectToPayment).toHaveBeenCalledWith(
             'https://api.tabapay.ir/pay/abc'
-         )
+         ); }
       )
       /* The order is created first, then the gateway session for it. */
       expect(fetchMock).toHaveBeenCalledWith(
@@ -593,12 +608,12 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('submits the entered discount code for server-side validation', async () => {
-      const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' })
+            return Promise.resolve(jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -608,22 +623,22 @@ describe('checkout — gateway initialization', () => {
       await user().type(screen.getByLabelText('کد تخفیف'), 'SAVE10')
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
          '/api/orders',
          expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('"discountCode":"SAVE10"'),
          })
-      ))
+      ); })
    })
 
    it('explains an amount outside the gateway range', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' }, 400)
+            return Promise.resolve(jsonResponse({ message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' }, 400))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -640,12 +655,12 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('blocks a second order when gateway initialization needs reconciliation', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ message: 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION' }, 202)
+            return Promise.resolve(jsonResponse({ message: 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION' }, 202))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -660,10 +675,10 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('reports a gateway that cannot be reached', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
-         if (url === '/api/payments/tabapay') return new Response('down', { status: 502 })
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
+         if (url === '/api/payments/tabapay') return Promise.resolve(new Response('down', { status: 502 }))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -679,10 +694,10 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('rejects a gateway response without a usable URL', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
-         if (url === '/api/payments/tabapay') return jsonResponse({})
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
+         if (url === '/api/payments/tabapay') return Promise.resolve(jsonResponse({}))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -697,11 +712,11 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('tells the shopper when a coupon is invalid or exhausted', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
+      const fetchMock = vi.fn((url: string) => {
          if (url === '/api/orders') {
-            return new Response('Discount code is invalid or expired', { status: 400 })
+            return Promise.resolve(new Response('Discount code is invalid or expired', { status: 400 }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -720,12 +735,12 @@ describe('checkout — gateway initialization', () => {
    it('stops repeat submission when the gateway outcome is still unknown', async () => {
       /* A 202 means a transaction may exist. Submitting again could create a
          second order for the same cart, so the button must be locked. */
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ message: 'PAYMENT_ALREADY_INITIALIZED' }, 202)
+            return Promise.resolve(jsonResponse({ message: 'PAYMENT_ALREADY_INITIALIZED' }, 202))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -745,12 +760,12 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('explains a gateway that is temporarily not configured', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return jsonResponse({ message: 'TABAPAY_NOT_CONFIGURED' }, 503)
+            return Promise.resolve(jsonResponse({ message: 'TABAPAY_NOT_CONFIGURED' }, 503))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -766,12 +781,12 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('tolerates a gateway error body that is not JSON', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
-            return new Response('<html>bad gateway</html>', { status: 502 })
+            return Promise.resolve(new Response('<html>bad gateway</html>', { status: 502 }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -789,11 +804,11 @@ describe('checkout — gateway initialization', () => {
 
 describe('checkout — defensive branches', () => {
    it('cancels an address lookup that resolves after unmount', async () => {
-      let release: (value: Response) => void = () => {}
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
-      vi.stubGlobal('fetch', vi.fn(async () => pending))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(pending)))
 
       const { unmount } = render(<CheckoutPage />)
       unmount()
@@ -808,9 +823,9 @@ describe('checkout — defensive branches', () => {
    })
 
    it('falls back to a generic message when the API sends an empty body', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') return new Response('', { status: 500 })
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return Promise.resolve(new Response('', { status: 500 }))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -824,9 +839,9 @@ describe('checkout — defensive branches', () => {
    })
 
    it('falls back to a generic message when the order fetch rejects with a non-Error', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') throw 'plain string failure'
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return rejectWith(NON_ERROR_REASON);
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -840,18 +855,18 @@ describe('checkout — defensive branches', () => {
    })
 
    it('ignores an address rejection that arrives after unmount', async () => {
-      let reject: (reason: Error) => void = () => {}
+      let reject: (reason: Error) => void = noop
       const pending = new Promise<Response>((_resolve, rejectFn) => {
          reject = rejectFn
       })
-      vi.stubGlobal('fetch', vi.fn(async () => pending))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(pending)))
 
       const { unmount } = render(<CheckoutPage />)
       unmount()
 
       await act(async () => {
          reject(new Error('late failure'))
-         await pending.catch(() => undefined)
+         await pending.catch(() => {/* noop */ })
       })
 
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -860,8 +875,8 @@ describe('checkout — defensive branches', () => {
    it('ignores a non-Error rejection while loading addresses', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => {
-            throw 'plain string failure'
+         vi.fn(() => {
+            return rejectWith(NON_ERROR_REASON);
          })
       )
 
@@ -873,9 +888,9 @@ describe('checkout — defensive branches', () => {
    it('ignores a non-Error rejection while saving an address', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (_url: string, init?: RequestInit) => {
-            if (init?.method === 'POST') throw 'plain string failure'
-            return jsonResponse([])
+         vi.fn((_url: string, init?: RequestInit) => {
+            if (init?.method === 'POST') return rejectWith(NON_ERROR_REASON);
+            return Promise.resolve(jsonResponse([]))
          })
       )
 
@@ -887,11 +902,24 @@ describe('checkout — defensive branches', () => {
       fireEvent.change(screen.getByLabelText('نشانی کامل'), { target: { value: 'x' } })
       fireEvent.change(screen.getByLabelText('شماره تماس'), { target: { value: '0912' } })
       fireEvent.change(screen.getByLabelText('کد پستی'), { target: { value: '12' } })
-      fireEvent.submit(screen.getByRole('button', { name: 'ذخیره نشانی' }).closest('form')!)
+      fireEvent.submit(screen.getByRole('button', { name: 'ذخیره نشانی' }).closest('form'))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('خطا در ذخیره نشانی')
    })
 })
+
+/* The summary rows are the source of truth for money; matching on a bare
+   number collides with the method labels. */
+function summary(label: string) {
+   const row = screen.getByText(label).parentElement
+   return row?.textContent ?? ''
+}
+
+async function ready() {
+   await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled()
+   )
+}
 
 describe('checkout — shipping methods', () => {
    const settings = { taxEnabled: true, taxRate: 0.09, taxLabel: 'مالیات بر ارزش افزوده' }
@@ -959,19 +987,6 @@ describe('checkout — shipping methods', () => {
    }
 
 
-   /* The summary rows are the source of truth for money; matching on a bare
-      number collides with the method labels. */
-   function summary(label: string) {
-      const row = screen.getByText(label).parentElement as HTMLElement | null
-      return row?.textContent ?? ''
-   }
-
-   async function ready() {
-      await waitFor(() =>
-         expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled()
-      )
-   }
-
    it('lists the methods for the selected city and preselects the first usable one', async () => {
       stubShipping([flat, freeAbove, cityBlocked, carrier])
 
@@ -991,7 +1006,7 @@ describe('checkout — shipping methods', () => {
 
       await ready()
 
-      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      await waitFor(() => { expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'); })
       /* 250 - 10 = 240 taxable; tax 9% = 21.6; payable 240 + 21.6 + 45,000. */
       expect(summary('مالیات بر ارزش افزوده')).toContain('۲۲')
       expect(summary('مبلغ نهایی تقریبی')).toContain('۴۵٬۲۶۲')
@@ -1007,7 +1022,7 @@ describe('checkout — shipping methods', () => {
       expect(
          await screen.findByRole('radio', { name: /ارسال رایگان بالای ۲۰۰/ })
       ).toBeChecked()
-      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۰'))
+      await waitFor(() => { expect(summary('هزینه ارسال')).toContain('۰'); })
       expect(summary('مبلغ نهایی تقریبی')).toContain('۲۶۲')
    })
 
@@ -1017,11 +1032,11 @@ describe('checkout — shipping methods', () => {
       render(<CheckoutPage />)
 
       await ready()
-      await waitFor(() => expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      await waitFor(() => { expect(summary('هزینه ارسال')).toContain('۴۵٬۰۰۰'); })
 
       fireEvent.click(screen.getByRole('radio', { name: /رایگان/ }))
 
-      await waitFor(() => expect(summary('مبلغ نهایی تقریبی')).toContain('۲۶۲'))
+      await waitFor(() => { expect(summary('مبلغ نهایی تقریبی')).toContain('۲۶۲'); })
    })
 
    it('sends the selected method id with the order', async () => {
@@ -1032,24 +1047,24 @@ describe('checkout — shipping methods', () => {
       await ready()
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
 
-      await waitFor(() => expect(redirectToPayment).toHaveBeenCalled())
+      await waitFor(() => { expect(redirectToPayment).toHaveBeenCalled(); })
       const orderCall = fetchMock.mock.calls.find(([url]) => url === '/api/orders')
-      const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string; idempotencyKey?: string }
+      const payload = jsonBody(orderCall?.[1]?.body)
       expect(payload.shippingMethodId).toBe('sm1')
       expect(payload.idempotencyKey).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
    })
 
    it('reuses the same idempotency key when retrying after a failed gateway call', async () => {
       let gatewayAttempt = 0
-      const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
-         if (url === '/api/shipping/methods') return jsonResponse([flat])
-         if (url === '/api/orders') return jsonResponse({ id: 'o1', number: 42 })
+      const fetchMock = vi.fn((url: string, _init?: RequestInit) => {
+         if (url === '/api/shipping/methods') return Promise.resolve(jsonResponse([flat]))
+         if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
             gatewayAttempt += 1
-            if (gatewayAttempt === 1) return jsonResponse({ message: 'GATEWAY_DOWN' }, 502)
-            return jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/retry' })
+            if (gatewayAttempt === 1) return Promise.resolve(jsonResponse({ message: 'GATEWAY_DOWN' }, 502))
+            return Promise.resolve(jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/retry' }))
          }
-         return jsonResponse([address])
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -1057,14 +1072,14 @@ describe('checkout — shipping methods', () => {
       await waitFor(() => expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled())
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
-      await waitFor(() => expect(gatewayAttempt).toBe(1))
+      await waitFor(() => { expect(gatewayAttempt).toBe(1); })
 
       await user().click(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' }))
-      await waitFor(() => expect(redirectToPayment).toHaveBeenCalledWith('https://api.tabapay.ir/pay/retry'))
+      await waitFor(() => { expect(redirectToPayment).toHaveBeenCalledWith('https://api.tabapay.ir/pay/retry'); })
 
       const keys = fetchMock.mock.calls
          .filter(([url]) => url === '/api/orders')
-         .map(([, init]) => (JSON.parse(String(init?.body)) as { idempotencyKey?: string }).idempotencyKey)
+         .map(([, init]) => jsonBody(init?.body).idempotencyKey)
       expect(keys).toHaveLength(2)
       expect(keys[0]).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
       expect(keys[1]).toBe(keys[0])
@@ -1150,7 +1165,7 @@ describe('checkout — shipping methods', () => {
       ['SHIPPING_NOT_AVAILABLE_FOR_CITY', 'به این نشانی ارسال نداریم. نشانی دیگری انتخاب کنید.'],
    ])('explains %s from a JSON body', async (code, text) => {
       stubShipping([flat], {
-         orders: async () => jsonResponse({ message: code }, code === 'SHIPPING_METHOD_REQUIRED' ? 400 : 409),
+         orders: () => Promise.resolve(jsonResponse({ message: code }, code === 'SHIPPING_METHOD_REQUIRED' ? 400 : 409)),
       })
 
       render(<CheckoutPage />)
@@ -1166,7 +1181,7 @@ describe('checkout — shipping methods', () => {
 
    it('does not mistake a shipping conflict for a stock conflict', async () => {
       stubShipping([flat], {
-         orders: async () => jsonResponse({ message: 'SHIPPING_METHOD_UNAVAILABLE' }, 409),
+         orders: () => Promise.resolve(jsonResponse({ message: 'SHIPPING_METHOD_UNAVAILABLE' }, 409)),
       })
 
       render(<CheckoutPage />)
@@ -1179,7 +1194,7 @@ describe('checkout — shipping methods', () => {
    })
 
    it('reports a malformed order payload in Persian', async () => {
-      stubShipping([flat], { orders: async () => jsonResponse({ message: 'INVALID_ORDER_REQUEST' }, 400) })
+      stubShipping([flat], { orders: () => Promise.resolve(jsonResponse({ message: 'INVALID_ORDER_REQUEST' }, 400)) })
 
       render(<CheckoutPage />)
 
@@ -1233,7 +1248,7 @@ describe('checkout — shipping edge cases', () => {
       /* Without a threshold the method never becomes free on its own. */
       fireEvent.click(screen.getByRole('radio', { name: /آستانه‌دار/ }))
 
-      await waitFor(() => expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      await waitFor(() => { expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'); })
    })
 
    it('ignores malformed entries in the quote payload', async () => {
@@ -1250,10 +1265,10 @@ describe('checkout — shipping edge cases', () => {
 
    it('keeps the chosen method when the address changes but the quote is still valid', async () => {
       const other = { ...address, id: 'ad2', address: 'خیابان دوم' }
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url.startsWith('/api/shipping-methods')) return jsonResponse([flat])
-         if (url === '/api/store-settings') return jsonResponse(settings)
-         return jsonResponse([address, other])
+      const fetchMock = vi.fn((url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return Promise.resolve(jsonResponse([flat]))
+         if (url === '/api/store-settings') return Promise.resolve(jsonResponse(settings))
+         return Promise.resolve(jsonResponse([address, other]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -1325,11 +1340,10 @@ describe('checkout — shipping edge cases', () => {
    })
 
    it('reports a non-Error quote failure with a generic message', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         // eslint-disable-next-line @typescript-eslint/only-throw-error -- covering the non-Error rejection path
-         if (url.startsWith('/api/shipping-methods')) throw 'قطعی موقت'
-         if (url === '/api/store-settings') return jsonResponse(settings)
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return rejectWith(NON_ERROR_QUOTE);
+         if (url === '/api/store-settings') return Promise.resolve(jsonResponse(settings))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -1351,7 +1365,7 @@ describe('checkout — shipping edge cases', () => {
 
       fireEvent.click(await screen.findByRole('radio', { name: /بالای یک میلیون/ }))
 
-      await waitFor(() => expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'))
+      await waitFor(() => { expect(summaryRow('هزینه ارسال')).toContain('۴۵٬۰۰۰'); })
       expect(summaryRow('مبلغ نهایی تقریبی')).toContain('۴۵٬۲۶۲')
    })
 })

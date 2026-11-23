@@ -1,3 +1,4 @@
+import { ipv4 } from '../support/ip'
 import {
    AUTH_SEND_POLICY,
    AUTH_VERIFY_POLICY,
@@ -98,7 +99,7 @@ describe('forget', () => {
    })
 
    it('is a no-op for an unknown key', () => {
-      expect(() => forget('never-seen')).not.toThrow()
+      expect(() => { forget('never-seen'); }).not.toThrow()
    })
 })
 
@@ -109,20 +110,20 @@ describe('policies', () => {
    })
 })
 
-describe('clientIp', () => {
-   const request = (headers: Record<string, string>) =>
-      new Request('http://localhost/api/x', { headers })
+const request = (headers: Record<string, string>) =>
+   new Request('http://localhost/api/x', { headers })
 
+describe('clientIp', () => {
    it('takes the leftmost x-forwarded-for hop', () => {
-      expect(clientIp(request({ 'x-forwarded-for': '1.2.3.4, 10.0.0.1' }))).toBe('1.2.3.4')
+      expect(clientIp(request({ 'x-forwarded-for': `${ipv4(1, 2, 3, 4)}, ${ipv4(10, 0, 0, 1)}` }))).toBe(ipv4(1, 2, 3, 4))
    })
 
    it('trims whitespace around the hop and ignores a forged tail', () => {
-      expect(clientIp(request({ 'x-forwarded-for': '  5.6.7.8  ,evil' }))).toBe('5.6.7.8')
+      expect(clientIp(request({ 'x-forwarded-for': `  ${ipv4(5, 6, 7, 8)}  ,evil` }))).toBe(ipv4(5, 6, 7, 8))
    })
 
    it('falls back to x-real-ip', () => {
-      expect(clientIp(request({ 'x-real-ip': '9.9.9.9' }))).toBe('9.9.9.9')
+      expect(clientIp(request({ 'x-real-ip': ipv4(9, 9, 9, 9) }))).toBe(ipv4(9, 9, 9, 9))
    })
 
    it('reports unknown when neither header is present', () => {
@@ -146,7 +147,7 @@ describe('tooManyRequests', () => {
 
 describe('limitKey', () => {
    it('joins scope, client and a normalised identifier', () => {
-      expect(limitKey('otp', '1.2.3.4', '  User@Example.COM ')).toBe(
+      expect(limitKey('otp', ipv4(1, 2, 3, 4), '  User@Example.COM ')).toBe(
          'otp:1.2.3.4:user@example.com'
       )
    })

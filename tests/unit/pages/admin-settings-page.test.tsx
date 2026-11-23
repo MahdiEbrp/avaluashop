@@ -1,3 +1,4 @@
+import { rejectWith } from '../support/http'
 import SettingsPage from '@/app/admin/(dashboard)/settings/page'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -23,7 +24,7 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 function stubFetch(...responses: Promise<unknown>[]) {
-   for (const r of responses) r.catch(() => {})
+   for (const r of responses) r.catch(() => {/* noop */ })
    const queue = [...responses]
    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
       const next = queue.shift()
@@ -229,8 +230,7 @@ describe('admin settings page', () => {
 
    it('survives a rejection that is not an Error', async () => {
       /* Deliberately non-Error: the component must not crash on it. */
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(Promise.reject('plain string'))
+      stubFetch(rejectWith('plain string'))
 
       render(<SettingsPage />)
 
@@ -239,8 +239,7 @@ describe('admin settings page', () => {
 
    it('survives a non-Error rejection while saving', async () => {
       /* Deliberately non-Error: the component must not crash on it. */
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(jsonResponse(loaded), Promise.reject('plain string'))
+      stubFetch(jsonResponse(loaded), rejectWith('plain string'))
 
       render(<SettingsPage />)
 

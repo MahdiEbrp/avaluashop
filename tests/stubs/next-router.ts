@@ -3,5 +3,7 @@ import { vi } from 'vitest'
 
 const useRouter = vi.fn(() => routerMock)
 
-export default { useRouter }
+const nextRouter = { useRouter }
+
+export default nextRouter
 export { useRouter }

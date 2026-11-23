@@ -57,6 +57,7 @@ const config = [
          '**/src/generated/**',
          '**/*.config.{js,mjs,ts}',
          '**/next-env.d.ts',
+         '**/coverage/**',
       ],
    },
 

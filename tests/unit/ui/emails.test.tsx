@@ -26,7 +26,7 @@ beforeEach(() => {
 
 afterEach(() => {
    for (const key of ENV_KEYS) {
-      if (original[key] === undefined) delete process.env[key]
+      if (original[key] === undefined) Reflect.deleteProperty(process.env, key)
       else process.env[key] = original[key]
    }
 })

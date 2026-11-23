@@ -1,3 +1,5 @@
+import { noop } from '../support/noop'
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -70,27 +72,26 @@ beforeEach(() => {
    cartValue.cart = undefined as never
    cartValue.dispatchCart.mockClear()
    routerMock.push.mockClear()
-   for (const key of [...searchParams.keys()]) searchParams.delete(key)
+   for (const key of new Set(searchParams.keys())) searchParams.delete(key)
 })
 
 describe('guest cart line APIs', () => {
    it('adds a brand-new line through the product endpoint', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(product)))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(Response.json(product)))
       vi.stubGlobal('fetch', fetchMock)
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/product',
             expect.objectContaining({ method: 'POST' })
-         )
+         ); }
       )
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items[0]).toMatchObject({
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items[0]).toMatchObject({
          productId: 'p1',
          count: 1,
       })
@@ -98,15 +99,15 @@ describe('guest cart line APIs', () => {
    })
 
    it('swallows a failing product lookup', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 0 } as never} />)
-      await act(async () => {
+      render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
+      await act(() => {
          fireEvent.click(screen.getByRole('button', { name: /افزودن به سبد خرید/i }))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -114,7 +115,7 @@ describe('guest cart line APIs', () => {
    it('renders a stored line whose product payload is gone', () => {
       /* A cart persisted before the redesign may carry only the id, so every
          product field falls back gracefully. */
-      render(<Item cartItem={{ productId: 'p1', count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', count: 1 }} />)
 
       expect(screen.getAllByAltText('تصویر محصول').length).toBeGreaterThan(0)
       expect(screen.queryByText('Blue')).not.toBeInTheDocument()
@@ -124,30 +125,30 @@ describe('guest cart line APIs', () => {
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', product, count: 1 }] }))
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items).toHaveLength(0)
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items).toHaveLength(0)
    })
 
    it('increments from the quantity controls', async () => {
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', product, count: 1 }] }))
 
-      render(<Item cartItem={{ productId: 'p1', product, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items[0].count).toBe(2)
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items[0].count).toBe(2)
    })
 
    it('falls back to the plain price when there is no discount', () => {
-      render(<Item cartItem={{ productId: 'p9', product: { ...product, discount: 0 }, count: 1 } as never} />)
+      render(<Item cartItem={{ productId: 'p9', product: { ...product, discount: 0 }, count: 1 }} />)
 
       expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
    })
@@ -161,9 +162,9 @@ describe('product page cart button', () => {
       render(<ButtonComponent product={product} />)
 
       /* The count badge is disabled; the trailing + control is the increment. */
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
       expect(cartValue.dispatchCart).toHaveBeenCalled()
    })
@@ -174,30 +175,29 @@ describe('product page cart button', () => {
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getAllByRole('button')[0])
-      })
+      return Promise.resolve(); })
 
-      expect(cartValue.dispatchCart.mock.calls.at(-1)![0].items[0].count).toBe(1)
+      expect(cartValue.dispatchCart.mock.calls.at(-1)[0].items[0].count).toBe(1)
    })
 
    it('posts the increment when signed in', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({ items: [] })))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(Response.json({ items: [] })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ButtonComponent product={product} />)
 
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith(
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith(
             '/api/cart',
             expect.objectContaining({ body: JSON.stringify({ productId: 'p1', count: 2 }) })
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -205,21 +205,21 @@ describe('product page cart button', () => {
    it('renders a spinner while the request is in flight', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      let release: (value: Response) => void = () => {}
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
       vi.stubGlobal('fetch', vi.fn(() => pending))
 
       render(<ButtonComponent product={product} />)
-      await act(async () => {
-         fireEvent.click(screen.getAllByRole('button').at(-1)!)
-      })
+      await act(() => {
+         fireEvent.click(screen.getAllByRole('button').at(-1))
+      return Promise.resolve(); })
 
       expect(screen.getByRole('button')).toBeDisabled()
 
       await act(async () => {
-         release(new Response(JSON.stringify({ items: [] })))
+         release(Response.json({ items: [] }))
          await pending
       })
       vi.unstubAllGlobals()
@@ -265,10 +265,10 @@ describe('wishlist button failures', () => {
       authState.authenticated = true
       const fetchMock = vi
          .fn()
-         .mockResolvedValueOnce(new Response(JSON.stringify([])))
+         .mockResolvedValueOnce(Response.json([]))
          .mockRejectedValueOnce(new Error('offline'))
       vi.stubGlobal('fetch', fetchMock)
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistButton product={product} />)
       /* Wait for the button to settle: the initial wishlist read has landed and
@@ -276,11 +276,11 @@ describe('wishlist button failures', () => {
          handler rather than the disabled control. */
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button'))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -289,10 +289,10 @@ describe('wishlist button failures', () => {
       authState.authenticated = true
       const fetchMock = vi
          .fn()
-         .mockResolvedValueOnce(new Response(JSON.stringify([{ id: 'p1' }])))
+         .mockResolvedValueOnce(Response.json([{ id: 'p1' }]))
          .mockRejectedValueOnce(new Error('offline'))
       vi.stubGlobal('fetch', fetchMock)
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistButton product={product} />)
       /* Wait for the button to settle: the initial wishlist read has landed and
@@ -300,22 +300,20 @@ describe('wishlist button failures', () => {
          handler rather than the disabled control. */
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
 
-      await act(async () => {
+      await act(() => {
          fireEvent.click(screen.getByRole('button'))
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
 })
 
 describe('admin forms request failures', () => {
-   const failFetch = () =>
-      vi.fn(async () => new Response(JSON.stringify({ message: 'BOOM' }), { status: 400 }))
 
    it('banner create failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<BannerForm initialData={null} />)
@@ -323,12 +321,12 @@ describe('admin forms request failures', () => {
       await user().type(screen.getByPlaceholderText('Banner label'), 'Sale')
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+      await waitFor(() => { expect(toast.error).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('brand create failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<BrandForm initialData={null} />)
@@ -337,12 +335,12 @@ describe('admin forms request failures', () => {
       await user().type(screen.getByPlaceholderText('https://example.com/logo.png'), 'https://x/l.png')
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalled())
+      await waitFor(() => { expect(toast.error).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('category delete failure mentions products', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
@@ -353,23 +351,22 @@ describe('admin forms request failures', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith(
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith(
             'Make sure you removed all products using this category first.'
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
 
    it('product delete failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
@@ -397,21 +394,21 @@ describe('admin forms request failures', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await waitFor(() =>
          expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
       )
       await user().click(screen.getByRole('button', { name: 'Continue' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 
    it('admin user form falls back to a generic message', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (_url: string, _init?: RequestInit) => new Response('not json', { status: 503 }))
+         vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('not json', { status: 503 })))
       )
       const { toast } = await import('react-hot-toast')
 
@@ -422,14 +419,14 @@ describe('admin forms request failures', () => {
       )
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('503'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('503'); })
       vi.unstubAllGlobals()
    })
 
    it('payment form falls back to the generic failure copy', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify({}), { status: 400 }))
+         vi.fn(() => Promise.resolve(Response.json({}, { status: 400 })))
       )
       const { toast } = await import('react-hot-toast')
 
@@ -450,14 +447,14 @@ describe('admin forms request failures', () => {
       )
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('400'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('400'); })
       vi.unstubAllGlobals()
    })
 })
 
 describe('profile order form add path', () => {
    it('creates through the products endpoint when there is no initial data', async () => {
-      const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}'))
+      const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}')))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<ProfileOrderForm initialData={null} />)
@@ -471,7 +468,7 @@ describe('profile order form add path', () => {
 
       await user().click(screen.getByRole('button', { name: /save/i }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/products')
       vi.unstubAllGlobals()
    })
@@ -479,7 +476,7 @@ describe('profile order form add path', () => {
 
 describe('address form create failure', () => {
    it('reports a failed create', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<AddressForm initialData={null} />)
@@ -490,7 +487,7 @@ describe('address form create failure', () => {
       await user().type(screen.getByPlaceholderText('Street - Building Number'), 'Main St')
       await user().click(screen.getByRole('button', { name: 'Create' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })
@@ -507,7 +504,8 @@ describe('profile switcher', () => {
 
       await user().click(screen.getAllByRole('button')[0])
 
-      expect((await screen.findAllByText('Addresses')).length).toBeGreaterThan(0)
+      const findAllByTextResult = await screen.findAllByText('Addresses')
+      expect(findAllByTextResult.length).toBeGreaterThan(0)
       expect(screen.getAllByText('Orders').length).toBeGreaterThan(0)
    })
 })
@@ -570,28 +568,27 @@ describe('native modal', () => {
 
 describe('logout failure paths', () => {
    it('admin logout logs a network failure', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('x'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
 
    it('storefront logout does not reload on a non-200 answer', async () => {
-      vi.stubGlobal('fetch', vi.fn(async (_url: string, _init?: RequestInit) => new Response('{}', { status: 500 })))
+      vi.stubGlobal('fetch', vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 500 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
       await user().click(await screen.findByText(/خروج از حساب/i))
 
-      await waitFor(() =>
-         expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' })
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' }); }
       )
       expect(reload).not.toHaveBeenCalled()
       vi.unstubAllGlobals()

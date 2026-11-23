@@ -7,13 +7,13 @@ import { vi } from 'vitest'
  * test can simulate a finished upload.
  */
 export const uploadWidget = vi.fn()
-export const widgetState: { onSuccess?: (result: unknown) => void; opens: number } = {
+export const widgetState: { onSuccess?: (result?: unknown) => void; opens: number } = {
    opens: 0,
 }
 
 export const CldUploadWidget = (props: {
    children?: (args: { open: () => void }) => unknown
-   onSuccess?: (result: unknown) => void
+   onSuccess?: (result?: unknown) => void
 }) => {
    widgetState.onSuccess = props.onSuccess
 

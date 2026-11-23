@@ -33,7 +33,7 @@ describe('calculateDiscountAmount', () => {
 
    it('is zero without a discount object', () => {
       expect(calculateDiscountAmount(1000, null)).toBe(0)
-      expect(calculateDiscountAmount(1000, undefined)).toBe(0)
+      expect(calculateDiscountAmount(1000)).toBe(0)
    })
 
    it('is zero for an exhausted code', () => {

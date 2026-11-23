@@ -1,3 +1,4 @@
+import { noop } from './unit/support/noop'
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
@@ -29,10 +30,10 @@ if (!globalThis.matchMedia) {
          matches: false,
          media: query,
          onchange: null,
-         addListener: () => {},
-         removeListener: () => {},
-         addEventListener: () => {},
-         removeEventListener: () => {},
+         addListener: noop,
+         removeListener: noop,
+         addEventListener: noop,
+         removeEventListener: noop,
          dispatchEvent: () => false,
       }),
    })
@@ -40,28 +41,28 @@ if (!globalThis.matchMedia) {
 
 if (!globalThis.ResizeObserver) {
    globalThis.ResizeObserver = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-   } as unknown as typeof ResizeObserver
+      observe = noop
+      unobserve = noop
+      disconnect = noop
+   }
 }
 
 if (typeof Element !== 'undefined') {
    if (!Element.prototype.scrollIntoView) {
-      Element.prototype.scrollIntoView = () => {}
+      Element.prototype.scrollIntoView = noop
    }
 
    if (!Element.prototype.hasPointerCapture) {
       Element.prototype.hasPointerCapture = () => false
-      Element.prototype.releasePointerCapture = () => {}
+      Element.prototype.releasePointerCapture = noop
    }
 }
 
 if (!globalThis.IntersectionObserver) {
    globalThis.IntersectionObserver = class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
+      observe = noop
+      unobserve = noop
+      disconnect = noop
       takeRecords() {
          return []
       }

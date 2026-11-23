@@ -1,3 +1,4 @@
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -5,6 +6,7 @@ import EditProfilePage from '@/app/(store)/(routes)/profile/edit/page'
 import { UserNav } from '@/components/native/nav/user'
 import AdminImageUpload from '@/components/admin/ui/image-upload'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -17,28 +19,28 @@ const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 afterEach(() => {
    vi.unstubAllGlobals()
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 })
 
 describe('profile edit page loader', () => {
    it('logs a refused profile read', async () => {
-      document.cookie = 'logged-in=true'
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      setCookie('logged-in=true')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<EditProfilePage />)
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
    it('renders the edit card once the profile arrives', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(JSON.stringify({ id: 'u1', name: 'Ada', phone: '0912', email: 'a@b.co' }))
+            () =>
+               Promise.resolve(Response.json({ id: 'u1', name: 'Ada', phone: '0912', email: 'a@b.co' }))
          )
       )
 
@@ -50,10 +52,10 @@ describe('profile edit page loader', () => {
 
 describe('storefront user nav logout', () => {
    it('reloads after a successful logout', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
@@ -61,34 +63,33 @@ describe('storefront user nav logout', () => {
       const logout = await screen.findByText('خروج از حساب')
       await user().click(logout)
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' })
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' }); }
       )
-      await waitFor(() => expect(reload).toHaveBeenCalled())
+      await waitFor(() => { expect(reload).toHaveBeenCalled(); })
    })
 
    it('does not reload when the server refuses', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
       await user().click(await screen.findByText('خروج از حساب'))
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       expect(reload).not.toHaveBeenCalled()
    })
 
    it('logs a network failure', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
       await user().click(await screen.findByText('خروج از حساب'))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       errorSpy.mockRestore()
    })
 
@@ -116,19 +117,19 @@ describe('compare image without a position callback', () => {
       const { default: CompareImage } = await import('@/components/native/CompareImage')
 
       class Observer {
-         static live: Observer[] = []
+         static readonly live: Observer[] = []
          cb: ResizeObserverCallback
          constructor(cb: ResizeObserverCallback) {
             this.cb = cb
             Observer.live.push(this)
          }
-         observe() {}
-         unobserve() {}
-         disconnect() {}
+         observe() {/* noop */ }
+         unobserve() {/* noop */ }
+         disconnect() {/* noop */ }
          fire(width: number) {
             this.cb(
                [{ target: { getBoundingClientRect: () => ({ width, height: width }) } }] as never,
-               this as never
+               this
             )
          }
       }
@@ -141,22 +142,22 @@ describe('compare image without a position callback', () => {
 
       const { container } = render(<CompareImage leftImage="/l.png" rightImage="/r.png" />)
 
-      const left = container.querySelector('[data-testid="left-image"]')!
-      const right = container.querySelector('[data-testid="right-image"]')!
+      const left = container.querySelector('[data-testid="left-image"]')
+      const right = container.querySelector('[data-testid="right-image"]')
 
-      await act(async () => {
+      await act(() => {
          fireEvent.load(left)
          fireEvent.load(right)
-      })
-      await act(async () => {
-         Observer.live.forEach((observer) => observer.fire(400))
-      })
+      return Promise.resolve(); })
+      await act(() => {
+         for (const observer of Observer.live) observer.fire(400)
+      return Promise.resolve(); })
 
-      const surface = container.querySelector('[data-testid="container"]')!
-      await act(async () => {
+      const surface = container.querySelector('[data-testid="container"]')
+      await act(() => {
          fireEvent.mouseDown(surface, { pageX: 200, pageY: 0 })
          fireEvent.mouseUp(document)
-      })
+      return Promise.resolve(); })
 
       expect(surface).toBeInTheDocument()
    })
@@ -182,9 +183,9 @@ describe('profile pages for a signed-out visitor', () => {
       const { default: ProfileOrderPage } = await import(
          '@/app/(store)/(routes)/profile/orders/[orderId]/page'
       )
-      await act(async () => {
+      await act(() => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o1' })} />)
-      })
+      return Promise.resolve(); })
 
       expect(fetchMock).not.toHaveBeenCalled()
    })
@@ -193,14 +194,14 @@ describe('profile pages for a signed-out visitor', () => {
 describe('admin logout button', () => {
    it('does not reload when the server refuses', async () => {
       const { LogoutButton } = await import('@/components/admin/logout-button')
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
       expect(reload).not.toHaveBeenCalled()
    })
 })
@@ -222,7 +223,7 @@ describe('image upload without a secure url', () => {
          widgetState.onSuccess?.({ info: {} })
       })
       act(() => {
-         widgetState.onSuccess?.(undefined)
+         widgetState.onSuccess?.()
       })
 
       expect(onChange).not.toHaveBeenCalled()

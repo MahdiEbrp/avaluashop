@@ -5,8 +5,17 @@
 export const isEmailValid = (email: string) =>
    /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/.test(email)
 
-export const isPhoneNumberValid = (phone: string) =>
-   /^\+(?:[0-9] ?){6,14}[0-9]$/.test(phone)
+const DIGITS = /^\d+$/
 
-export const isIranianPhoneNumberValid = (phone: string) =>
-   /^0[0-9]{2,}[0-9]{7,}$/.test(phone)
+/** "+" then 7 to 15 digits, optionally grouped by single spaces. */
+export const isPhoneNumberValid = (phone: string) => {
+   if (!phone.startsWith('+')) return false
+
+   const groups = phone.slice(1).split(' ')
+   const digits = groups.join('').length
+
+   return groups.every((group) => DIGITS.test(group)) && digits >= 7 && digits <= 15
+}
+
+/** A leading 0 followed by at least nine more digits. */
+export const isIranianPhoneNumberValid = (phone: string) => /^0\d{9,}$/.test(phone)

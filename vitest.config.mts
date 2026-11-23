@@ -75,8 +75,15 @@ export default defineConfig({
          reportsDirectory: './coverage',
          include: ['src/**/*.{ts,tsx}'],
          /* Generated Prisma output is not hand-written; `src/types` holds
-            interface-only modules with no runtime code to execute. */
-         exclude: ['src/generated/**', 'src/types/**'],
+            interface-only modules with no runtime code to execute. The carrier
+            adapter contract is an interface and its barrel only re-exports, so
+            neither has statements to cover. */
+         exclude: [
+            'src/generated/**',
+            'src/types/**',
+            'src/lib/shipping-carriers/adapter.ts',
+            'src/lib/shipping-carriers/index.ts',
+         ],
          thresholds: {
             lines: 100,
             functions: 100,

@@ -1,3 +1,4 @@
+import { rejectWith } from '../support/http'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -35,7 +36,7 @@ beforeEach(() => {
 const openDeleteModal = async () => {
    const destructive = screen
       .getAllByRole('button')
-      .find((button) => button.className.includes('destructive'))!
+      .find((button) => button.className.includes('destructive'))
 
    await user().click(destructive)
    await screen.findByRole('button', { name: 'Continue' })
@@ -65,10 +66,9 @@ describe('banner form image field', () => {
       expect(destructive.length).toBe(2)
       fireEvent.click(destructive[1])
 
-      await waitFor(() =>
-         expect(
+      await waitFor(() => { expect(
             screen.getAllByRole('button').filter((b) => b.className.includes('destructive'))
-         ).toHaveLength(1)
+         ).toHaveLength(1); }
       )
    })
 
@@ -91,7 +91,7 @@ describe('brand form delete confirmation', () => {
       render(
          <BrandForm
             initialData={
-               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' } as never
+               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' }
             }
          />
       )
@@ -164,37 +164,37 @@ describe('admin order form error handling', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(JSON.stringify({ message: 'Order is locked.' }), { status: 409 })
+            () =>
+               Promise.resolve(Response.json({ message: 'Order is locked.' }, { status: 409 }))
          )
       )
 
       render(<AdminOrderForm initialData={initialData as never} />)
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Order is locked.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Order is locked.'); })
       vi.unstubAllGlobals()
    })
 
    it('falls back to the status code when the body is not JSON', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => new Response('boom', { status: 503 })))
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('boom', { status: 503 }))))
 
       render(<AdminOrderForm initialData={initialData as never} />)
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('503'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('503'); })
       vi.unstubAllGlobals()
    })
 
    it('falls back to a generic message for a thrown non-Error', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject('offline')))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(<AdminOrderForm initialData={initialData as never} />)
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })
@@ -202,7 +202,7 @@ describe('admin order form error handling', () => {
 describe('admin payment form error handling', () => {
    it('falls back to a generic message for a thrown non-Error', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject('offline')))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <PaymentForm
@@ -222,7 +222,7 @@ describe('admin payment form error handling', () => {
 
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })

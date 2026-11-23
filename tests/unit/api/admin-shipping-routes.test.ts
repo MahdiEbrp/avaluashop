@@ -111,7 +111,7 @@ describe('POST /api/admin/shipping-methods', () => {
    })
 
    it('stores a free method at zero cost', async () => {
-      await POST(json({ ...validBody, type: 'Free', amount: 9_000 }, USER))
+      await POST(json({ ...validBody, type: 'Free', amount: 9000 }, USER))
 
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
          data: expect.objectContaining({ amount: 0, freeAbove: null }),
@@ -221,7 +221,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    })
 
    it('rejects a threshold on a type that cannot use it', async () => {
-      const response = await PATCH(json({ freeAbove: 5_000 }, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({ freeAbove: 5000 }, USER), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({

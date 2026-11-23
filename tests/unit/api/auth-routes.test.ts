@@ -1,3 +1,4 @@
+import { ipv4 } from '../support/ip'
 import { POST as emailTry } from '@/app/api/auth/otp/email/try/route'
 import { POST as emailVerify } from '@/app/api/auth/otp/email/verify/route'
 import { POST as phoneTry } from '@/app/api/auth/otp/phone/try/route'
@@ -18,7 +19,7 @@ vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule
 const request = (body: unknown, headers: Record<string, string> = {}) =>
    new NextRequest('http://localhost/api/auth', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-forwarded-for': '1.2.3.4', ...headers },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': ipv4(1, 2, 3, 4), ...headers },
       body: JSON.stringify(body),
    })
 
@@ -100,19 +101,19 @@ describe('POST /api/auth/otp/email/try', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const response = await emailTry(brokenRequest() as never)
+      const response = await emailTry(brokenRequest())
 
       expect(response.status).toBe(500)
    })
 })
 
-describe('POST /api/auth/otp/email/verify', () => {
-   const stubMatch = () => {
-      prismaMock.user.findFirst.mockResolvedValue({ id: 'u1' })
-      prismaMock.user.update.mockResolvedValue({ id: 'u1' })
-      prismaMock.product.findMany.mockResolvedValue([])
-   }
+const stubMatch = () => {
+   prismaMock.user.findFirst.mockResolvedValue({ id: 'u1' })
+   prismaMock.user.update.mockResolvedValue({ id: 'u1' })
+   prismaMock.product.findMany.mockResolvedValue([])
+}
 
+describe('POST /api/auth/otp/email/verify', () => {
    it('verifies, merges the guest cart and sets both cookies', async () => {
       stubMatch()
 
@@ -245,11 +246,13 @@ describe('POST /api/auth/otp/phone/try', () => {
          await phoneTry(request({ phone: '09123456789' }))
       }
 
-      expect((await phoneTry(request({ phone: '09123456789' }))).status).toBe(429)
+      const phoneTryResult = await phoneTry(request({ phone: '09123456789' }))
+      expect(phoneTryResult.status).toBe(429)
    })
 
    it('answers 500 for a malformed body', async () => {
-      expect((await phoneTry(brokenRequest() as never)).status).toBe(500)
+      const phoneTryResult2 = await phoneTry(brokenRequest())
+      expect(phoneTryResult2.status).toBe(500)
    })
 })
 
@@ -284,15 +287,18 @@ describe('POST /api/auth/otp/phone/verify', () => {
          await phoneVerify(request({ phone: '09123456789', OTP: '00000' }))
       }
 
-      expect((await phoneVerify(request({ phone: '09123456789', OTP: '00000' }))).status).toBe(429)
+      const phoneVerifyResult = await phoneVerify(request({ phone: '09123456789', OTP: '00000' }))
+      expect(phoneVerifyResult.status).toBe(429)
    })
 
    it('rejects an invalid body', async () => {
-      expect((await phoneVerify(request({ phone: '1', OTP: '' }))).status).toBe(400)
+      const phoneVerifyResult2 = await phoneVerify(request({ phone: '1', OTP: '' }))
+      expect(phoneVerifyResult2.status).toBe(400)
    })
 
    it('answers 500 for a malformed body', async () => {
-      expect((await phoneVerify(brokenRequest() as never)).status).toBe(500)
+      const phoneVerifyResult3 = await phoneVerify(brokenRequest())
+      expect(phoneVerifyResult3.status).toBe(500)
    })
 })
 
@@ -319,7 +325,8 @@ describe('POST /api/admin/auth/otp/email/try', () => {
    })
 
    it('rejects an invalid address', async () => {
-      expect((await adminEmailTry(request({ email: 'bad' }))).status).toBe(400)
+      const adminEmailTryResult = await adminEmailTry(request({ email: 'bad' }))
+      expect(adminEmailTryResult.status).toBe(400)
    })
 
    it('rate limits sends', async () => {
@@ -329,11 +336,13 @@ describe('POST /api/admin/auth/otp/email/try', () => {
          await adminEmailTry(request({ email: 'owner@example.com' }))
       }
 
-      expect((await adminEmailTry(request({ email: 'owner@example.com' }))).status).toBe(429)
+      const adminEmailTryResult2 = await adminEmailTry(request({ email: 'owner@example.com' }))
+      expect(adminEmailTryResult2.status).toBe(429)
    })
 
    it('answers 500 for a malformed body', async () => {
-      expect((await adminEmailTry(brokenRequest() as never)).status).toBe(500)
+      const adminEmailTryResult3 = await adminEmailTry(brokenRequest())
+      expect(adminEmailTryResult3.status).toBe(500)
    })
 })
 
@@ -360,8 +369,9 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
    it('rejects a wrong OTP', async () => {
       prismaMock.owner.findFirst.mockResolvedValue(null)
 
+      const adminEmailVerifyResult = await adminEmailVerify(request({ email: 'owner@example.com', OTP: '00000' }))
       expect(
-         (await adminEmailVerify(request({ email: 'owner@example.com', OTP: '00000' }))).status
+         adminEmailVerifyResult.status
       ).toBe(401)
    })
 
@@ -384,13 +394,15 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
          await adminEmailVerify(request({ email: 'owner@example.com', OTP: '00000' }))
       }
 
+      const adminEmailVerifyResult2 = await adminEmailVerify(request({ email: 'owner@example.com', OTP: '00000' }))
       expect(
-         (await adminEmailVerify(request({ email: 'owner@example.com', OTP: '00000' }))).status
+         adminEmailVerifyResult2.status
       ).toBe(429)
    })
 
    it('answers 500 for a malformed body', async () => {
-      expect((await adminEmailVerify(brokenRequest() as never)).status).toBe(500)
+      const adminEmailVerifyResult3 = await adminEmailVerify(brokenRequest())
+      expect(adminEmailVerifyResult3.status).toBe(500)
    })
 
    it('normalises a non-Error rejection', async () => {
@@ -431,16 +443,16 @@ describe('logout endpoints', () => {
    })
 })
 
-describe('validation errors surfaced from the persistence layer', () => {
-   /* `getErrorResponse(400, 'failed validations')` is the contract for a
-      ZodError anywhere in the handler, not just from the body parser. */
-   const zodError = async () => {
-      const { ZodError } = await import('zod')
-      return new ZodError([
-         { code: 'custom', message: 'bad row', path: ['email'] },
-      ])
-   }
+/* `getErrorResponse(400, 'failed validations')` is the contract for a
+   ZodError anywhere in the handler, not just from the body parser. */
+const zodError = async () => {
+   const { ZodError } = await import('zod')
+   return new ZodError([
+      { code: 'custom', message: 'bad row', path: ['email'] },
+   ])
+}
 
+describe('validation errors surfaced from the persistence layer', () => {
    it('answers 400 when the email try route hits a validation error', async () => {
       prismaMock.user.upsert.mockRejectedValueOnce(await zodError())
 

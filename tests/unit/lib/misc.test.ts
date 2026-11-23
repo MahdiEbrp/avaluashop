@@ -1,10 +1,15 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 
 import { omitUser } from '@/lib/omit'
-import { prismaMock } from '../support/db'
 import { generateSerial } from '@/lib/serial'
 import { avaluaTableFeatures } from '@/lib/table-features'
 import { getTweets } from '@/lib/twitter'
+
+/** The global and client shapes this file pokes at, typed without `any`. */
+const globalState = globalThis as typeof globalThis & { prisma?: unknown }
+interface Probe {
+   options?: { adapter?: { config?: { connectionString?: string }; connectionString?: string } }
+}
 
 describe('omitUser', () => {
    it('drops the named keys without mutating the source', () => {
@@ -42,7 +47,7 @@ describe('generateSerial', () => {
       const segments = serial.split('-')
 
       expect(segments).toHaveLength(3)
-      segments.forEach((segment) => expect(segment).toMatch(/^\d{4}$/))
+      for (const segment of segments) expect(segment).toMatch(/^\d{4}$/)
    })
 
    it('produces uppercase alphanumerics when asked', () => {
@@ -73,14 +78,14 @@ describe('avaluaTableFeatures', () => {
    })
 })
 
-describe('google oauth', () => {
-   /* The module captures its configuration at import time, so each test that
-      cares about env imports it fresh. */
-   const load = async () => {
-      vi.resetModules()
-      return await import('@/lib/google')
-   }
+/* The module captures its configuration at import time, so each test that
+   cares about env imports it fresh. */
+const load = async () => {
+   vi.resetModules()
+   return await import('@/lib/google')
+}
 
+describe('google oauth', () => {
    it('builds a consent URL with both scopes and the configured client id', async () => {
       process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ID = 'client-123'
       const { getGoogleURL } = await load()
@@ -99,7 +104,7 @@ describe('google oauth', () => {
    it('posts the exchange and returns the token payload', async () => {
       const { getGoogleTokens } = await load()
       const fetchMock = vi.fn().mockResolvedValue(
-         new Response(JSON.stringify({ access_token: 'at', id_token: 'it' }), {
+         Response.json({ access_token: 'at', id_token: 'it' }, {
             headers: { 'content-type': 'application/json' },
          })
       )
@@ -133,7 +138,7 @@ describe('google oauth', () => {
    it('fetches the profile with the bearer token', async () => {
       const { getGoogleUser } = await load()
       const fetchMock = vi.fn().mockResolvedValue(
-         new Response(JSON.stringify({ email: 'a@b.co' }), {
+         Response.json({ email: 'a@b.co' }, {
             headers: { 'content-type': 'application/json' },
          })
       )
@@ -151,7 +156,7 @@ describe('google oauth', () => {
    it('logs and rethrows profile failures', async () => {
       const { getGoogleUser } = await load()
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('bad token')))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       await expect(getGoogleUser({ id_token: 'i', access_token: 'a' })).rejects.toThrow(
          'bad token'
@@ -161,8 +166,8 @@ describe('google oauth', () => {
 
    it('normalises non-Error profile failures', async () => {
       const { getGoogleUser } = await load()
-      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(undefined))
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(null))
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       await expect(getGoogleUser({ id_token: 'i', access_token: 'a' })).rejects.toThrow(
          'Unknown error'
@@ -206,7 +211,7 @@ describe('getTweets', () => {
    })
 
    it('expands authors, media and referenced tweets', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(payload))))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(payload)))
 
       const tweets = await getTweets(['t1', 't0'])
 
@@ -223,11 +228,11 @@ describe('getTweets', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn().mockResolvedValue(
-            new Response(
-               JSON.stringify({
+            Response.json(
+               {
                   data: [{ id: 't9', text: 'plain', author_id: 'a1' }],
                   includes: { users: [{ id: 'a1' }], tweets: [], media: [] },
-               })
+               }
             )
          )
       )
@@ -239,13 +244,13 @@ describe('getTweets', () => {
    })
 
    it('returns an empty list when the API has no data', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({}))))
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({})))
 
       await expect(getTweets(['t'])).resolves.toEqual([])
    })
 
    it('asks for the documented expansions', async () => {
-      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] })))
+      const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: [] }))
       vi.stubGlobal('fetch', fetchMock)
 
       await getTweets(['a', 'b'])
@@ -259,30 +264,27 @@ describe('getTweets', () => {
 describe('lib/prisma', () => {
    afterEach(() => {
       vi.resetModules()
-      delete (globalThis as any).prisma
+      delete globalState.prisma
    })
 
    it('creates one client with the pg adapter and reuses it', async () => {
-      const constructorSpy = vi.spyOn(PrismaPg.prototype as any, 'constructor')
-      void constructorSpy
 
       const { default: prisma } = await import('@/lib/prisma')
       const { default: again } = await import('@/lib/prisma')
 
       expect(prisma).toBe(again)
-      expect((globalThis as any).prisma).toBe(prisma)
-      expect((prisma as any).options).toBeDefined()
+      expect(globalState.prisma).toBe(prisma)
+      expect((prisma as unknown as Probe).options).toBeDefined()
    })
 
    it('wires the adapter with the pooled connection string', async () => {
       const { default: prisma } = await import('@/lib/prisma')
-      const adapter = (prisma as any).options?.adapter
+      const adapter = (prisma as unknown as Probe).options?.adapter
 
       expect(adapter).toBeInstanceOf(PrismaPg)
-      expect(adapter.config?.connectionString ?? adapter.connectionString).toBe(
+      expect(adapter?.config?.connectionString ?? adapter?.connectionString).toBe(
          process.env.DATABASE_URL
       )
    })
 })
 
-void prismaMock

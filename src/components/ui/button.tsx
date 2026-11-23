@@ -20,6 +20,9 @@ const buttonVariants = cva(
             link: 'text-primary underline-offset-4 hover:underline',
             /** Chrome-free icon toggle, e.g. the mobile nav trigger. */
             bare: 'text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0',
+            /** Outline button in the brand colour, e.g. the cart trigger. */
+            brand:
+               'border border-primary/30 bg-transparent text-primary shadow-sm hover:bg-accent',
             /** Outline-shaped command-palette trigger. */
             search:
                'border border-input bg-transparent shadow-sm justify-start text-sm font-light text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -29,6 +32,10 @@ const buttonVariants = cva(
             sm: 'h-8 rounded-md px-3 text-xs',
             lg: 'h-10 rounded-md px-8',
             icon: 'h-9 w-9',
+            /** Square header control with softer corners. */
+            tile: 'h-10 w-10 rounded-xl',
+            /** Labelled header action with softer corners. */
+            wide: 'h-10 gap-2 rounded-xl px-4',
          },
       },
       defaultVariants: {

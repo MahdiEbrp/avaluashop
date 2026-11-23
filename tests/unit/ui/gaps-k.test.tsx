@@ -1,3 +1,5 @@
+import { rejectWith } from '../support/http'
+import { noop } from '../support/noop'
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -6,7 +8,7 @@ import { UserForm as AdminUserForm } from '@/app/admin/(dashboard)/users/[userId
 import { UserContextProvider, useUserContext } from '@/state/User'
 import { toast, useToast } from '@/components/ui/use-toast'
 import { widgetState } from '../../stubs/next-cloudinary'
-import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -35,26 +37,24 @@ describe('admin product form image list', () => {
       })
 
       /* One thumbnail now exists: its trash button removes that very URL. */
-      await waitFor(() =>
-         expect(
+      await waitFor(() => { expect(
             screen.getAllByRole('button').filter((b) => b.className.includes('destructive'))
-         ).toHaveLength(1)
+         ).toHaveLength(1); }
       )
 
       act(() => {
          widgetState.onSuccess?.({ info: { secure_url: 'https://cdn/second.png' } })
       })
 
-      await waitFor(() =>
-         expect(
+      await waitFor(() => { expect(
             screen.getAllByRole('button').filter((b) => b.className.includes('destructive'))
-         ).toHaveLength(2)
+         ).toHaveLength(2); }
       )
    })
 
    it('reports a failed delete with the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
 
       render(
          <ProductForm
@@ -79,17 +79,17 @@ describe('admin product form image list', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .filter((button) => button.className.includes('destructive'))
-      await user().click(destructive[0])
+         .find((button) => button.className.includes('destructive'))
+      await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
 
-      await waitFor(() => expect(hot.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(hot.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 
    it('reports a rejected save with the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
 
       render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[{ id: 'b1', title: 'Nike' }] as never} initialData={null} />)
 
@@ -102,13 +102,15 @@ describe('admin product form image list', () => {
       await user().type(stock, '5')
 
       await user().click(screen.getAllByRole('combobox')[0])
-      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      const findAllByTextResult = await screen.findAllByText('Shoes')
+      await user().click(findAllByTextResult.at(-1))
       await user().click(screen.getAllByRole('combobox')[1])
-      await user().click((await screen.findAllByText('Nike')).at(-1)!)
+      const findAllByTextResult2 = await screen.findAllByText('Nike')
+      await user().click(findAllByTextResult2.at(-1))
 
       await user().click(screen.getByRole('button', { name: /create/i }))
 
-      await waitFor(() => expect(hot.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(hot.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })
@@ -116,7 +118,7 @@ describe('admin product form image list', () => {
 describe('admin user form error normalisation', () => {
    it('surfaces a non-Error rejection as the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject('offline')))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <AdminUserForm
@@ -128,32 +130,32 @@ describe('admin user form error normalisation', () => {
 
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(hot.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(hot.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })
 
 describe('user context refresh adapter', () => {
    it('refreshUser kicks off a fetch without being awaited', async () => {
-      document.cookie = 'logged-in=true'
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'u1', name: 'Ada' })))
+      setCookie('logged-in=true')
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ id: 'u1', name: 'Ada' })))
       vi.stubGlobal('fetch', fetchMock)
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(result.current.user).not.toBeNull())
+      await waitFor(() => { expect(result.current.user).not.toBeNull(); })
 
-      await act(async () => {
+      await act(() => {
          result.current.refreshUser()
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
-   it('is a guest without a session cookie so no fetch happens', async () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   it('is a guest without a session cookie so no fetch happens', () => {
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
 
@@ -163,7 +165,7 @@ describe('user context refresh adapter', () => {
       expect(result.current.loading).toBe(false)
       expect(fetchMock).not.toHaveBeenCalled()
       vi.unstubAllGlobals()
-   })
+   return Promise.resolve(); })
 })
 
 describe('toast retention timer', () => {
@@ -174,7 +176,7 @@ describe('toast retention timer', () => {
          toast({ title: 'expiring' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       const entry = result.current.toasts[0]
 
@@ -187,54 +189,54 @@ describe('toast retention timer', () => {
       })
       vi.useRealTimers()
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(0))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(0); })
    })
 })
 
 describe('user context refreshUser guards', () => {
    it('does nothing for a guest', async () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await act(async () => {
+      await act(() => {
          result.current.refreshUser()
-      })
+      return Promise.resolve(); })
 
       expect(fetchMock).not.toHaveBeenCalled()
       vi.unstubAllGlobals()
    })
 
    it('logs a failure from the manual refresh path', async () => {
-      document.cookie = 'logged-in=true'
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      setCookie('logged-in=true')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       const fetchMock = vi
          .fn()
-         .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'u1', name: 'Ada' })))
+         .mockResolvedValueOnce(Response.json({ id: 'u1', name: 'Ada' }))
          .mockRejectedValueOnce(new Error('offline'))
       vi.stubGlobal('fetch', fetchMock)
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(result.current.user).not.toBeNull())
+      await waitFor(() => { expect(result.current.user).not.toBeNull(); })
 
-      await act(async () => {
+      await act(() => {
          result.current.refreshUser()
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 })
 
 describe('user context cancellation', () => {
    it('ignores a profile response that lands after unmount', async () => {
-      document.cookie = 'logged-in=true'
-      let release: (value: Response) => void = () => {}
+      setCookie('logged-in=true')
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -247,49 +249,49 @@ describe('user context cancellation', () => {
       unmount()
 
       /* The in-flight response resolves after the effect cleaned up. */
-      release(new Response(JSON.stringify({ id: 'u1', name: 'Late' })))
+      release(Response.json({ id: 'u1', name: 'Late' }))
       await act(async () => {
          await Promise.resolve()
       })
 
       expect(result.current.user).toBeNull()
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
 describe('user context with an empty profile payload', () => {
    it('keeps the user null when the API answers null', async () => {
-      document.cookie = 'logged-in=true'
-      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(null))))
+      setCookie('logged-in=true')
+      vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(Response.json(null))))
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
+      await waitFor(() => { expect(globalThis.fetch).toHaveBeenCalled(); })
 
-      await act(async () => {
+      await act(() => {
          result.current.refreshUser()
-      })
+      return Promise.resolve(); })
 
       expect(result.current.user).toBeNull()
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
 describe('user context mount failure', () => {
    it('logs a rejected profile fetch', async () => {
-      document.cookie = 'logged-in=true'
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      setCookie('logged-in=true')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       expect(result.current.user).toBeNull()
 
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 })

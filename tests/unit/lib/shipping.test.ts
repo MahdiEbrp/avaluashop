@@ -130,8 +130,7 @@ describe('normalizeCity', () => {
    it('collapses whitespace and tolerates junk input', () => {
       expect(normalizeCity('  تهران   نو ')).toBe('تهران نو')
       expect(normalizeCity(null)).toBe('')
-      // eslint-disable-next-line unicorn/no-useless-undefined -- the parameter accepts undefined
-      expect(normalizeCity(undefined)).toBe('')
+      expect(normalizeCity()).toBe('')
    })
 })
 

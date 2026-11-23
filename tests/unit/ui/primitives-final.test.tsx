@@ -12,14 +12,7 @@ import {
    CommandSeparator,
    CommandShortcut,
 } from '@/components/admin/ui/command'
-import {
-   Dialog,
-   DialogContent,
-   DialogFooter,
-   DialogHeader,
-   DialogTitle,
-   DialogTrigger,
-} from '@/components/admin/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/admin/ui/dialog'
 import {
    Select,
    SelectContent,
@@ -250,7 +243,7 @@ describe('storefront user nav items', () => {
 
       await user().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(2))
+      await waitFor(() => { expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(2); })
       expect(screen.getAllByText('سفارش‌های من').length).toBeGreaterThan(0)
    })
 })

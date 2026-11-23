@@ -30,10 +30,10 @@ describe('admin order sort filter', () => {
       render(<AdminSortBy initialData="newest" />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('جدیدترین سفارش')).at(-1)!)
+      const findAllByTextResult = await screen.findAllByText('جدیدترین سفارش')
+      await user().click(findAllByTextResult.at(-1))
 
-      await waitFor(() =>
-         expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false })
+      await waitFor(() => { expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders', { scroll: false }); }
       )
    })
 
@@ -41,9 +41,10 @@ describe('admin order sort filter', () => {
       render(<AdminSortBy initialData={undefined} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('بیشترین مبلغ')).at(-1)!)
+      const findAllByTextResult2 = await screen.findAllByText('بیشترین مبلغ')
+      await user().click(findAllByTextResult2.at(-1))
 
-      await waitFor(() => expect(routerMock.replace).toHaveBeenCalled())
+      await waitFor(() => { expect(routerMock.replace).toHaveBeenCalled(); })
    })
 })
 
@@ -57,7 +58,8 @@ describe('admin order category filter', () => {
       render(<AdminCategoriesCombobox initialCategory="" categories={categories} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      const findAllByTextResult3 = await screen.findAllByText('Shoes')
+      await user().click(findAllByTextResult3.at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith(
          '/admin/orders?sort=featured&category=Shoes',
@@ -69,7 +71,8 @@ describe('admin order category filter', () => {
       render(<AdminCategoriesCombobox initialCategory="Shoes" categories={categories} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Shoes')).at(-1)!)
+      const findAllByTextResult4 = await screen.findAllByText('Shoes')
+      await user().click(findAllByTextResult4.at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=featured', {
          scroll: false,
@@ -93,7 +96,8 @@ describe('admin order brand filter', () => {
       render(<AdminBrandCombobox initialBrand="" brands={brands} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Acme')).at(-1)!)
+      const findAllByTextResult5 = await screen.findAllByText('Acme')
+      await user().click(findAllByTextResult5.at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=featured&brand=Acme', {
          scroll: false,
@@ -104,7 +108,8 @@ describe('admin order brand filter', () => {
       render(<AdminBrandCombobox initialBrand="Acme" brands={brands} />)
 
       await user().click(screen.getByRole('combobox'))
-      await user().click((await screen.findAllByText('Acme')).at(-1)!)
+      const findAllByTextResult6 = await screen.findAllByText('Acme')
+      await user().click(findAllByTextResult6.at(-1))
 
       expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?sort=featured', {
          scroll: false,

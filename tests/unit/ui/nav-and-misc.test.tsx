@@ -1,3 +1,4 @@
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -22,6 +23,7 @@ import { SidebarNav } from '@/components/native/nav/sidebar'
 import { UserNav } from '@/components/native/nav/user'
 import { ModalProvider } from '@/providers/modal-provider'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 const themeMock = { resolvedTheme: 'light', setTheme: vi.fn() }
 
@@ -43,14 +45,14 @@ const emblaHandlers: Record<string, () => void> = {}
 const emblaState = { snap: 1 }
 vi.mock('embla-carousel-react', () => ({
    default: () => [
-      () => {},
+      () => {/* noop */ },
       {
          selectedScrollSnap: () => emblaState.snap,
          on: (event: string, handler: () => void) => {
             emblaHandlers[event] = handler
          },
          off: (event: string) => {
-            delete emblaHandlers[event]
+            Reflect.deleteProperty(emblaHandlers, event)
          },
          scrollPrev: vi.fn(),
          scrollNext: vi.fn(),
@@ -110,27 +112,27 @@ describe('admin chrome', () => {
    })
 
    it('logout button posts and reloads', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<LogoutButton />)
       await userEvent.setup().click(screen.getByRole('button'))
 
       expect(fetchMock).toHaveBeenCalledWith('/api/admin/auth/logout', { cache: 'no-store' })
-      await waitFor(() => expect(reload).toHaveBeenCalled())
+      await waitFor(() => { expect(reload).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
    })
 
    it('logout button swallows a network failure', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<LogoutButton />)
       await userEvent.setup().click(screen.getByRole('button'))
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
       errorSpy.mockRestore()
    })
@@ -165,11 +167,11 @@ describe('storefront shell navigation', () => {
    })
 
    it('shows the account menu to signed-in visitors', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       render(<Header />)
 
       expect(screen.queryByText('ورود / ثبت‌نام')).not.toBeInTheDocument()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    /* The redesign removes the header theme toggle; the admin navbar keeps its
@@ -230,10 +232,10 @@ describe('storefront shell navigation', () => {
    })
 
    it('user nav logs out through the API', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<UserNav />)
       await userEvent.setup().click(screen.getByRole('button'))
@@ -241,8 +243,7 @@ describe('storefront shell navigation', () => {
       const logOut = await screen.findByText(/خروج از حساب/i)
       await userEvent.setup().click(logOut)
 
-      await waitFor(() =>
-         expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' })
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { cache: 'no-store' }); }
       )
       vi.unstubAllGlobals()
    })
@@ -252,9 +253,9 @@ describe('command menu', () => {
    it('opens with the keyboard shortcut and navigates', async () => {
       render(<CommandMenu />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
-      })
+      return Promise.resolve(); })
 
       const link = await screen.findByText('فروشگاه اکسسوری')
       await userEvent.setup().click(link)
@@ -275,9 +276,9 @@ describe('command menu', () => {
    it('ignores other keys', async () => {
       render(<CommandMenu />)
 
-      await act(async () => {
+      await act(() => {
          fireEvent.keyDown(document, { key: 'j' })
-      })
+      return Promise.resolve(); })
 
       expect(screen.queryByPlaceholderText('Type a command or search...')).not.toBeInTheDocument()
    })
@@ -421,7 +422,7 @@ describe('compare image slider', () => {
          />
       )
 
-      const slider = container.firstElementChild!
+      const slider = container.firstElementChild
       fireEvent.mouseMove(slider, { clientX: 50, buttons: 1 })
       fireEvent.mouseDown(slider)
       act(() => {

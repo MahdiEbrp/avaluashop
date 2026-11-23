@@ -169,7 +169,7 @@ describe('product and blog cards', () => {
 
       expect(screen.getAllByText('Blue Shoe').length).toBeGreaterThan(0)
       /* The redesign shows a Persian percentage badge and Toman prices. */
-      expect(screen.getByText(/٪.*تخفیف/)).toBeInTheDocument()
+      expect(screen.getByText(/٪[۰-۹]+ تخفیف/)).toBeInTheDocument()
       expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
       expect(screen.getByText('۹۹ تومان')).toBeInTheDocument()
       expect(screen.getByText('ناموجود')).toBeInTheDocument()
@@ -300,7 +300,7 @@ describe('Toast', () => {
    it('auto-dismisses after five seconds', async () => {
       render(<Toast message="Saved" />)
 
-      await waitFor(() => expect(screen.queryByRole('alert')).toBeNull(), {
+      await waitFor(() => { expect(screen.queryByRole('alert')).toBeNull(); }, {
          timeout: 7000,
       })
    })
@@ -336,7 +336,7 @@ describe('useToast store', () => {
                >
                   dismiss
                </button>
-               <button onClick={() => dismiss()}>dismiss all</button>
+               <button onClick={() => { dismiss(); }}>dismiss all</button>
             </div>
          )
       }

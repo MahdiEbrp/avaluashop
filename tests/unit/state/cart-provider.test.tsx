@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 
 import { publishLocalCart } from '@/hooks/use-local-cart'
 import { CartContextProvider, useCartContext } from '@/state/Cart'
@@ -9,15 +9,14 @@ import { useUserContext } from '@/state/User'
 const userState: { user: unknown } = { user: null }
 
 vi.mock('@/state/User', async () => {
-   const React = await import('react')
-   const actual = await vi.importActual<typeof import('@/state/User')>('@/state/User')
+      const actual = await vi.importActual<typeof import('@/state/User')>('@/state/User')
 
    return {
       ...actual,
       useUserContext: () => ({
          user: userState.user,
          loading: false,
-         refreshUser: () => {},
+         refreshUser: () => {/* noop */ },
       }),
    }
 })
@@ -29,7 +28,7 @@ function CartProbe() {
       <div>
          <span data-testid="cart">{JSON.stringify(cart)}</span>
          <span data-testid="loading">{String(loading)}</span>
-         <button onClick={() => dispatchCart({ items: [{ productId: 'p2', count: 1 }] })}>
+         <button onClick={() => { dispatchCart({ items: [{ productId: 'p2', count: 1 }] }); }}>
             dispatch
          </button>
          <button onClick={refreshCart}>refresh</button>
@@ -50,7 +49,7 @@ describe('CartContextProvider — guest', () => {
    beforeEach(() => {
       /* The hook keeps a referentially stable snapshot across renders; reset it
          to the empty cart so each test starts from a known store. */
-      act(() => publishLocalCart({ items: [] }))
+      act(() => { publishLocalCart({ items: [] }); })
       userState.user = null
    })
 
@@ -64,9 +63,9 @@ describe('CartContextProvider — guest', () => {
    it('merges a dispatch into localStorage', () => {
       renderCart()
 
-      act(() => screen.getByText('dispatch').click())
+      act(() => { screen.getByText('dispatch').click(); })
 
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toEqual({
+      expect(JSON.parse(localStorage.getItem('Cart'))).toEqual({
          items: [{ productId: 'p2', count: 1 }],
       })
       expect(screen.getByTestId('cart')).toHaveTextContent(
@@ -77,7 +76,7 @@ describe('CartContextProvider — guest', () => {
    it('refreshCart is a no-op when there is no session', () => {
       renderCart()
 
-      act(() => screen.getByText('refresh').click())
+      act(() => { screen.getByText('refresh').click(); })
 
       expect(screen.getByTestId('cart')).toHaveTextContent('{"items":[]}')
    })
@@ -97,7 +96,7 @@ describe('CartContextProvider — signed in', () => {
    it('applies an optimistic dispatch to both the state and storage', () => {
       renderCart()
 
-      act(() => screen.getByText('dispatch').click())
+      act(() => { screen.getByText('dispatch').click(); })
 
       expect(screen.getByTestId('cart')).toHaveTextContent(
          '{"items":[{"productId":"p2","count":1}]}'
@@ -108,12 +107,12 @@ describe('CartContextProvider — signed in', () => {
    it('refreshCart restores the server copy', async () => {
       renderCart()
 
-      act(() => screen.getByText('dispatch').click())
+      act(() => { screen.getByText('dispatch').click(); })
       expect(screen.getByTestId('cart')).not.toHaveTextContent('"p1"')
 
-      await act(async () => {
+      await act(() => {
          screen.getByText('refresh').click()
-      })
+      return Promise.resolve(); })
 
       expect(screen.getByTestId('cart')).toHaveTextContent(JSON.stringify(serverCart))
    })
@@ -153,4 +152,3 @@ describe('state/User exports', () => {
    })
 })
 
-void waitFor

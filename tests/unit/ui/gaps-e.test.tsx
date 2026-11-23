@@ -47,15 +47,7 @@ import { useCartContext, CartContextProvider } from '@/state/Cart'
 import { useFormField } from '@/components/ui/form'
 import { useFormField as useAdminFormField } from '@/components/admin/ui/form'
 import { toast, useToast } from '@/components/ui/use-toast'
-import { FormProvider, useForm } from 'react-hook-form'
-
-/* A FormProvider without the surrounding <FormField>: enough for
-   useFormContext() to succeed so the field-context guard is what throws. */
-function BareFormWrapper({ children }: { children: React.ReactNode }) {
-   const form = useForm({ defaultValues: { field: '' } })
-
-   return <FormProvider {...form}>{children}</FormProvider>
-}
+import { setCookie } from '../support/cookies'
 
 vi.mock('react-hot-toast', () => ({
    toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -91,14 +83,14 @@ describe('server snapshots', () => {
    })
 
    it('useAuthenticated is false while server rendering', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
 
       function Probe() {
          return <p>{String(useAuthenticated().authenticated)}</p>
       }
 
       expect(renderToString(<Probe />)).toContain('false')
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
@@ -144,7 +136,7 @@ describe('client-only guards before hydration', () => {
 })
 
 describe('default contexts without a provider', () => {
-   it('useUserContext exposes inert defaults', async () => {
+   it('useUserContext exposes inert defaults', () => {
       const { result } = renderHook(() => useUserContext())
 
       expect(result.current.user).toBeNull()
@@ -153,8 +145,8 @@ describe('default contexts without a provider', () => {
       /* The no-op refresher resolves without touching the network. */
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
-      await act(async () => {
-         await result.current.refreshUser()
+      act(() => {
+         result.current.refreshUser()
       })
       expect(fetchMock).not.toHaveBeenCalled()
       vi.unstubAllGlobals()
@@ -172,30 +164,30 @@ describe('default contexts without a provider', () => {
    })
 
    it('UserContextProvider refreshes through the API', async () => {
-      document.cookie = 'logged-in=true'
-      const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: 'u1', name: 'Ada' })))
+      setCookie('logged-in=true')
+      const fetchMock = vi.fn(() => Promise.resolve(Response.json({ id: 'u1', name: 'Ada' })))
       vi.stubGlobal('fetch', fetchMock)
 
       const { result } = renderHook(() => useUserContext(), {
          wrapper: UserContextProvider,
       })
 
-      await waitFor(() => expect(result.current.user).not.toBeNull())
+      await waitFor(() => { expect(result.current.user).not.toBeNull(); })
       expect(result.current.user).toEqual({ id: 'u1', name: 'Ada' })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('UserContextProvider logs a refused profile read', async () => {
-      document.cookie = 'logged-in=true'
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('offline'))))
+      setCookie('logged-in=true')
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 
@@ -204,9 +196,9 @@ describe('default contexts without a provider', () => {
          wrapper: CartContextProvider,
       })
 
-      await waitFor(() => expect(result.current.loading).toBe(false))
+      await waitFor(() => { expect(result.current.loading).toBe(false); })
 
-      await act(async () => {
+      await act(() => {
          result.current.dispatchCart({
             items: [
                {
@@ -215,10 +207,10 @@ describe('default contexts without a provider', () => {
                   product: { id: 'p1', title: 'Shoe', images: ['/a.png'], description: 'Blue' },
                },
             ],
-         } as never)
-      })
+         })
+      return Promise.resolve(); })
 
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toMatchObject({
+      expect(JSON.parse(localStorage.getItem('Cart'))).toMatchObject({
          items: [expect.objectContaining({ productId: 'p1', count: 2 })],
       })
    })
@@ -246,7 +238,7 @@ describe('toast removal queue', () => {
          toast({ title: 'queued' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       /* Dismissing schedules the removal timer that clears the queue. */
       act(() => {
@@ -258,7 +250,7 @@ describe('toast removal queue', () => {
          item.onOpenChange?.(false)
       })
 
-      await waitFor(() => expect(result.current.toasts.every((t) => !t.open)).toBe(true))
+      await waitFor(() => { expect(result.current.toasts.every((t) => !t.open)).toBe(true); })
    })
 
    it('exposes a dismiss handle that closes its toast', async () => {
@@ -269,13 +261,13 @@ describe('toast removal queue', () => {
          handle = toast({ title: 'dismissable' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       act(() => {
          handle.dismiss()
       })
 
-      await waitFor(() => expect(result.current.toasts.every((t) => !t.open)).toBe(true))
+      await waitFor(() => { expect(result.current.toasts.every((t) => !t.open)).toBe(true); })
    })
 })
 
@@ -341,7 +333,8 @@ describe('dropdown submenus', () => {
          </AdminDropdownMenu>
       )
 
-      expect((await screen.findAllByText('More')).length).toBeGreaterThan(0)
+      const findAllByTextResult = await screen.findAllByText('More')
+      expect(findAllByTextResult.length).toBeGreaterThan(0)
       expect(screen.getAllByText('Admin A').length).toBeGreaterThan(0)
    })
 })
@@ -422,7 +415,7 @@ describe('toast open-change callback', () => {
          toast({ title: 'stays' })
       })
 
-      await waitFor(() => expect(result.current.toasts.length).toBe(1))
+      await waitFor(() => { expect(result.current.toasts.length).toBe(1); })
 
       const entry = result.current.toasts[0]
 
@@ -449,7 +442,7 @@ describe('admin modal dismissal', () => {
          onOpenChange(false) and therefore the modal's own wrapper. */
       fireEvent.click(screen.getByRole('button', { name: 'Close' }))
 
-      await waitFor(() => expect(onClose).toHaveBeenCalled())
+      await waitFor(() => { expect(onClose).toHaveBeenCalled(); })
    })
 })
 
@@ -463,6 +456,6 @@ describe('storefront modal dismissal', () => {
 
       fireEvent.click(await screen.findByRole('button', { name: 'Close' }))
 
-      await waitFor(() => expect(onClose).toHaveBeenCalled())
+      await waitFor(() => { expect(onClose).toHaveBeenCalled(); })
    })
 })

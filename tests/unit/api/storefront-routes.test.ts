@@ -8,7 +8,7 @@ import { call, get, json, prismaMock, silenceConsole, USER, bodyOf } from './hel
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
-const cachedProducts = vi.fn(async () => '[]')
+const cachedProducts = vi.fn(() => Promise.resolve('[]'))
 
 vi.mock('@/lib/catalog', async () => {
    const actual = await vi.importActual<typeof import('@/lib/catalog')>('@/lib/catalog')
@@ -16,7 +16,7 @@ vi.mock('@/lib/catalog', async () => {
    return { ...actual, getProductsJson: () => cachedProducts() }
 })
 
-beforeEach(() => silenceConsole())
+beforeEach(() => { silenceConsole(); })
 
 describe('GET /api/health', () => {
    it('reports reachable with no cache headers', async () => {
@@ -90,7 +90,8 @@ describe('GET /api/products/[productId]', () => {
    it('answers 500 for a missing product', async () => {
       prismaMock.product.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
 
-      expect((await productGET(get(), call({ productId: 'x' }))).status).toBe(500)
+      const productGETResult = await productGET(get(), call({ productId: 'x' }))
+      expect(productGETResult.status).toBe(500)
    })
 })
 
@@ -123,11 +124,13 @@ describe('/api/cart', () => {
    it('GET answers 500 on a database failure', async () => {
       prismaMock.cart.findUnique.mockRejectedValue(new Error('down'))
 
-      expect((await cartGET(get(USER))).status).toBe(500)
+      const cartGETResult = await cartGET(get(USER))
+      expect(cartGETResult.status).toBe(500)
    })
 
    it('POST rejects an anonymous caller', async () => {
-      expect((await cartPOST(json({ productId: 'p1', count: 1 }))).status).toBe(401)
+      const cartPOSTResult = await cartPOST(json({ productId: 'p1', count: 1 }))
+      expect(cartPOSTResult.status).toBe(401)
    })
 
    it('POST rejects a malformed line with 400', async () => {
@@ -204,13 +207,15 @@ describe('/api/cart', () => {
    it('POST answers 500 on a database failure', async () => {
       prismaMock.product.findFirst.mockRejectedValue(new Error('down'))
 
-      expect((await cartPOST(json({ productId: 'p1', count: 1 }, USER))).status).toBe(500)
+      const cartPOSTResult2 = await cartPOST(json({ productId: 'p1', count: 1 }, USER))
+      expect(cartPOSTResult2.status).toBe(500)
    })
 })
 
 describe('GET /api/orders', () => {
    it('rejects an anonymous caller', async () => {
-      expect((await ordersGET(get())).status).toBe(401)
+      const ordersGETResult = await ordersGET(get())
+      expect(ordersGETResult.status).toBe(401)
    })
 
    it('lists only the caller-facing order summary fields', async () => {
@@ -245,7 +250,8 @@ describe('GET /api/orders', () => {
    it('answers 500 on a database failure', async () => {
       prismaMock.order.findMany.mockRejectedValue(new Error('down'))
 
-      expect((await ordersGET(get(USER))).status).toBe(500)
+      const ordersGETResult2 = await ordersGET(get(USER))
+      expect(ordersGETResult2.status).toBe(500)
    })
 })
 
@@ -274,7 +280,8 @@ describe('POST /api/orders', () => {
    }
 
    it('rejects an anonymous caller', async () => {
-      expect((await ordersPOST(json({ addressId: 'ad1' }))).status).toBe(401)
+      const ordersPOSTResult = await ordersPOST(json({ addressId: 'ad1' }))
+      expect(ordersPOSTResult.status).toBe(401)
    })
 
    it('rejects a JSON null body with 400', async () => {
@@ -405,7 +412,8 @@ describe('POST /api/orders', () => {
          headers: { ...USER, 'content-type': 'application/json' },
          body: '{',
       })
-      expect((await ordersPOST(request)).status).toBe(400)
+      const ordersPOSTResult2 = await ordersPOST(request)
+      expect(ordersPOSTResult2.status).toBe(400)
    })
 
    it('requires a shipping method when active methods are configured', async () => {
@@ -605,7 +613,8 @@ describe('POST /api/orders', () => {
          ],
       })
 
-      expect((await ordersPOST(json({ addressId: 'ad1' }, USER))).status).toBe(409)
+      const ordersPOSTResult3 = await ordersPOST(json({ addressId: 'ad1' }, USER))
+      expect(ordersPOSTResult3.status).toBe(409)
    })
 
    it('checks a discount code when one is supplied', async () => {
@@ -728,7 +737,8 @@ describe('POST /api/orders', () => {
       prismaMock.address.findFirst.mockResolvedValue({ id: 'ad1' })
       prismaMock.cart.findUnique.mockResolvedValue({ items: [] })
 
-      expect((await ordersPOST(json({ addressId: 'ad1' }, USER))).status).toBe(400)
+      const ordersPOSTResult4 = await ordersPOST(json({ addressId: 'ad1' }, USER))
+      expect(ordersPOSTResult4.status).toBe(400)
    })
 
    it('answers 500 on an unexpected database failure', async () => {
@@ -740,11 +750,22 @@ describe('POST /api/orders', () => {
       expect(response.status).toBe(500)
       await expect(response.text()).resolves.toBe('Internal error')
    })
+
+   it('answers 500 when a non-Error value is thrown mid-checkout', async () => {
+      stubSuccess()
+      prismaMock.$transaction.mockRejectedValue('plain string failure')
+
+      const response = await ordersPOST(json({ addressId: 'ad1' }, USER))
+
+      expect(response.status).toBe(500)
+      await expect(response.text()).resolves.toBe('Internal error')
+   })
 })
 
 describe('GET /api/orders/[orderId]', () => {
    it('rejects an anonymous caller', async () => {
-      expect((await orderGET(get(), call({ orderId: 'o1' }))).status).toBe(401)
+      const orderGETResult = await orderGET(get(), call({ orderId: 'o1' }))
+      expect(orderGETResult.status).toBe(401)
    })
 
    it('rejects an empty id', async () => {

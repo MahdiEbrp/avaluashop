@@ -2,13 +2,19 @@ import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 
+/* Lowercase letters and digits, single hyphens between them, no leading or
+   trailing hyphen. Written without nested quantifiers. */
+function isValidMethodCode(code: string) {
+   return !code.startsWith('-') && !code.endsWith('-') && !code.includes('--')
+}
+
 const patchSchema = z.object({
-   code: z.string().trim().min(2).max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).optional(),
+   code: z.string().trim().min(2).max(40).regex(/^[a-z0-9-]+$/).refine(isValidMethodCode, 'کد روش ارسال نامعتبر است').optional(),
    title: z.string().trim().min(2).max(100).optional(),
    description: z.string().trim().max(500).nullable().optional(),
    type: z.enum(['FlatRate', 'Free', 'FreeAbove']).optional(),
-   amount: z.number().finite().min(0).max(100_000_000).optional(),
-   freeAbove: z.number().finite().min(0).max(1_000_000_000).nullable().optional(),
+   amount: z.number().min(0).max(100_000_000).optional(),
+   freeAbove: z.number().min(0).max(1_000_000_000).nullable().optional(),
    isActive: z.boolean().optional(),
    sortOrder: z.number().int().min(0).max(10_000).optional(),
    allowedCities: z.array(z.string().trim().min(1).max(80)).max(200).optional(),
@@ -16,10 +22,36 @@ const patchSchema = z.object({
    message: 'EMPTY_PATCH',
 })
 
-type Context = { params: Promise<{ methodId: string }> }
+interface Context { params: Promise<{ methodId: string }> }
 
 function isAdmin(req: Request) {
    return Boolean(req.headers.get('X-USER-ID'))
+}
+
+type PatchInput = z.infer<typeof patchSchema>
+
+/* A FreeAbove method needs a threshold; any other type must not carry one.
+   The threshold may come from the existing row when the patch omits it. */
+function freeThresholdError(
+   input: PatchInput,
+   current: { type: string; freeAbove: number | null }
+): 'FREE_THRESHOLD_REQUIRED' | 'FREE_THRESHOLD_NOT_APPLICABLE' | null {
+   const nextType = input.type ?? current.type
+   const nextThreshold = input.freeAbove === undefined ? current.freeAbove : input.freeAbove
+   if (nextType === 'FreeAbove' && nextThreshold == null) return 'FREE_THRESHOLD_REQUIRED'
+   if (nextType !== 'FreeAbove' && input.freeAbove != null) return 'FREE_THRESHOLD_NOT_APPLICABLE'
+   return null
+}
+
+function patchData(input: PatchInput) {
+   return {
+      ...input,
+      ...(input.type === 'Free' ? { amount: 0 } : {}),
+      ...(input.type && input.type !== 'FreeAbove' ? { freeAbove: null } : {}),
+      ...(input.allowedCities
+         ? { allowedCities: [...new Set(input.allowedCities.map((city) => city.trim()).filter(Boolean))] }
+         : {}),
+   }
 }
 
 export async function PATCH(req: Request, { params }: Context) {
@@ -31,25 +63,14 @@ export async function PATCH(req: Request, { params }: Context) {
       const current = await prisma.shippingMethod.findUnique({ where: { id: methodId } })
       if (!current) return NextResponse.json({ message: 'SHIPPING_METHOD_NOT_FOUND' }, { status: 404 })
 
-      const nextType = input.type ?? current.type
-      const nextThreshold = input.freeAbove !== undefined ? input.freeAbove : current.freeAbove
-      if (nextType === 'FreeAbove' && nextThreshold == null) {
-         return NextResponse.json({ message: 'FREE_THRESHOLD_REQUIRED' }, { status: 400 })
-      }
-      if (nextType !== 'FreeAbove' && input.freeAbove != null) {
-         return NextResponse.json({ message: 'FREE_THRESHOLD_NOT_APPLICABLE' }, { status: 400 })
+      const thresholdError = freeThresholdError(input, current)
+      if (thresholdError) {
+         return NextResponse.json({ message: thresholdError }, { status: 400 })
       }
 
       const method = await prisma.shippingMethod.update({
          where: { id: methodId },
-         data: {
-            ...input,
-            ...(input.type === 'Free' ? { amount: 0 } : {}),
-            ...(input.type && input.type !== 'FreeAbove' ? { freeAbove: null } : {}),
-            ...(input.allowedCities
-               ? { allowedCities: [...new Set(input.allowedCities.map((city) => city.trim()).filter(Boolean))] }
-               : {}),
-         },
+         data: patchData(input),
       })
       return NextResponse.json(method)
    } catch (error) {

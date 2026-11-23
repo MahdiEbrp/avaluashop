@@ -16,6 +16,11 @@ const badgeVariants = cva(
             outline: 'text-foreground',
             /** Muted meta text, e.g. a category chip. */
             subtle: 'border-transparent text-muted-foreground',
+            /** Pill-shaped sale marker laid over a product image. */
+            discount:
+               'rounded-full border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
+            /** Pill-shaped category chip. */
+            chip: 'w-fit rounded-full border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
          },
       },
       defaultVariants: {

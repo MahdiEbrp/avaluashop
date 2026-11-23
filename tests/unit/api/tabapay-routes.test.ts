@@ -125,7 +125,8 @@ describe('POST /api/payments/tabapay', () => {
    it('answers 409 for an order that is not pending payment', async () => {
       prismaMock.order.findFirst.mockResolvedValue({ ...order, status: 'Processing' })
 
-      expect((await tabapayPOST(json({ orderId: 'order-1' }, USER))).status).toBe(409)
+      const tabapayPOSTResult = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+      expect(tabapayPOSTResult.status).toBe(409)
    })
 
    it('re-checks the order under the lock when it changed after the snapshot', async () => {
@@ -337,13 +338,13 @@ describe('POST /api/payments/tabapay', () => {
    })
 })
 
-describe('GET /api/payments/tabapay/callback', () => {
-   const callback = () =>
-      get(
-         {},
-         'https://avaluashop.vercel.app/api/payments/tabapay/callback?token=tabapay-token'
-      )
+const callback = () =>
+   get(
+      {},
+      'https://avaluashop.vercel.app/api/payments/tabapay/callback?token=tabapay-token'
+   )
 
+describe('GET /api/payments/tabapay/callback', () => {
    it('verifies the exact stored amount before marking an order paid', async () => {
       prismaMock.payment.findUnique.mockResolvedValue({
          id: 'payment-1',

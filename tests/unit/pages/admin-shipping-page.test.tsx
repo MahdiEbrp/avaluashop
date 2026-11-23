@@ -1,3 +1,4 @@
+import { jsonBody, rejectWith } from '../support/http'
 import ShippingPage from '@/app/admin/(dashboard)/shipping/page'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
@@ -48,7 +49,7 @@ function jsonResponse(body: unknown, ok = true) {
 }
 
 function stubFetch(...responses: Promise<unknown>[]) {
-   for (const r of responses) r.catch(() => {})
+   for (const r of responses) r.catch(() => {/* noop */ })
    const queue = [...responses]
    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
       const next = queue.shift()
@@ -60,7 +61,7 @@ function stubFetch(...responses: Promise<unknown>[]) {
 }
 
 function payloadOf(fetchMock: ReturnType<typeof stubFetch>, index = 1) {
-   return JSON.parse(String(fetchMock.mock.calls[index][1]?.body)) as Record<string, unknown>
+   return jsonBody(fetchMock.mock.calls[index][1]?.body)
 }
 
 afterEach(() => {
@@ -185,8 +186,7 @@ describe('admin shipping page', () => {
       fireEvent.change(screen.getByLabelText('عنوان نمایشی'), { target: { value: 'پست نو' } })
       fireEvent.submit(screen.getByRole('button', { name: 'ذخیره تغییرات' }))
 
-      await waitFor(() =>
-         expect(fetchMock.mock.calls[1][0]).toBe('/api/admin/shipping-methods/sm1')
+      await waitFor(() => { expect(fetchMock.mock.calls[1][0]).toBe('/api/admin/shipping-methods/sm1'); }
       )
       expect(fetchMock.mock.calls[1][1]?.method).toBe('PATCH')
       expect(payloadOf(fetchMock).isActive).toBeUndefined()
@@ -238,7 +238,7 @@ describe('admin shipping page', () => {
 
       fireEvent.click(await screen.findByRole('button', { name: 'غیرفعال‌کردن' }))
 
-      await waitFor(() => expect(fetchMock.mock.calls[1][1]?.body).toBe('{"isActive":false}'))
+      await waitFor(() => { expect(fetchMock.mock.calls[1][1]?.body).toBe('{"isActive":false}'); })
       expect(await screen.findByText('غیرفعال')).toBeInTheDocument()
    })
 
@@ -264,7 +264,7 @@ describe('admin shipping page', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'حذف / توقف' }))
 
       expect(confirmMock).toHaveBeenCalled()
-      await waitFor(() => expect(fetchMock.mock.calls[1][1]?.method).toBe('DELETE'))
+      await waitFor(() => { expect(fetchMock.mock.calls[1][1]?.method).toBe('DELETE'); })
       expect(await screen.findByRole('status')).toHaveTextContent('روش ارسال غیرفعال شد.')
    })
 
@@ -307,10 +307,11 @@ describe('admin shipping page', () => {
 
       render(<ShippingPage />)
 
-      const article = (await screen.findByText('بالای ۵۰۰ هزار')).closest('article')
+      const priceLabel = await screen.findByText('بالای ۵۰۰ هزار')
+      const article = priceLabel.closest('article')
       expect(article).not.toBeNull()
-      expect(within(article as HTMLElement).getByRole('button', { name: 'فعال‌کردن' })).toBeInTheDocument()
-      expect(within(article as HTMLElement).getByRole('button', { name: 'حذف / توقف' })).toBeDisabled()
+      expect(within(article).getByRole('button', { name: 'فعال‌کردن' })).toBeInTheDocument()
+      expect(within(article).getByRole('button', { name: 'حذف / توقف' })).toBeDisabled()
    })
 })
 
@@ -326,8 +327,7 @@ describe('admin shipping page — remaining branches', () => {
    })
 
    it('survives a non-Error rejection while reading', async () => {
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(Promise.reject('boom'))
+      stubFetch(rejectWith('boom'))
 
       render(<ShippingPage />)
 
@@ -350,7 +350,7 @@ describe('admin shipping page — remaining branches', () => {
       fireEvent.change(screen.getByLabelText(/اولویت نمایش/), { target: { value: '' } })
       fireEvent.submit(screen.getByRole('button', { name: 'افزودن روش ارسال' }))
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(3); })
 
       expect(payloadOf(fetchMock)).toMatchObject({
          type: 'FreeAbove',
@@ -372,8 +372,7 @@ describe('admin shipping page — remaining branches', () => {
    })
 
    it('survives a non-Error rejection while saving', async () => {
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(jsonResponse([]), Promise.reject('boom'))
+      stubFetch(jsonResponse([]), rejectWith('boom'))
 
       render(<ShippingPage />)
       await screen.findByText('هنوز روش ارسالی ثبت نشده است.')
@@ -405,7 +404,7 @@ describe('admin shipping page — remaining branches', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'ویرایش' }))
 
       expect(screen.getByLabelText('توضیحات (اختیاری)')).toHaveValue('')
-      expect(screen.getByLabelText(/حداقل مبلغ سفارش/)).toHaveValue(250000)
+      expect(screen.getByLabelText(/حداقل مبلغ سفارش/)).toHaveValue(250_000)
 
       /* Editing updates every draft field, including the plain text ones. */
       fireEvent.change(screen.getByLabelText('توضیحات (اختیاری)'), { target: { value: 'توضیح' } })

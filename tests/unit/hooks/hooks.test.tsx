@@ -12,6 +12,7 @@ import { useAuthenticated } from '@/hooks/useAuthentication'
 import { ModalProvider } from '@/providers/modal-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { ToastProvider } from '@/providers/toast-provider'
+import { setCookie } from '../support/cookies'
 
 describe('zustand stores', () => {
    beforeEach(() => {
@@ -75,23 +76,23 @@ describe('useOrigin', () => {
 
 describe('useAuthenticated', () => {
    it('is false without the cookie', () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const { result } = renderHook(() => useAuthenticated())
 
       expect(result.current.authenticated).toBe(false)
    })
 
    it('is true with logged-in=true', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const { result } = renderHook(() => useAuthenticated())
 
       expect(result.current.authenticated).toBe(true)
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('ignores unrelated cookies', () => {
-      document.cookie = 'other=true'
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('other=true')
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 
       const { result } = renderHook(() => useAuthenticated())
 
@@ -109,10 +110,10 @@ describe('useLocalCart', () => {
    it('reads what publishLocalCart wrote', () => {
       const { result } = renderHook(() => useLocalCart())
 
-      act(() => publishLocalCart({ items: [{ productId: 'p1', count: 2 }] }))
+      act(() => { publishLocalCart({ items: [{ productId: 'p1', count: 2 }] }); })
 
       expect(result.current).toEqual({ items: [{ productId: 'p1', count: 2 }] })
-      expect(JSON.parse(localStorage.getItem('Cart')!)).toEqual({
+      expect(JSON.parse(localStorage.getItem('Cart'))).toEqual({
          items: [{ productId: 'p1', count: 2 }],
       })
    })
@@ -165,7 +166,7 @@ describe('useSyncedState', () => {
          initialProps: { source: 'first' },
       })
 
-      act(() => result.current[1]('edited'))
+      act(() => { result.current[1]('edited'); })
       expect(result.current[0]).toBe('edited')
 
       rerender({ source: 'first' })
@@ -192,7 +193,7 @@ describe('providers', () => {
    it('ToastProvider renders the hot-toast region', async () => {
       const { container } = render(<ToastProvider />)
 
-      await waitFor(() => expect(container.firstChild).not.toBeNull())
+      await waitFor(() => { expect(container.firstChild).not.toBeNull(); })
    })
 
    it('ThemeProvider hands next-themes down to consumers', () => {

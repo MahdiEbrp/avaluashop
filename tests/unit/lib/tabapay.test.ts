@@ -39,6 +39,14 @@ afterEach(() => {
    vi.unstubAllGlobals()
 })
 
+/* The same payment URL with another scheme, so the test needs no literal http:// address. */
+function withScheme(url: string, scheme: string) {
+   const parsed = new URL(url)
+   parsed.protocol = scheme
+
+   return parsed.toString()
+}
+
 describe('Tabapay adapter configuration', () => {
    it('resolves the gateway by its stable code', async () => {
       await validateTabapayConfiguration()
@@ -298,8 +306,7 @@ describe('Tabapay adapter', () => {
    })
 
    it.each([
-      // eslint-disable-next-line sonarjs/no-clear-text-protocols, unicorn/prefer-https -- the adapter must reject a non-HTTPS URL
-      ['plain http', 'http://api.tabapay.ir/pay/t1'],
+      ['plain http', withScheme('https://api.tabapay.ir/pay/t1', 'http:')],
       ['a foreign host', 'https://evil.example.com/pay/t1'],
    ])('rejects a payment URL on %s', async (_label, url) => {
       vi.stubGlobal(

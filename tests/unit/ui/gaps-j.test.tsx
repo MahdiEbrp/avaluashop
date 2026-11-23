@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { rejectWith } from '../support/http'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { NavMenu } from '@/components/native/nav/desktop'
 import { BrandForm } from '@/app/admin/(dashboard)/brands/[brandId]/components/brand-form'
 import { ProductForm } from '@/app/admin/(dashboard)/products/[productId]/components/product-form'
 import { UserForm as AdminUserForm } from '@/app/admin/(dashboard)/users/[userId]/components/user-form'
-import { routerMock } from '../support/navigation'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -26,7 +26,7 @@ vi.mock('react-hot-toast', () => ({
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 describe('storefront nav menu', () => {
-   it('lists every flat storefront link', async () => {
+   it('lists every flat storefront link', () => {
       render(<NavMenu />)
 
       /* The accessories-only nav drops the categories flyout entirely: three
@@ -43,39 +43,38 @@ describe('storefront nav menu', () => {
          'href',
          '/contact'
       )
-   })
+   return Promise.resolve(); })
 
-   it('renders no dropdown trigger inside the nav menu', async () => {
+   it('renders no dropdown trigger inside the nav menu', () => {
       render(<NavMenu />)
 
       expect(screen.queryByRole('button')).not.toBeInTheDocument()
-   })
+   return Promise.resolve(); })
 })
 
 describe('brand form delete failure', () => {
    it('hints about attached products', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
          <BrandForm
             initialData={
-               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' } as never
+               { id: 'br1', title: 'Acme', description: 'Shoes', logo: 'https://cdn/l.png' }
             }
          />
       )
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
 
-      await waitFor(() =>
-         expect(toast.error).toHaveBeenCalledWith(
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith(
             'Make sure you removed all products using this brand first.'
-         )
+         ); }
       )
       vi.unstubAllGlobals()
    })
@@ -84,8 +83,8 @@ describe('brand form delete failure', () => {
 describe('product form delete failure', () => {
    it('reports a generic failure', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new Error('nope'))))
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
          <ProductForm
@@ -110,29 +109,29 @@ describe('product form delete failure', () => {
 
       const destructive = screen
          .getAllByRole('button')
-         .find((button) => button.className.includes('destructive'))!
+         .find((button) => button.className.includes('destructive'))
       await user().click(destructive)
       await user().click(await screen.findByRole('button', { name: 'Continue' }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })
 
 describe('admin user form without initial data', () => {
-   it('falls back to placeholder defaults and saves', async () => {
-      const fetchMock = vi.fn(async () => new Response('{}', { status: 200 }))
+   it('falls back to placeholder defaults and saves', () => {
+      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 
       render(<AdminUserForm initialData={null} />)
 
       expect(screen.getAllByDisplayValue('---').length).toBeGreaterThan(0)
       vi.unstubAllGlobals()
-   })
+   return Promise.resolve(); })
 
    it('reports a thrown non-Error with the generic message', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => Promise.reject('offline')))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <AdminUserForm
@@ -144,7 +143,7 @@ describe('admin user form without initial data', () => {
 
       await user().click(screen.getByRole('button', { name: /save changes/i }))
 
-      await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Something went wrong.'))
+      await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
       vi.unstubAllGlobals()
    })
 })

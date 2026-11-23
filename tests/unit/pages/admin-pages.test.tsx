@@ -1,5 +1,4 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { Suspense } from 'react'
 
 import BannersLoading from '@/app/admin/(dashboard)/banners/loading'
 import BannersPage from '@/app/admin/(dashboard)/banners/page'
@@ -35,6 +34,7 @@ import WishlistPage from '@/app/(store)/(routes)/wishlist/page'
 import { ProductGrid } from '@/components/native/Product'
 import { prismaMock } from '../support/db'
 import { notFound, routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
@@ -43,7 +43,7 @@ vi.mock('next/cache', () => import('../support/cache'))
 vi.mock('@/state/User', async () => {
    const actual = await vi.importActual<typeof import('@/state/User')>('@/state/User')
 
-   return { ...actual, useUserContext: () => ({ user: null, loading: false, refreshUser() {} }) }
+   return { ...actual, useUserContext: () => ({ user: null, loading: false, refreshUser() {/* noop */ } }) }
 })
 
 vi.mock('next/navigation', async (importOriginal) => {
@@ -498,11 +498,11 @@ describe('storefront product pages', () => {
 /* `useAuthenticated` reads the cookie synchronously, so the client pages only
    fetch once the visitor looks signed in. */
 const signIn = () => {
-   document.cookie = 'logged-in=true'
+   setCookie('logged-in=true')
 }
 
 const signOut = () => {
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 }
 
 describe('storefront profile pages', () => {
@@ -513,12 +513,12 @@ describe('storefront profile pages', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(
-                  JSON.stringify([
+            () =>
+               Promise.resolve(Response.json(
+                  [
                      { id: 'ad1', city: 'Tehran', address: 'Main', phone: '0912', postalCode: '123' },
-                  ])
-               )
+                  ]
+               ))
          )
       )
 
@@ -533,8 +533,8 @@ describe('storefront profile pages', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(JSON.stringify({ name: 'Ada', email: 'a@b.co', phone: '0912' }))
+            () =>
+               Promise.resolve(Response.json({ name: 'Ada', email: 'a@b.co', phone: '0912' }))
          )
       )
 
@@ -549,9 +549,9 @@ describe('storefront profile pages', () => {
       vi.stubGlobal(
          'fetch',
          vi.fn(
-            async () =>
-               new Response(
-                  JSON.stringify([
+            () =>
+               Promise.resolve(Response.json(
+                  [
                      {
                         id: 'o1',
                         number: 42,
@@ -559,8 +559,8 @@ describe('storefront profile pages', () => {
                         payable: 120,
                         isPaid: true,
                      },
-                  ])
-               )
+                  ]
+               ))
          )
       )
 
@@ -588,24 +588,24 @@ describe('storefront profile pages', () => {
       signIn()
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () =>
-            new Response(
-               JSON.stringify({
+         vi.fn(() =>
+            Promise.resolve(Response.json(
+               {
                   id: 'o1',
                   status: 'Processing',
                   shippingMethodName: null,
                   shippingCarrierName: null,
                   shippingTrackingNumber: null,
-               })
-            )
+               }
+            ))
          )
       )
 
       /* `use(params)` suspends on first render; flushing inside `act` lets the
          promise settle and the page render its content. */
-      await act(async () => {
+      await act(() => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o1' })} />)
-      })
+      return Promise.resolve(); })
 
       await waitFor(() => expect(screen.getByText(/شماره سفارش:\s*o1/)).toBeInTheDocument())
       expect(screen.getByText(/وضعیت سفارش:\s*در حال پردازش/)).toBeInTheDocument()
@@ -620,22 +620,22 @@ describe('storefront profile pages', () => {
       signIn()
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () =>
-            new Response(
-               JSON.stringify({
+         vi.fn(() =>
+            Promise.resolve(Response.json(
+               {
                   id: 'o3',
                   status: 'AwaitingCustoms',
                   shippingMethodName: null,
                   shippingCarrierName: null,
                   shippingTrackingNumber: null,
-               })
-            )
+               }
+            ))
          )
       )
 
-      await act(async () => {
+      await act(() => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o3' })} />)
-      })
+      return Promise.resolve(); })
 
       await waitFor(() => expect(screen.getByText(/AwaitingCustoms/)).toBeInTheDocument())
       vi.unstubAllGlobals()
@@ -645,9 +645,9 @@ describe('storefront profile pages', () => {
       signIn()
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () =>
-            new Response(
-               JSON.stringify({
+         vi.fn(() =>
+            Promise.resolve(Response.json(
+               {
                   id: 'o2',
                   number: 42,
                   status: 'Shipped',
@@ -666,14 +666,14 @@ describe('storefront profile pages', () => {
                         product: { title: 'کیف چرمی' },
                      },
                   ],
-               })
-            )
+               }
+            ))
          )
       )
 
-      await act(async () => {
+      await act(() => {
          render(<ProfileOrderPage params={Promise.resolve({ orderId: 'o2' })} />)
-      })
+      return Promise.resolve(); })
 
       await waitFor(() => expect(screen.getByText('TRK-987')).toBeInTheDocument())
       expect(screen.getByText(/روش ارسال:\s*پست پیشتاز/)).toBeInTheDocument()
@@ -700,7 +700,7 @@ describe('wishlist page', () => {
       signIn()
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => new Response(JSON.stringify([product])))
+         vi.fn(() => Promise.resolve(Response.json([product])))
       )
       render(<WishlistPage />)
 

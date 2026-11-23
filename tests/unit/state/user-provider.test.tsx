@@ -49,10 +49,10 @@ describe('UserContextProvider', () => {
       authenticated.mockReturnValue({ authenticated: true })
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () =>
-            new Response(JSON.stringify({ id: 'u1', email: 'a@b.co' }), {
+         vi.fn(() =>
+            Promise.resolve(Response.json({ id: 'u1', email: 'a@b.co' }, {
                headers: { 'content-type': 'application/json' },
-            })
+            }))
          )
       )
 
@@ -70,10 +70,10 @@ describe('UserContextProvider', () => {
 
    it('refreshes on demand', async () => {
       authenticated.mockReturnValue({ authenticated: true })
-      const fetchMock = vi.fn(async () =>
-         new Response(JSON.stringify({ id: 'u1', name: 'Ada' }), {
+      const fetchMock = vi.fn(() =>
+         Promise.resolve(Response.json({ id: 'u1', name: 'Ada' }, {
             headers: { 'content-type': 'application/json' },
-         })
+         }))
       )
       vi.stubGlobal('fetch', fetchMock)
 
@@ -83,18 +83,18 @@ describe('UserContextProvider', () => {
          </RealUserContextProvider>
       )
 
-      await waitFor(() => expect(fetchMock).toHaveBeenCalled())
-      await act(async () => {
+      await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
+      await act(() => {
          screen.getByText('refresh').click()
-      })
+      return Promise.resolve(); })
 
-      await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2))
+      await waitFor(() => { expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(2); })
    })
 
    it('logs and keeps the previous user when the profile fetch fails', async () => {
       authenticated.mockReturnValue({ authenticated: true })
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
          <RealUserContextProvider>
@@ -102,7 +102,7 @@ describe('UserContextProvider', () => {
          </RealUserContextProvider>
       )
 
-      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       expect(screen.getByTestId('user')).toHaveTextContent('null')
    })
 })

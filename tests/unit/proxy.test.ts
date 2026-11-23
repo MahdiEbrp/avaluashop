@@ -14,7 +14,7 @@ const request = (path: string, init: { cookie?: string; authorization?: string }
    return new NextRequest(`http://localhost:3000${path}`, { headers })
 }
 
-const redirectTarget = (response: Response) => new URL(response.headers.get('location')!).pathname
+const redirectTarget = (response: Response) => new URL(response.headers.get('location')).pathname
 
 describe('proxy — public routes', () => {
    it.each([
@@ -127,7 +127,7 @@ describe('proxy — admin session', () => {
 
 describe('proxy — broken sessions', () => {
    it('clears the cookies and redirects a page when the token does not verify', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const response = await proxy(request('/profile/edit', { cookie: 'token=garbage' }))
 
@@ -138,7 +138,7 @@ describe('proxy — broken sessions', () => {
    })
 
    it('clears cookies and redirects to the admin login for admin pages', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const response = await proxy(request('/admin/orders', { cookie: 'token=garbage' }))
 
@@ -146,7 +146,7 @@ describe('proxy — broken sessions', () => {
    })
 
    it('answers the API with a JSON 401 for a broken token', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const response = await proxy(request('/api/orders', { cookie: 'token=garbage' }))
       const body = (await response.json()) as { message: string }
@@ -156,7 +156,7 @@ describe('proxy — broken sessions', () => {
    })
 
    it('rejects a token that verifies but carries no subject', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const { SignJWT } = await import('jose')
       const anonymous = await new SignJWT({ role: 'user' })

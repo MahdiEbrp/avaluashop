@@ -2,13 +2,19 @@ import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
 
+/* Lowercase letters and digits, single hyphens between them, no leading or
+   trailing hyphen. Written without nested quantifiers. */
+function isValidMethodCode(code: string) {
+   return !code.startsWith('-') && !code.endsWith('-') && !code.includes('--')
+}
+
 const methodSchema = z.object({
-   code: z.string().trim().min(2).max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+   code: z.string().trim().min(2).max(40).regex(/^[a-z0-9-]+$/).refine(isValidMethodCode, 'کد روش ارسال نامعتبر است'),
    title: z.string().trim().min(2).max(100),
    description: z.string().trim().max(500).optional().nullable(),
    type: z.enum(['FlatRate', 'Free', 'FreeAbove']),
-   amount: z.number().finite().min(0).max(100_000_000),
-   freeAbove: z.number().finite().min(0).max(1_000_000_000).nullable().optional(),
+   amount: z.number().min(0).max(100_000_000),
+   freeAbove: z.number().min(0).max(1_000_000_000).nullable().optional(),
    isActive: z.boolean().default(true),
    sortOrder: z.number().int().min(0).max(10_000).default(0),
    allowedCities: z.array(z.string().trim().min(1).max(80)).max(200).default([]),
