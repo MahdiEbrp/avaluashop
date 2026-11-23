@@ -1,5 +1,6 @@
-import prisma from '@/lib/prisma'
+import type { Prisma } from '@/generated/prisma/client'
 import { releasePendingOrder } from '@/lib/payments/order-lifecycle'
+import prisma from '@/lib/prisma'
 import {
    TABAPAY_PROVIDER_CODE,
    createTabapayPayment,
@@ -7,6 +8,140 @@ import {
    validateTabapayConfiguration,
 } from '@/lib/payments/tabapay'
 import { NextResponse } from 'next/server'
+
+type OrderWithAddress = Prisma.OrderGetPayload<{ include: { address: true } }>
+
+type Reservation =
+   | { kind: 'not-payable' }
+   | { kind: 'existing-url'; paymentUrl: string }
+   | { kind: 'initializing' }
+   | { kind: 'amount-invalid' }
+   | { kind: 'not-configured' }
+   | { kind: 'disabled' }
+   | { kind: 'created'; paymentId: string; order: OrderWithAddress; amountRial: number }
+
+type RejectedReservation = Exclude<Reservation, { kind: 'created' }>
+
+/* Check for an existing transaction before validating current gateway
+   configuration. A configuration change must never cancel an order that
+   already has a usable payment URL or an in-flight initialization. */
+async function reservePayment(orderId: string, userId: string): Promise<Reservation> {
+   return prisma.$transaction(async (tx): Promise<Reservation> => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${orderId}))`
+
+      const order = await tx.order.findFirst({
+         where: { id: orderId, userId },
+         include: { address: true },
+      })
+      if (!order || order.isPaid || order.status !== 'PendingPayment') {
+         return { kind: 'not-payable' }
+      }
+
+      const existingPayment = await tx.payment.findFirst({
+         where: { orderId: order.id, status: 'Processing' },
+         select: { id: true, refId: true, paymentUrl: true },
+      })
+      if (existingPayment) {
+         if (existingPayment.paymentUrl && !existingPayment.refId.startsWith('pending:')) {
+            return { kind: 'existing-url', paymentUrl: existingPayment.paymentUrl }
+         }
+         return { kind: 'initializing' }
+      }
+
+      const amountRial = Math.round(order.payable * 10)
+      if (!isTabapayAmountValid(amountRial)) return { kind: 'amount-invalid' }
+
+      try {
+         await validateTabapayConfiguration()
+      } catch {
+         return { kind: 'not-configured' }
+      }
+
+      /* Resolve the row the admin settings page writes; never create one
+         here. Creating by title used to produce a second, credential-less
+         provider that later shadowed the configured one. */
+      const provider = await tx.paymentProvider.findUnique({
+         where: { code: TABAPAY_PROVIDER_CODE },
+         select: { id: true, isActive: true },
+      })
+      if (!provider) return { kind: 'not-configured' }
+      if (!provider.isActive) return { kind: 'disabled' }
+
+      const payment = await tx.payment.create({
+         data: {
+            status: 'Processing',
+            refId: `pending:${crypto.randomUUID()}`,
+            payable: order.payable,
+            providerId: provider.id,
+            userId,
+            orderId: order.id,
+         },
+      })
+      return { kind: 'created', paymentId: payment.id, order, amountRial }
+   })
+}
+
+/* A reservation that never reached the gateway. Some outcomes release the
+   pending order so the customer can retry with a corrected setup. */
+async function respondToRejectedReservation(
+   reservation: RejectedReservation,
+   orderId: string
+): Promise<NextResponse> {
+   switch (reservation.kind) {
+      case 'not-payable': {
+         return NextResponse.json({ message: 'ORDER_NOT_PAYABLE' }, { status: 409 })
+      }
+      case 'existing-url': {
+         return NextResponse.json({ paymentUrl: reservation.paymentUrl })
+      }
+      case 'initializing': {
+         return NextResponse.json({ message: 'PAYMENT_ALREADY_INITIALIZED' }, { status: 202 })
+      }
+      case 'amount-invalid': {
+         await releasePendingOrder(orderId)
+         return NextResponse.json({ message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' }, { status: 400 })
+      }
+      case 'not-configured': {
+         await releasePendingOrder(orderId)
+         return NextResponse.json({ message: 'TABAPAY_NOT_CONFIGURED' }, { status: 503 })
+      }
+      case 'disabled': {
+         await releasePendingOrder(orderId)
+         return NextResponse.json({ message: 'PAYMENT_PROVIDER_DISABLED' }, { status: 503 })
+      }
+   }
+}
+
+/* Once the external create request has started, its outcome may be unknown
+   (for example a timeout after the provider created a token). Keep the
+   reservation in that case; releasing it could permit an untracked late
+   payment against stock that has already been resold. */
+async function handleCreateFailure(
+   error: unknown,
+   orderId: string | undefined,
+   paymentId: string | undefined,
+   gatewayRequestStarted: boolean
+): Promise<NextResponse> {
+   console.error('[TABAPAY_CREATE]', error)
+
+   const definitiveCreateRejection =
+      error instanceof Error && error.message.startsWith('TABAPAY_CREATE_REJECTED:')
+   if (orderId && (!gatewayRequestStarted || definitiveCreateRejection)) {
+      await releasePendingOrder(orderId, paymentId).catch((releaseError: unknown) => {
+         console.error('[TABAPAY_RELEASE]', releaseError)
+      })
+   }
+
+   const pendingReconciliation = gatewayRequestStarted && !definitiveCreateRejection
+   return NextResponse.json(
+      {
+         message: pendingReconciliation
+            ? 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION'
+            : 'PAYMENT_INITIALIZATION_FAILED',
+      },
+      { status: pendingReconciliation ? 202 : 502 }
+   )
+}
 
 export async function POST(req: Request) {
    let orderId: string | undefined
@@ -36,94 +171,9 @@ export async function POST(req: Request) {
          return NextResponse.json({ message: 'ORDER_NOT_PAYABLE' }, { status: 409 })
       }
 
-      // Check for an existing transaction before validating current gateway
-      // configuration. A configuration change must never cancel an order that
-      // already has a usable payment URL or an in-flight initialization.
-      const reservation = await prisma.$transaction(async (tx) => {
-         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${orderId}))`
-
-         const order = await tx.order.findFirst({
-            where: { id: orderId, userId },
-            include: { address: true },
-         })
-         if (!order || order.isPaid || order.status !== 'PendingPayment') {
-            return { kind: 'not-payable' as const }
-         }
-
-         const existingPayment = await tx.payment.findFirst({
-            where: { orderId: order.id, status: 'Processing' },
-            select: { id: true, refId: true, paymentUrl: true },
-         })
-         if (existingPayment) {
-            if (existingPayment.paymentUrl && !existingPayment.refId.startsWith('pending:')) {
-               return { kind: 'existing-url' as const, paymentUrl: existingPayment.paymentUrl }
-            }
-            return { kind: 'initializing' as const }
-         }
-
-         const amountRial = Math.round(order.payable * 10)
-         if (!isTabapayAmountValid(amountRial)) {
-            return { kind: 'amount-invalid' as const }
-         }
-
-         try {
-            await validateTabapayConfiguration()
-         } catch {
-            return { kind: 'not-configured' as const }
-         }
-
-         /* Resolve the row the admin settings page writes; never create one
-            here. Creating by title used to produce a second, credential-less
-            provider that later shadowed the configured one. */
-         const provider = await tx.paymentProvider.findUnique({
-            where: { code: TABAPAY_PROVIDER_CODE },
-            select: { id: true, isActive: true },
-         })
-         if (!provider) return { kind: 'not-configured' as const }
-         if (!provider.isActive) return { kind: 'disabled' as const }
-
-         const payment = await tx.payment.create({
-            data: {
-               status: 'Processing',
-               refId: `pending:${crypto.randomUUID()}`,
-               payable: order.payable,
-               providerId: provider.id,
-               userId,
-               orderId: order.id,
-            },
-         })
-         return { kind: 'created' as const, paymentId: payment.id, order, amountRial }
-      })
-
-      if (reservation.kind === 'not-payable') {
-         return NextResponse.json({ message: 'ORDER_NOT_PAYABLE' }, { status: 409 })
-      }
-      if (reservation.kind === 'existing-url') {
-         return NextResponse.json({ paymentUrl: reservation.paymentUrl })
-      }
-      if (reservation.kind === 'initializing') {
-         return NextResponse.json(
-            { message: 'PAYMENT_ALREADY_INITIALIZED' },
-            { status: 202 }
-         )
-      }
-      if (reservation.kind === 'amount-invalid') {
-         await releasePendingOrder(orderId)
-         return NextResponse.json(
-            { message: 'TABAPAY_AMOUNT_OUT_OF_RANGE' },
-            { status: 400 }
-         )
-      }
-      if (reservation.kind === 'not-configured') {
-         await releasePendingOrder(orderId)
-         return NextResponse.json(
-            { message: 'TABAPAY_NOT_CONFIGURED' },
-            { status: 503 }
-         )
-      }
-      if (reservation.kind === 'disabled') {
-         await releasePendingOrder(orderId)
-         return NextResponse.json({ message: 'PAYMENT_PROVIDER_DISABLED' }, { status: 503 })
+      const reservation = await reservePayment(orderId, userId)
+      if (reservation.kind !== 'created') {
+         return await respondToRejectedReservation(reservation, orderId)
       }
 
       paymentId = reservation.paymentId
@@ -141,25 +191,6 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ paymentUrl: result.paymentUrl })
    } catch (error) {
-      console.error('[TABAPAY_CREATE]', error)
-
-      // Once the external create request has started, its outcome may be
-      // unknown (for example a timeout after the provider created a token).
-      // Keep the reservation in that case; releasing it could permit an
-      // untracked late payment against stock that has already been resold.
-      const definitiveCreateRejection =
-         error instanceof Error && error.message.startsWith('TABAPAY_CREATE_REJECTED:')
-      if (orderId && (!gatewayRequestStarted || definitiveCreateRejection)) {
-         await releasePendingOrder(orderId, paymentId).catch((releaseError) => {
-            console.error('[TABAPAY_RELEASE]', releaseError)
-         })
-      }
-
-      return NextResponse.json(
-         { message: gatewayRequestStarted && !definitiveCreateRejection
-            ? 'PAYMENT_INITIALIZATION_PENDING_RECONCILIATION'
-            : 'PAYMENT_INITIALIZATION_FAILED' },
-         { status: gatewayRequestStarted && !definitiveCreateRejection ? 202 : 502 }
-      )
+      return handleCreateFailure(error, orderId, paymentId, gatewayRequestStarted)
    }
 }

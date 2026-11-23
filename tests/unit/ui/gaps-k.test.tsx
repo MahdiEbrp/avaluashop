@@ -100,9 +100,11 @@ describe('admin product form image list', () => {
       await user().type(stock, '5')
 
       await user().click(screen.getAllByRole('combobox')[0])
-      await user().click((await screen.findAllByText('Shoes')).at(-1))
+      const findAllByTextResult = await screen.findAllByText('Shoes')
+      await user().click(findAllByTextResult.at(-1))
       await user().click(screen.getAllByRole('combobox')[1])
-      await user().click((await screen.findAllByText('Nike')).at(-1))
+      const findAllByTextResult2 = await screen.findAllByText('Nike')
+      await user().click(findAllByTextResult2.at(-1))
 
       await user().click(screen.getByRole('button', { name: /create/i }))
 

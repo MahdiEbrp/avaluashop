@@ -37,8 +37,10 @@ describe('admin products', () => {
    }
 
    it('admin product list endpoints require a session', async () => {
-      expect((await productsGET(get())).status).toBe(401)
-      expect((await productsPOST(json(validProduct))).status).toBe(401)
+      const productsGETResult = await productsGET(get())
+      expect(productsGETResult.status).toBe(401)
+      const productsPOSTResult = await productsPOST(json(validProduct))
+      expect(productsPOSTResult.status).toBe(401)
    })
 
    it('GET filters by the many-to-many category and featured flag', async () => {
@@ -70,7 +72,8 @@ describe('admin products', () => {
 
    it('GET answers 500 on failure', async () => {
       prismaMock.product.findMany.mockRejectedValue(new Error('down'))
-      expect((await productsGET(get(USER))).status).toBe(500)
+      const productsGETResult2 = await productsGET(get(USER))
+      expect(productsGETResult2.status).toBe(500)
    })
 
    it('POST validates and creates a product with its required relations', async () => {
@@ -96,11 +99,13 @@ describe('admin products', () => {
    })
 
    it('POST rejects invalid product values and missing relations', async () => {
-      expect((await productsPOST(json({ ...validProduct, discount: 101 }, USER))).status).toBe(400)
+      const productsPOSTResult2 = await productsPOST(json({ ...validProduct, discount: 101 }, USER))
+      expect(productsPOSTResult2.status).toBe(400)
 
       prismaMock.brand.findUnique.mockResolvedValue(null)
       prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
-      expect((await productsPOST(json(validProduct, USER))).status).toBe(400)
+      const productsPOSTResult3 = await productsPOST(json(validProduct, USER))
+      expect(productsPOSTResult3.status).toBe(400)
    })
 
    it('POST creates a product without description and answers 500 on a database failure', async () => {
@@ -108,30 +113,39 @@ describe('admin products', () => {
       prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
       prismaMock.product.create.mockResolvedValueOnce({ id: 'p2' })
       const { description: _desc, ...withoutDesc } = validProduct
-      expect((await productsPOST(json(withoutDesc, USER))).status).toBe(201)
+      const productsPOSTResult4 = await productsPOST(json(withoutDesc, USER))
+      expect(productsPOSTResult4.status).toBe(201)
 
       prismaMock.product.create.mockRejectedValueOnce(new Error('down'))
-      expect((await productsPOST(json(validProduct, USER))).status).toBe(500)
+      const productsPOSTResult5 = await productsPOST(json(validProduct, USER))
+      expect(productsPOSTResult5.status).toBe(500)
    })
 
    it('single-product routes require a session', async () => {
-      expect((await productGET(get(), call({ productId: 'p1' }))).status).toBe(401)
-      expect((await productDEL(get(), call({ productId: 'p1' }))).status).toBe(401)
-      expect((await productPATCH(json({}), call({ productId: 'p1' }))).status).toBe(401)
+      const productGETResult = await productGET(get(), call({ productId: 'p1' }))
+      expect(productGETResult.status).toBe(401)
+      const productDELResult = await productDEL(get(), call({ productId: 'p1' }))
+      expect(productDELResult.status).toBe(401)
+      const productPATCHResult = await productPATCH(json({}), call({ productId: 'p1' }))
+      expect(productPATCHResult.status).toBe(401)
    })
 
    it('GET returns the product or 404 for a missing row', async () => {
       prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
-      expect((await productGET(get(USER), call({ productId: 'p1' }))).status).toBe(200)
+      const productGETResult2 = await productGET(get(USER), call({ productId: 'p1' }))
+      expect(productGETResult2.status).toBe(200)
 
       prismaMock.product.findUnique.mockResolvedValue(null)
-      expect((await productGET(get(USER), call({ productId: 'missing' }))).status).toBe(404)
-      expect((await productGET(get(USER), call({ productId: '' }))).status).toBe(400)
+      const productGETResult3 = await productGET(get(USER), call({ productId: 'missing' }))
+      expect(productGETResult3.status).toBe(404)
+      const productGETResult4 = await productGET(get(USER), call({ productId: '' }))
+      expect(productGETResult4.status).toBe(400)
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.product.findUnique.mockRejectedValue(new Error('down'))
-      expect((await productGET(get(USER), call({ productId: 'p1' }))).status).toBe(500)
+      const productGETResult5 = await productGET(get(USER), call({ productId: 'p1' }))
+      expect(productGETResult5.status).toBe(500)
    })
 
    it('PATCH writes validated product fields', async () => {
@@ -164,21 +178,25 @@ describe('admin products', () => {
          discount: 10,
          stock: 5,
       })
+      const productPATCHResult2 = await productPATCH(json({ price: 20, discount: 30 }, USER), call({ productId: 'p1' }))
       expect(
-         (await productPATCH(json({ price: 20, discount: 30 }, USER), call({ productId: 'p1' }))).status
+         productPATCHResult2.status
       ).toBe(400)
 
       prismaMock.product.findUnique.mockResolvedValue(null)
+      const productPATCHResult3 = await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))
       expect(
-         (await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))).status
+         productPATCHResult3.status
       ).toBe(404)
+      const productPATCHResult4 = await productPATCH(json({ stock: 3 }, USER), call({ productId: '' }))
       expect(
-         (await productPATCH(json({ stock: 3 }, USER), call({ productId: '' }))).status
+         productPATCHResult4.status
       ).toBe(400)
    })
 
    it('PATCH validates brandId, categoryId, zero stock, and empty payloads', async () => {
-      expect((await productPATCH(json({}, USER), call({ productId: 'p1' }))).status).toBe(400)
+      const productPATCHResult5 = await productPATCH(json({}, USER), call({ productId: 'p1' }))
+      expect(productPATCHResult5.status).toBe(400)
 
       prismaMock.product.findUnique.mockResolvedValue({
          id: 'p1',
@@ -188,19 +206,19 @@ describe('admin products', () => {
       })
 
       prismaMock.brand.findUnique.mockResolvedValueOnce(null)
+      const productPATCHResult6 = await productPATCH(json({ brandId: 'missing' }, USER), call({ productId: 'p1' }))
       expect(
-         (await productPATCH(json({ brandId: 'missing' }, USER), call({ productId: 'p1' }))).status
+         productPATCHResult6.status
       ).toBe(400)
 
       prismaMock.brand.findUnique.mockResolvedValueOnce({ id: 'br1' })
       prismaMock.category.findUnique.mockResolvedValueOnce(null)
-      expect(
-         (
-            await productPATCH(
+      const productPATCHResult7 = await productPATCH(
                json({ brandId: 'br1', categoryId: 'missing' }, USER),
                call({ productId: 'p1' })
             )
-         ).status
+      expect(
+         productPATCHResult7.status
       ).toBe(400)
 
       prismaMock.brand.findUnique.mockResolvedValueOnce({ id: 'br1' })
@@ -230,7 +248,8 @@ describe('admin products', () => {
          stock: 5,
       })
       prismaMock.product.update.mockRejectedValue(new Error('down'))
-      expect((await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))).status).toBe(500)
+      const productPATCHResult8 = await productPATCH(json({ stock: 3 }, USER), call({ productId: 'p1' }))
+      expect(productPATCHResult8.status).toBe(500)
    })
 
    it('DELETE archives products that are still referenced', async () => {
@@ -253,37 +272,45 @@ describe('admin products', () => {
 
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ deleted: true })
-      expect((await productDEL(get(USER), call({ productId: '' }))).status).toBe(400)
+      const productDELResult2 = await productDEL(get(USER), call({ productId: '' }))
+      expect(productDELResult2.status).toBe(400)
    })
 
    it('DELETE returns 404 for a missing product and 500 on failure', async () => {
       prismaMock.product.findUnique.mockResolvedValue(null)
-      expect((await productDEL(get(USER), call({ productId: 'missing' }))).status).toBe(404)
+      const productDELResult3 = await productDEL(get(USER), call({ productId: 'missing' }))
+      expect(productDELResult3.status).toBe(404)
 
       prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.product.delete.mockRejectedValue(new Error('down'))
-      expect((await productDEL(get(USER), call({ productId: 'p1' }))).status).toBe(500)
+      const productDELResult4 = await productDEL(get(USER), call({ productId: 'p1' }))
+      expect(productDELResult4.status).toBe(500)
    })
 })
 
 describe('admin orders', () => {
    it('requires a session', async () => {
-      expect((await orderGET(get(), call({ orderId: 'o1' }))).status).toBe(401)
-      expect((await orderPATCH(json({}), call({ orderId: 'o1' }))).status).toBe(401)
+      const orderGETResult = await orderGET(get(), call({ orderId: 'o1' }))
+      expect(orderGETResult.status).toBe(401)
+      const orderPATCHResult = await orderPATCH(json({}), call({ orderId: 'o1' }))
+      expect(orderPATCHResult.status).toBe(401)
    })
 
    it('GET returns the order or 404', async () => {
       prismaMock.order.findUnique.mockResolvedValue({ id: 'o1' })
-      expect((await orderGET(get(USER), call({ orderId: 'o1' }))).status).toBe(200)
+      const orderGETResult2 = await orderGET(get(USER), call({ orderId: 'o1' }))
+      expect(orderGETResult2.status).toBe(200)
 
       prismaMock.order.findUnique.mockResolvedValue(null)
-      expect((await orderGET(get(USER), call({ orderId: 'nope' }))).status).toBe(404)
+      const orderGETResult3 = await orderGET(get(USER), call({ orderId: 'nope' }))
+      expect(orderGETResult3.status).toBe(404)
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.order.findUnique.mockRejectedValue(new Error('down'))
 
-      expect((await orderGET(get(USER), call({ orderId: 'o1' }))).status).toBe(500)
+      const orderGETResult4 = await orderGET(get(USER), call({ orderId: 'o1' }))
+      expect(orderGETResult4.status).toBe(500)
    })
 
    it('PATCH validates the status enum and money fields', async () => {
@@ -542,38 +569,45 @@ describe('admin orders', () => {
    it('PATCH answers 404 for a missing order', async () => {
       prismaMock.order.findUnique.mockResolvedValue(null)
 
+      const orderPATCHResult2 = await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))
       expect(
-         (await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))).status
+         orderPATCHResult2.status
       ).toBe(404)
    })
 
    it('PATCH answers 500 on failure', async () => {
       prismaMock.order.findUnique.mockRejectedValue(new Error('down'))
 
+      const orderPATCHResult3 = await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))
       expect(
-         (await orderPATCH(json({ shippingTrackingNumber: 'TRK-1' }, USER), call({ orderId: 'o1' }))).status
+         orderPATCHResult3.status
       ).toBe(500)
    })
 })
 
 describe('admin payments', () => {
    it('requires a session for reads and settlement attempts', async () => {
-      expect((await paymentGET(get(), call({ paymentId: 'pay1' }))).status).toBe(401)
-      expect((await paymentPATCH(json({ status: 'Paid' }), call({ paymentId: 'pay1' }))).status).toBe(401)
+      const paymentGETResult = await paymentGET(get(), call({ paymentId: 'pay1' }))
+      expect(paymentGETResult.status).toBe(401)
+      const paymentPATCHResult = await paymentPATCH(json({ status: 'Paid' }), call({ paymentId: 'pay1' }))
+      expect(paymentPATCHResult.status).toBe(401)
    })
 
    it('GET returns the payment or 404', async () => {
       prismaMock.payment.findUnique.mockResolvedValue({ id: 'pay1' })
-      expect((await paymentGET(get(USER), call({ paymentId: 'pay1' }))).status).toBe(200)
+      const paymentGETResult2 = await paymentGET(get(USER), call({ paymentId: 'pay1' }))
+      expect(paymentGETResult2.status).toBe(200)
 
       prismaMock.payment.findUnique.mockResolvedValue(null)
-      expect((await paymentGET(get(USER), call({ paymentId: 'x' }))).status).toBe(404)
+      const paymentGETResult3 = await paymentGET(get(USER), call({ paymentId: 'x' }))
+      expect(paymentGETResult3.status).toBe(404)
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.payment.findUnique.mockRejectedValue(new Error('down'))
 
-      expect((await paymentGET(get(USER), call({ paymentId: 'pay1' }))).status).toBe(500)
+      const paymentGETResult4 = await paymentGET(get(USER), call({ paymentId: 'pay1' }))
+      expect(paymentGETResult4.status).toBe(500)
    })
 
    it.each([
@@ -597,9 +631,12 @@ describe('admin payments', () => {
 
 describe('admin users', () => {
    it('requires a session', async () => {
-      expect((await userGET(get(), call({ userId: 'u1' }))).status).toBe(401)
-      expect((await userPATCH(json({}), call({ userId: 'u1' }))).status).toBe(401)
-      expect((await userDEL(get(), call({ userId: 'u1' }))).status).toBe(401)
+      const userGETResult = await userGET(get(), call({ userId: 'u1' }))
+      expect(userGETResult.status).toBe(401)
+      const userPATCHResult = await userPATCH(json({}), call({ userId: 'u1' }))
+      expect(userPATCHResult.status).toBe(401)
+      const userDELResult = await userDEL(get(), call({ userId: 'u1' }))
+      expect(userDELResult.status).toBe(401)
    })
 
    it('GET never selects the OTP or tokens', async () => {
@@ -618,20 +655,24 @@ describe('admin users', () => {
    it('GET answers 404 for a missing user', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
 
-      expect((await userGET(get(USER), call({ userId: 'x' }))).status).toBe(404)
+      const userGETResult2 = await userGET(get(USER), call({ userId: 'x' }))
+      expect(userGETResult2.status).toBe(404)
    })
 
    it('GET answers 500 on failure', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('down'))
 
-      expect((await userGET(get(USER), call({ userId: 'u1' }))).status).toBe(500)
+      const userGETResult3 = await userGET(get(USER), call({ userId: 'u1' }))
+      expect(userGETResult3.status).toBe(500)
    })
 
    it('PATCH validates the payload', async () => {
+      const userPATCHResult2 = await userPATCH(json({ email: 'not-an-email' }, USER), call({ userId: 'u1' }))
       expect(
-         (await userPATCH(json({ email: 'not-an-email' }, USER), call({ userId: 'u1' }))).status
+         userPATCHResult2.status
       ).toBe(400)
-      expect((await userPATCH(json({}, USER), call({ userId: 'u1' }))).status).toBe(400)
+      const userPATCHResult3 = await userPATCH(json({}, USER), call({ userId: 'u1' }))
+      expect(userPATCHResult3.status).toBe(400)
    })
 
    it('PATCH updates an existing user', async () => {
@@ -646,8 +687,9 @@ describe('admin users', () => {
    it('PATCH answers 404 for a missing user', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
 
+      const userPATCHResult4 = await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'x' }))
       expect(
-         (await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'x' }))).status
+         userPATCHResult4.status
       ).toBe(404)
    })
 
@@ -667,8 +709,9 @@ describe('admin users', () => {
       prismaMock.user.findUnique.mockResolvedValue({ id: 'u1' })
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
+      const userPATCHResult5 = await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'u1' }))
       expect(
-         (await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'u1' }))).status
+         userPATCHResult5.status
       ).toBe(500)
    })
 
@@ -676,15 +719,17 @@ describe('admin users', () => {
       prismaMock.user.findUnique.mockResolvedValue({ id: 'u1' })
       prismaMock.user.update.mockRejectedValue(null)
 
+      const userPATCHResult6 = await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'u1' }))
       expect(
-         (await userPATCH(json({ name: 'Ada' }, USER), call({ userId: 'u1' }))).status
+         userPATCHResult6.status
       ).toBe(500)
    })
 
    it('DELETE answers 404 for a missing user', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null)
 
-      expect((await userDEL(get(USER), call({ userId: 'x' }))).status).toBe(404)
+      const userDELResult2 = await userDEL(get(USER), call({ userId: 'x' }))
+      expect(userDELResult2.status).toBe(404)
    })
 
    it('DELETE refuses to erase a customer with orders', async () => {
@@ -710,6 +755,7 @@ describe('admin users', () => {
    it('DELETE answers 500 on failure', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('down'))
 
-      expect((await userDEL(get(USER), call({ userId: 'u1' }))).status).toBe(500)
+      const userDELResult3 = await userDEL(get(USER), call({ userId: 'u1' }))
+      expect(userDELResult3.status).toBe(500)
    })
 })

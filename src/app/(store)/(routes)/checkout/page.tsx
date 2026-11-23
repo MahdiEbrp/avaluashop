@@ -9,7 +9,7 @@ import { CartContextProvider, useCartContext } from '@/state/Cart'
 import { UserContextProvider, useUserContext } from '@/state/User'
 import { redirectToPayment } from '@/lib/payments/redirect'
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 
 interface Address {
    id: string
@@ -131,6 +131,49 @@ function shippingSectionState(
    return 'blocked'
 }
 
+function subscribeToLocation(onChange: () => void) {
+   globalThis.addEventListener('popstate', onChange)
+   return () => {
+      globalThis.removeEventListener('popstate', onChange)
+   }
+}
+
+function readLocationSearch() {
+   return globalThis.location.search
+}
+
+function noLocationSearch() {
+   return ''
+}
+
+/* The payment outcome arrives in the URL. It is derived during render rather
+   than written into state from an effect, so the notice appears on first
+   client render after hydration without cascading state updates. */
+function paymentNoticeFor(search: string): { error: string; pending: boolean } {
+   const params = new URLSearchParams(search)
+   const paymentResult = params.get('payment')
+
+   if (paymentResult === 'success') {
+      return {
+         error: params.get('orderId') ? '' : 'شناسه سفارش برای بررسی نتیجه پرداخت وجود ندارد.',
+         pending: false,
+      }
+   }
+   if (paymentResult === 'failed') {
+      return {
+         error: 'پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.',
+         pending: false,
+      }
+   }
+   if (paymentResult === 'pending') {
+      return {
+         error: 'تأیید پرداخت هنوز قطعی نیست. لطفاً از ثبت دوباره سفارش خودداری کنید و وضعیت تراکنش را با پشتیبانی بررسی کنید.',
+         pending: true,
+      }
+   }
+   return { error: '', pending: false }
+}
+
 function submitLabel(submitting: boolean, paymentPending: boolean) {
    if (paymentPending) return 'در انتظار بررسی تراکنش'
    if (submitting) return 'در حال انتقال به درگاه...'
@@ -176,8 +219,14 @@ function CheckoutContent() {
    // Keep one key for this checkout view so retries after an uncertain response
    // resolve to the same server-side order rather than reserving stock twice.
    const orderRequestKey = useRef<string | null>(null)
-   const [paymentPending, setPaymentPending] = useState(false)
-   const [error, setError] = useState('')
+   const locationSearch = useSyncExternalStore(subscribeToLocation, readLocationSearch, noLocationSearch)
+   const paymentNotice = useMemo(() => paymentNoticeFor(locationSearch), [locationSearch])
+   const [submittedPending, setPaymentPending] = useState(false)
+   const paymentPending = submittedPending || paymentNotice.pending
+   /* null means "no message set by the user yet", so the URL notice shows.
+      Any string (including '') set by a handler takes precedence. */
+   const [error, setError] = useState<string | null>(null)
+   const visibleError = error ?? paymentNotice.error
    const [success, setSuccess] = useState('')
    const [showAddressForm, setShowAddressForm] = useState(false)
    const [form, setForm] = useState({
@@ -193,10 +242,7 @@ function CheckoutContent() {
 
       if (paymentResult === 'success') {
          const orderId = params.get('orderId')
-         if (!orderId) {
-            setError('شناسه سفارش برای بررسی نتیجه پرداخت وجود ندارد.')
-            return
-         }
+         if (!orderId) return
 
          let cancelled = false
          fetch('/api/orders', { cache: 'no-store' })
@@ -229,20 +275,10 @@ function CheckoutContent() {
             cancelled = true
          }
       }
-
-      if (paymentResult === 'failed') {
-         setError('پرداخت تأیید نشد. اگر مبلغی از حساب شما کسر شده، وضعیت تراکنش را از پشتیبانی پیگیری کنید.')
-      } else if (paymentResult === 'pending') {
-         setPaymentPending(true)
-         setError('تأیید پرداخت هنوز قطعی نیست. لطفاً از ثبت دوباره سفارش خودداری کنید و وضعیت تراکنش را با پشتیبانی بررسی کنید.')
-      }
    }, [])
 
    useEffect(() => {
-      if (!user) {
-         setLoadingAddresses(false)
-         return
-      }
+      if (!user) return
 
       let cancelled = false
       fetch('/api/addresses', { cache: 'no-store' })
@@ -427,7 +463,9 @@ function CheckoutContent() {
       }
    }
 
-   if (userLoading || cartLoading || loadingAddresses) {
+   const addressesLoading = user ? loadingAddresses : false
+
+   if (userLoading || cartLoading || addressesLoading) {
       return <div className="container mx-auto p-6 text-center" dir="rtl">در حال بارگذاری اطلاعات خرید...</div>
    }
 
@@ -477,7 +515,7 @@ function CheckoutContent() {
             <p className="text-sm text-muted-foreground">نشانی تحویل را انتخاب کنید و جزئیات سفارش را پیش از ثبت بررسی کنید.</p>
          </header>
 
-         {error && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">{error}</div>}
+         {visibleError && <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">{visibleError}</div>}
 
          <div className="grid gap-5 md:grid-cols-3">
             <div className="space-y-5 md:col-span-2">
@@ -487,7 +525,7 @@ function CheckoutContent() {
                   {addresses.length > 0 ? (
                      <div className="space-y-3">
                         {addresses.map((address) => (
-                           <label key={address.id} className="flex cursor-pointer gap-3 rounded-lg border p-3">
+                           <label key={address.id} aria-label={`${address.city} ${address.address}`} className="flex cursor-pointer gap-3 rounded-lg border p-3">
                               <input
                                  type="radio"
                                  name="shipping-address"

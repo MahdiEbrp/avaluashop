@@ -27,9 +27,9 @@ export const Product = ({ product }: { product: ProductWithIncludes }) => {
 
    return (
       <Link className="group block h-full" href={`/products/${product.id}`}>
-         <Card className="h-full overflow-hidden rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+         <Card variant="product" className="h-full overflow-hidden hover:-translate-y-1">
             <CardHeader className="p-0">
-               <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary">
+               <div className="relative aspect-4/5 w-full overflow-hidden bg-secondary">
                   <Image
                      className="object-cover transition-transform duration-500 group-hover:scale-105"
                      src={product?.images[0]}
@@ -37,15 +37,15 @@ export const Product = ({ product }: { product: ProductWithIncludes }) => {
                      fill
                      sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
                   />
-                  {hasDiscount ? <Badge className="absolute right-3 top-3 rounded-full bg-primary text-primary-foreground">٪{toman.format(percentage)} تخفیف</Badge> : null}
+                  {hasDiscount ? <Badge variant="discount" className="absolute right-3 top-3">٪{toman.format(percentage)} تخفیف</Badge> : null}
                </div>
             </CardHeader>
             <CardContent className="grid gap-2 p-3 md:p-4">
-               {product?.categories[0]?.title ? <Badge variant="secondary" className="w-fit rounded-full text-xs">{product.categories[0].title}</Badge> : null}
+               {product?.categories[0]?.title ? <Badge variant="chip">{product.categories[0].title}</Badge> : null}
                <h2 className="line-clamp-2 min-h-10 text-sm font-semibold leading-6 text-card-foreground md:text-base">{product.title}</h2>
                {product?.description ? <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{product.description}</p> : null}
             </CardContent>
-            <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-3 py-3 md:px-4">
+            <CardFooter variant="divided" className="flex-wrap justify-between gap-2 px-3 py-3 md:px-4">
                {product?.isAvailable ? (
                   <div className="flex flex-col gap-1">
                      {hasDiscount ? <span className="text-xs text-muted-foreground line-through">{formatPrice(product.price)}</span> : null}
@@ -62,7 +62,7 @@ export const Product = ({ product }: { product: ProductWithIncludes }) => {
 export function ProductSkeleton() {
    return (
       <div className="animate-pulse overflow-hidden rounded-2xl border border-border bg-card">
-         <div className="flex aspect-[4/5] w-full items-center justify-center bg-muted"><ImageSkeleton /></div>
+         <div className="flex aspect-4/5 w-full items-center justify-center bg-muted"><ImageSkeleton /></div>
          <div className="space-y-3 p-4">
             <div className="h-3 w-20 rounded-full bg-muted" />
             <div className="h-3 w-3/4 rounded-full bg-muted" />

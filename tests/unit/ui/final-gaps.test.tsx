@@ -504,7 +504,8 @@ describe('profile switcher', () => {
 
       await user().click(screen.getAllByRole('button')[0])
 
-      expect((await screen.findAllByText('Addresses')).length).toBeGreaterThan(0)
+      const findAllByTextResult = await screen.findAllByText('Addresses')
+      expect(findAllByTextResult.length).toBeGreaterThan(0)
       expect(screen.getAllByText('Orders').length).toBeGreaterThan(0)
    })
 })

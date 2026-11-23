@@ -29,8 +29,8 @@ export default function Footer() {
    return (
       <footer className="mt-12 w-full bg-secondary/60" dir="rtl">
          <Separator />
-         <div className="grid gap-10 px-5 py-10 md:grid-cols-[1.2fr_2fr] md:px-16 lg:px-24 xl:px-32 2xl:px-48">
-            <div className="text-right">
+         <div className="grid gap-10 px-5 py-10 md:grid-cols-8 md:px-16 lg:px-24 xl:px-32 2xl:px-48">
+            <div className="text-right md:col-span-3">
                <h2 className="text-lg font-bold text-foreground">{config.name}</h2>
                <p className="mt-2 max-w-sm text-sm leading-7 text-muted-foreground">
                   اکسسوری‌های ظریف برای کامل‌کردن استایل شما؛ با انتخابی ساده و خریدی مطمئن.
@@ -39,7 +39,7 @@ export default function Footer() {
                   © {new Date().getFullYear()} {config.name} — تمامی حقوق محفوظ است.
                </span>
             </div>
-            <div className="grid grid-cols-2 gap-7 text-right sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-7 text-right sm:grid-cols-3 md:col-span-5">
                {groups.map((group) => (
                   <div key={group.title}>
                      <h2 className="mb-3 text-sm font-bold text-foreground">{group.title}</h2>

@@ -12,6 +12,9 @@ const cardVariants = cva(
             muted: 'bg-muted-foreground/5',
             /** Skeleton state while data loads. */
             loading: 'animate-pulse',
+            /** Shoppable product tile: softer corners, lift on hover. */
+            product:
+               'rounded-2xl border-border/70 bg-card shadow-sm transition-all duration-300 hover:shadow-lg',
          },
       },
       defaultVariants: {
@@ -82,16 +85,33 @@ const CardContent = React.forwardRef<
 ))
 CardContent.displayName = 'CardContent'
 
-const CardFooter = React.forwardRef<
-   HTMLDivElement,
-   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-   <div
-      ref={ref}
-      className={cn('flex items-center p-6 pt-0', className)}
-      {...props}
-   />
-))
+const cardFooterVariants = cva('flex items-center p-6 pt-0', {
+   variants: {
+      variant: {
+         default: '',
+         /** Footer separated from the body by a hairline rule. */
+         divided: 'border-t border-border/60',
+      },
+   },
+   defaultVariants: {
+      variant: 'default',
+   },
+})
+
+export interface CardFooterProps
+   extends
+      React.HTMLAttributes<HTMLDivElement>,
+      VariantProps<typeof cardFooterVariants> {}
+
+const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
+   ({ className, variant, ...props }, ref) => (
+      <div
+         ref={ref}
+         className={cn(cardFooterVariants({ variant }), className)}
+         {...props}
+      />
+   )
+)
 CardFooter.displayName = 'CardFooter'
 
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }

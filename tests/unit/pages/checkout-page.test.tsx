@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { renderToString } from 'react-dom/server'
 
 import CheckoutPage from '@/app/(store)/(routes)/checkout/page'
 
@@ -95,6 +96,16 @@ function summaryRow(label: string) {
 }
 
 describe('checkout — gating states', () => {
+   it('server-renders the signed-out prompt without a browser location', () => {
+      userState.user = null
+
+      /* renderToString takes the server snapshot path: the URL is not read,
+         so the payment-notice store must not touch globalThis.location. */
+      const html = renderToString(<CheckoutPage />)
+
+      expect(html).toContain('برای ادامه خرید وارد حساب کاربری شوید')
+   })
+
    it('shows the loading copy while the profile or cart is in flight', () => {
       userState.loading = true
 

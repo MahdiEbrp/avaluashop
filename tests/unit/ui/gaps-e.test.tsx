@@ -341,7 +341,8 @@ describe('dropdown submenus', () => {
          </AdminDropdownMenu>
       )
 
-      expect((await screen.findAllByText('More')).length).toBeGreaterThan(0)
+      const findAllByTextResult = await screen.findAllByText('More')
+      expect(findAllByTextResult.length).toBeGreaterThan(0)
       expect(screen.getAllByText('Admin A').length).toBeGreaterThan(0)
    })
 })

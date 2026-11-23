@@ -48,7 +48,8 @@ describe('GET /api/shipping-methods', () => {
 
    it('answers 500 when the database is unavailable', async () => {
       prismaMock.shippingMethod.findMany.mockRejectedValue(new Error('down'))
-      expect((await shippingGET(get())).status).toBe(500)
+      const shippingGETResult = await shippingGET(get())
+      expect(shippingGETResult.status).toBe(500)
    })
 })
 
@@ -58,7 +59,8 @@ describe('GET /api/store-settings', () => {
          taxEnabled: false, taxRate: 0.12, taxLabel: 'مالیات', currency: 'IRT',
       })
 
-      await expect((await settingsGET()).json()).resolves.toEqual({
+      const settingsGETResult = await settingsGET()
+      await expect(settingsGETResult.json()).resolves.toEqual({
          taxEnabled: false, taxRate: 0.12, taxLabel: 'مالیات', currency: 'IRT',
       })
    })
@@ -66,28 +68,35 @@ describe('GET /api/store-settings', () => {
    it('returns safe defaults before settings are initialized', async () => {
       prismaMock.storeSetting.findUnique.mockResolvedValue(null)
 
-      await expect((await settingsGET()).json()).resolves.toMatchObject({
+      const settingsGETResult2 = await settingsGET()
+      await expect(settingsGETResult2.json()).resolves.toMatchObject({
          taxEnabled: true, taxRate: 0.09, currency: 'IRT',
       })
    })
 
    it('answers 500 when the database is unavailable', async () => {
       prismaMock.storeSetting.findUnique.mockRejectedValue(new Error('down'))
-      expect((await settingsGET()).status).toBe(500)
+      const settingsGETResult3 = await settingsGET()
+      expect(settingsGETResult3.status).toBe(500)
    })
 })
 
 describe('admin shipping method routes', () => {
    it('requires a verified admin session', async () => {
-      expect((await adminGET(get())).status).toBe(401)
-      expect((await adminPOST(json({}))).status).toBe(401)
-      expect((await methodPATCH(json({ isActive: false }), call({ methodId: 'sm1' }))).status).toBe(401)
-      expect((await methodDELETE(get(), call({ methodId: 'sm1' }))).status).toBe(401)
+      const adminGETResult = await adminGET(get())
+      expect(adminGETResult.status).toBe(401)
+      const adminPOSTResult = await adminPOST(json({}))
+      expect(adminPOSTResult.status).toBe(401)
+      const methodPATCHResult = await methodPATCH(json({ isActive: false }), call({ methodId: 'sm1' }))
+      expect(methodPATCHResult.status).toBe(401)
+      const methodDELETEResult = await methodDELETE(get(), call({ methodId: 'sm1' }))
+      expect(methodDELETEResult.status).toBe(401)
    })
 
    it('lists methods in display order', async () => {
       prismaMock.shippingMethod.findMany.mockResolvedValue([{ id: 'sm1' }])
-      expect((await adminGET(get(USER))).status).toBe(200)
+      const adminGETResult2 = await adminGET(get(USER))
+      expect(adminGETResult2.status).toBe(200)
       expect(prismaMock.shippingMethod.findMany).toHaveBeenCalledWith(
          expect.objectContaining({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] })
       )
@@ -116,11 +125,13 @@ describe('admin shipping method routes', () => {
    })
 
    it('rejects invalid or malformed method data', async () => {
-      expect((await adminPOST(json({ code: 'Bad Code', title: 'x', type: 'FlatRate', amount: 1 }, USER))).status).toBe(400)
+      const adminPOSTResult2 = await adminPOST(json({ code: 'Bad Code', title: 'x', type: 'FlatRate', amount: 1 }, USER))
+      expect(adminPOSTResult2.status).toBe(400)
       const malformed = new Request('http://localhost/api/admin/shipping-methods', {
          method: 'POST', headers: USER, body: '{',
       })
-      expect((await adminPOST(malformed)).status).toBe(400)
+      const adminPOSTResult3 = await adminPOST(malformed)
+      expect(adminPOSTResult3.status).toBe(400)
    })
 
    it('rejects duplicate codes', async () => {
@@ -138,12 +149,14 @@ describe('admin shipping method routes', () => {
       expect(response.status).toBe(200)
 
       prismaMock.shippingMethod.findUnique.mockResolvedValue(null)
-      expect((await methodPATCH(json({ isActive: false }, USER), call({ methodId: 'missing' }))).status).toBe(404)
+      const methodPATCHResult2 = await methodPATCH(json({ isActive: false }, USER), call({ methodId: 'missing' }))
+      expect(methodPATCHResult2.status).toBe(404)
    })
 
    it('requires a threshold when switching to free-above', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue({ id: 'sm1', type: 'FlatRate', freeAbove: null })
-      expect((await methodPATCH(json({ type: 'FreeAbove' }, USER), call({ methodId: 'sm1' }))).status).toBe(400)
+      const methodPATCHResult3 = await methodPATCH(json({ type: 'FreeAbove' }, USER), call({ methodId: 'sm1' }))
+      expect(methodPATCHResult3.status).toBe(400)
    })
 
    it('soft-disables a method so historical orders remain intact', async () => {
@@ -158,6 +171,7 @@ describe('admin shipping method routes', () => {
 
    it('answers 500 when persistence fails', async () => {
       prismaMock.shippingMethod.findMany.mockRejectedValue(new Error('down'))
-      expect((await adminGET(get(USER))).status).toBe(500)
+      const adminGETResult3 = await adminGET(get(USER))
+      expect(adminGETResult3.status).toBe(500)
    })
 })

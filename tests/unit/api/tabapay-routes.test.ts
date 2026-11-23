@@ -125,7 +125,8 @@ describe('POST /api/payments/tabapay', () => {
    it('answers 409 for an order that is not pending payment', async () => {
       prismaMock.order.findFirst.mockResolvedValue({ ...order, status: 'Processing' })
 
-      expect((await tabapayPOST(json({ orderId: 'order-1' }, USER))).status).toBe(409)
+      const tabapayPOSTResult = await tabapayPOST(json({ orderId: 'order-1' }, USER))
+      expect(tabapayPOSTResult.status).toBe(409)
    })
 
    it('re-checks the order under the lock when it changed after the snapshot', async () => {

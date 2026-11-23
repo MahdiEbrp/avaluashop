@@ -81,7 +81,8 @@ describe('GET /api/profile', () => {
 
 describe('/api/addresses', () => {
    it('GET rejects an anonymous caller', async () => {
-      expect((await addressesGET(get())).status).toBe(401)
+      const addressesGETResult = await addressesGET(get())
+      expect(addressesGETResult.status).toBe(401)
    })
 
    it('GET lists the caller addresses', async () => {
@@ -99,11 +100,13 @@ describe('/api/addresses', () => {
    it('GET answers 500 on a database failure', async () => {
       prismaMock.address.findMany.mockRejectedValue(new Error('down'))
 
-      expect((await addressesGET(get(USER))).status).toBe(500)
+      const addressesGETResult2 = await addressesGET(get(USER))
+      expect(addressesGETResult2.status).toBe(500)
    })
 
    it('POST rejects an anonymous caller', async () => {
-      expect((await addressesPOST(json({}))).status).toBe(401)
+      const addressesPOSTResult = await addressesPOST(json({}))
+      expect(addressesPOSTResult.status).toBe(401)
    })
 
    it('POST creates an address for the caller', async () => {
@@ -129,7 +132,8 @@ describe('/api/addresses', () => {
    it('POST answers 500 on a database failure', async () => {
       prismaMock.address.create.mockRejectedValue(new Error('down'))
 
-      expect((await addressesPOST(json({}, USER))).status).toBe(500)
+      const addressesPOSTResult2 = await addressesPOST(json({}, USER))
+      expect(addressesPOSTResult2.status).toBe(500)
    })
 })
 
@@ -159,13 +163,15 @@ describe('GET /api/addresses/[addressId]', () => {
    it('answers 500 when the address is missing', async () => {
       prismaMock.address.findUniqueOrThrow.mockRejectedValue(new Error('P2025'))
 
-      expect((await addressGET(get(USER), call({ addressId: 'ad1' }))).status).toBe(500)
+      const addressGETResult = await addressGET(get(USER), call({ addressId: 'ad1' }))
+      expect(addressGETResult.status).toBe(500)
    })
 })
 
 describe('/api/wishlist', () => {
    it('GET requires a session', async () => {
-      expect((await wishlistGET(get())).status).toBe(401)
+      const wishlistGETResult = await wishlistGET(get())
+      expect(wishlistGETResult.status).toBe(401)
    })
 
    it('GET returns the wishlist', async () => {
@@ -179,11 +185,13 @@ describe('/api/wishlist', () => {
    it('GET answers 500 when the query fails', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('P2025'))
 
-      expect((await wishlistGET(get(USER))).status).toBe(500)
+      const wishlistGETResult2 = await wishlistGET(get(USER))
+      expect(wishlistGETResult2.status).toBe(500)
    })
 
    it('POST requires a session', async () => {
-      expect((await wishlistPOST(json({ productId: 'p1' }))).status).toBe(401)
+      const wishlistPOSTResult = await wishlistPOST(json({ productId: 'p1' }))
+      expect(wishlistPOSTResult.status).toBe(401)
    })
 
    it('POST connects the product', async () => {
@@ -205,11 +213,13 @@ describe('/api/wishlist', () => {
       prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
-      expect((await wishlistPOST(json({ productId: 'p1' }, USER))).status).toBe(500)
+      const wishlistPOSTResult2 = await wishlistPOST(json({ productId: 'p1' }, USER))
+      expect(wishlistPOSTResult2.status).toBe(500)
    })
 
    it('DELETE requires a session', async () => {
-      expect((await wishlistDEL(json({ productId: 'p1' }))).status).toBe(401)
+      const wishlistDELResult = await wishlistDEL(json({ productId: 'p1' }))
+      expect(wishlistDELResult.status).toBe(401)
    })
 
    it('DELETE disconnects the product', async () => {
@@ -231,13 +241,15 @@ describe('/api/wishlist', () => {
       prismaMock.product.findUnique.mockResolvedValue({ id: 'p1' })
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
-      expect((await wishlistDEL(json({ productId: 'p1' }, USER))).status).toBe(500)
+      const wishlistDELResult2 = await wishlistDEL(json({ productId: 'p1' }, USER))
+      expect(wishlistDELResult2.status).toBe(500)
    })
 })
 
 describe('/api/subscription/email', () => {
    it('POST requires a session', async () => {
-      expect((await emailPOST(json({}))).status).toBe(401)
+      const emailPOSTResult = await emailPOST(json({}))
+      expect(emailPOSTResult.status).toBe(401)
    })
 
    it('POST subscribes the caller', async () => {
@@ -257,7 +269,8 @@ describe('/api/subscription/email', () => {
    it('POST answers 500 on failure', async () => {
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
-      expect((await emailPOST(json({}, USER))).status).toBe(500)
+      const emailPOSTResult2 = await emailPOST(json({}, USER))
+      expect(emailPOSTResult2.status).toBe(500)
    })
 
    it('DELETE unsubscribes by token without a session', async () => {
@@ -281,13 +294,15 @@ describe('/api/subscription/email', () => {
    it('DELETE answers 500 for an unknown token', async () => {
       prismaMock.user.update.mockRejectedValue(new Error('P2025'))
 
-      expect((await emailDEL(json({ emailUnsubscribeToken: 'nope' }))).status).toBe(500)
+      const emailDELResult = await emailDEL(json({ emailUnsubscribeToken: 'nope' }))
+      expect(emailDELResult.status).toBe(500)
    })
 })
 
 describe('/api/subscription/phone', () => {
    it('POST requires a session', async () => {
-      expect((await phonePOST(json({}))).status).toBe(401)
+      const phonePOSTResult = await phonePOST(json({}))
+      expect(phonePOSTResult.status).toBe(401)
    })
 
    it('POST subscribes the caller', async () => {
@@ -307,11 +322,13 @@ describe('/api/subscription/phone', () => {
    it('POST answers 500 on failure', async () => {
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
-      expect((await phonePOST(json({}, USER))).status).toBe(500)
+      const phonePOSTResult2 = await phonePOST(json({}, USER))
+      expect(phonePOSTResult2.status).toBe(500)
    })
 
    it('DELETE requires a session', async () => {
-      expect((await phoneDEL(json({}))).status).toBe(401)
+      const phoneDELResult = await phoneDEL(json({}))
+      expect(phoneDELResult.status).toBe(401)
    })
 
    it('DELETE unsubscribes the caller', async () => {
@@ -331,6 +348,7 @@ describe('/api/subscription/phone', () => {
    it('DELETE answers 500 on failure', async () => {
       prismaMock.user.update.mockRejectedValue(new Error('down'))
 
-      expect((await phoneDEL(json({}, USER))).status).toBe(500)
+      const phoneDELResult2 = await phoneDEL(json({}, USER))
+      expect(phoneDELResult2.status).toBe(500)
    })
 })

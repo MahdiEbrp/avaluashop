@@ -33,7 +33,7 @@ export function UserNav() {
    return (
       <DropdownMenu dir="rtl">
          <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl" aria-label="حساب کاربری">
+            <Button size="tile" variant="outline" aria-label="حساب کاربری">
                <UserIcon className="h-4 w-4" />
             </Button>
          </DropdownMenuTrigger>

@@ -450,7 +450,8 @@ describe('admin ProductForm', () => {
       )
 
       await user().click(screen.getAllByRole('combobox')[0])
-      await user().click((await screen.findAllByText('Shoes')).at(-1))
+      const findAllByTextResult = await screen.findAllByText('Shoes')
+      await user().click(findAllByTextResult.at(-1))
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
       await waitFor(() => { expect(toast.error).toHaveBeenCalledWith('Something went wrong.'); })
 

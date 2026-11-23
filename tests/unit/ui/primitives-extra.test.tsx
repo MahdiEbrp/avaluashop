@@ -53,7 +53,7 @@ const noop = () => {/* noop */ }
 describe('ui/card parts', () => {
    it('renders every slot with its variant', () => {
       render(
-         <CardUI.Card variant="muted" className="x">
+         <CardUI.Card variant="muted" className="mt-1">
             <CardUI.CardHeader>
                <CardUI.CardTitle>Title</CardUI.CardTitle>
                <CardUI.CardDescription>Description</CardUI.CardDescription>

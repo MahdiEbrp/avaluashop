@@ -30,7 +30,7 @@ export default function Header() {
 export function CartNav() {
    return (
       <Link href="/cart">
-         <Button size="icon" variant="outline" className="h-10 w-10 rounded-xl border-primary/30 text-primary hover:bg-accent">
+         <Button size="tile" variant="brand">
             <ShoppingBasketIcon className="h-4" />
             <span className="sr-only">سبد خرید</span>
          </Button>
@@ -41,7 +41,7 @@ export function CartNav() {
 function LoginDialog() {
    return (
       <Link href="/login">
-         <Button className="flex gap-2 rounded-xl bg-primary px-4 text-primary-foreground hover:bg-primary/90">
+         <Button size="wide" className="flex">
             <LogInIcon className="h-4" />
             <span>ورود / ثبت‌نام</span>
          </Button>
