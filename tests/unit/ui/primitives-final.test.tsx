@@ -12,14 +12,7 @@ import {
    CommandSeparator,
    CommandShortcut,
 } from '@/components/admin/ui/command'
-import {
-   Dialog,
-   DialogContent,
-   DialogFooter,
-   DialogHeader,
-   DialogTitle,
-   DialogTrigger,
-} from '@/components/admin/ui/dialog'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/admin/ui/dialog'
 import {
    Select,
    SelectContent,

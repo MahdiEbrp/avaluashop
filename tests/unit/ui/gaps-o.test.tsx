@@ -1,4 +1,4 @@
-import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import { CategoriesCombobox } from '@/app/(store)/(routes)/products/components/options'
 import WishlistButton from '@/app/(store)/(routes)/products/[productId]/components/wishlist_button'

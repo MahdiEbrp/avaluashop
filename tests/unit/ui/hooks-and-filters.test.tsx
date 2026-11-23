@@ -12,6 +12,14 @@ import { useAuthenticated } from '@/hooks/useAuthentication'
 import StoreImageUpload from '@/components/native/image-upload'
 import { widgetState } from '../../stubs/next-cloudinary'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
+
+/** Renders the local cart's item count, or -1 while the store is unavailable. */
+function CartCount() {
+   const cart = useLocalCart()
+
+   return <p data-testid="items">{cart?.items.length ?? -1}</p>
+}
 
 const params = new URLSearchParams()
 
@@ -30,7 +38,7 @@ vi.mock('next/navigation', async (importOriginal) => {
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const resetParams = (init: Record<string, string> = {}) => {
-   for (const key of [...params.keys()]) params.delete(key)
+   for (const key of new Set(params.keys())) params.delete(key)
    for (const [k, v] of Object.entries(init)) params.set(k, v)
 }
 
@@ -341,13 +349,13 @@ describe('browser-state hooks', () => {
    })
 
    it('useAuthenticated reads the cookie synchronously', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const Harness = () => <p>{String(useAuthenticated().authenticated)}</p>
 
       render(<Harness />)
 
       expect(screen.getByText('true')).toBeInTheDocument()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('useAuthenticated survives a document without cookies', () => {
@@ -370,13 +378,8 @@ describe('browser-state hooks', () => {
    })
 
    it('useLocalCart tracks writes and storage events', async () => {
-      const Harness = () => {
-         const cart = useLocalCart()
 
-         return <p data-testid="items">{cart?.items.length ?? -1}</p>
-      }
-
-      render(<Harness />)
+      render(<CartCount />)
       expect(screen.getByTestId('items')).toHaveTextContent('0')
 
       act(() => {
@@ -395,13 +398,8 @@ describe('browser-state hooks', () => {
 
    it('useLocalCart normalises a corrupt store', async () => {
       localStorage.setItem('Cart', '{not json')
-      const Harness = () => {
-         const cart = useLocalCart()
 
-         return <p data-testid="items">{cart?.items.length ?? -1}</p>
-      }
-
-      render(<Harness />)
+      render(<CartCount />)
 
       await waitFor(() => expect(screen.getByTestId('items')).toHaveTextContent('0'))
    })

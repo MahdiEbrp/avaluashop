@@ -1,3 +1,4 @@
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -22,6 +23,7 @@ import { SidebarNav } from '@/components/native/nav/sidebar'
 import { UserNav } from '@/components/native/nav/user'
 import { ModalProvider } from '@/providers/modal-provider'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 const themeMock = { resolvedTheme: 'light', setTheme: vi.fn() }
 
@@ -50,7 +52,7 @@ vi.mock('embla-carousel-react', () => ({
             emblaHandlers[event] = handler
          },
          off: (event: string) => {
-            delete emblaHandlers[event]
+            Reflect.deleteProperty(emblaHandlers, event)
          },
          scrollPrev: vi.fn(),
          scrollNext: vi.fn(),
@@ -113,7 +115,7 @@ describe('admin chrome', () => {
       const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<LogoutButton />)
       await userEvent.setup().click(screen.getByRole('button'))
@@ -124,7 +126,7 @@ describe('admin chrome', () => {
    })
 
    it('logout button swallows a network failure', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<LogoutButton />)
@@ -165,11 +167,11 @@ describe('storefront shell navigation', () => {
    })
 
    it('shows the account menu to signed-in visitors', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       render(<Header />)
 
       expect(screen.queryByText('ورود / ثبت‌نام')).not.toBeInTheDocument()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    /* The redesign removes the header theme toggle; the admin navbar keeps its
@@ -233,7 +235,7 @@ describe('storefront shell navigation', () => {
       const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<UserNav />)
       await userEvent.setup().click(screen.getByRole('button'))

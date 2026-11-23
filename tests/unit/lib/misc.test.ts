@@ -1,10 +1,15 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 
 import { omitUser } from '@/lib/omit'
-import { prismaMock } from '../support/db'
 import { generateSerial } from '@/lib/serial'
 import { avaluaTableFeatures } from '@/lib/table-features'
 import { getTweets } from '@/lib/twitter'
+
+/** The global and client shapes this file pokes at, typed without `any`. */
+const globalState = globalThis as typeof globalThis & { prisma?: unknown }
+interface Probe {
+   options?: { adapter?: { config?: { connectionString?: string }; connectionString?: string } }
+}
 
 describe('omitUser', () => {
    it('drops the named keys without mutating the source', () => {
@@ -73,14 +78,14 @@ describe('avaluaTableFeatures', () => {
    })
 })
 
-describe('google oauth', () => {
-   /* The module captures its configuration at import time, so each test that
-      cares about env imports it fresh. */
-   const load = async () => {
-      vi.resetModules()
-      return await import('@/lib/google')
-   }
+/* The module captures its configuration at import time, so each test that
+   cares about env imports it fresh. */
+const load = async () => {
+   vi.resetModules()
+   return await import('@/lib/google')
+}
 
+describe('google oauth', () => {
    it('builds a consent URL with both scopes and the configured client id', async () => {
       process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ID = 'client-123'
       const { getGoogleURL } = await load()
@@ -259,30 +264,27 @@ describe('getTweets', () => {
 describe('lib/prisma', () => {
    afterEach(() => {
       vi.resetModules()
-      delete (globalThis as any).prisma
+      delete globalState.prisma
    })
 
    it('creates one client with the pg adapter and reuses it', async () => {
-      const constructorSpy = vi.spyOn(PrismaPg.prototype as any, 'constructor')
-      constructorSpy
 
       const { default: prisma } = await import('@/lib/prisma')
       const { default: again } = await import('@/lib/prisma')
 
       expect(prisma).toBe(again)
-      expect((globalThis as any).prisma).toBe(prisma)
-      expect((prisma as any).options).toBeDefined()
+      expect(globalState.prisma).toBe(prisma)
+      expect((prisma as unknown as Probe).options).toBeDefined()
    })
 
    it('wires the adapter with the pooled connection string', async () => {
       const { default: prisma } = await import('@/lib/prisma')
-      const adapter = (prisma as any).options?.adapter
+      const adapter = (prisma as unknown as Probe).options?.adapter
 
       expect(adapter).toBeInstanceOf(PrismaPg)
-      expect(adapter.config?.connectionString ?? adapter.connectionString).toBe(
+      expect(adapter?.config?.connectionString ?? adapter?.connectionString).toBe(
          process.env.DATABASE_URL
       )
    })
 })
 
-prismaMock

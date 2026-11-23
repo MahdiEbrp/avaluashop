@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 
 import { publishLocalCart } from '@/hooks/use-local-cart'
 import { CartContextProvider, useCartContext } from '@/state/Cart'
@@ -9,8 +9,7 @@ import { useUserContext } from '@/state/User'
 const userState: { user: unknown } = { user: null }
 
 vi.mock('@/state/User', async () => {
-   const React = await import('react')
-   const actual = await vi.importActual<typeof import('@/state/User')>('@/state/User')
+      const actual = await vi.importActual<typeof import('@/state/User')>('@/state/User')
 
    return {
       ...actual,
@@ -153,4 +152,3 @@ describe('state/User exports', () => {
    })
 })
 
-waitFor

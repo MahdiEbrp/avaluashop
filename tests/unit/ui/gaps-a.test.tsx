@@ -1,3 +1,5 @@
+import { noop } from '../support/noop'
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -60,7 +62,7 @@ beforeEach(() => {
    cartValue.cart = undefined as never
    cartValue.dispatchCart.mockClear()
    routerMock.replace.mockClear()
-   for (const key of [...searchParams.keys()]) searchParams.delete(key)
+   for (const key of new Set(searchParams.keys())) searchParams.delete(key)
 })
 
 describe('authenticated cart mutations', () => {
@@ -111,7 +113,7 @@ describe('authenticated cart mutations', () => {
 
    it('hides the quantity stepper behind a spinner while a guest add is in flight', async () => {
       cartValue.cart = { items: [] } as never
-      let release: (value: Response) => void = () => {/* noop */ }
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -158,7 +160,7 @@ describe('authenticated cart mutations', () => {
    it('logs a failed authenticated add', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
@@ -300,7 +302,7 @@ describe('admin login form phone flow', () => {
       const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
+      stubLocation({ assign, origin: 'http://localhost' })
 
       render(<UserAuthForm />)
 

@@ -1,3 +1,4 @@
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -34,12 +35,7 @@ beforeEach(() => {
    routerMock.replace.mockClear()
    assignMock.mockClear()
    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))))
-   vi.stubGlobal('location', {
-      ...globalThis.location,
-      origin: 'http://localhost',
-      assign: assignMock,
-      reload: vi.fn(),
-   })
+   stubLocation({ origin: 'http://localhost', assign: assignMock, reload: vi.fn() })
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -88,7 +84,7 @@ describe('admin login form — phone validation', () => {
 
    it('logs a network failure when requesting an OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AdminAuthForm />)
@@ -119,7 +115,7 @@ describe('admin login form — phone validation', () => {
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
       await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
@@ -272,7 +268,7 @@ describe('storefront login form', () => {
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
       await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
@@ -429,7 +425,7 @@ describe('admin login form — email verification failure path', () => {
    it('logs a network failure while requesting an email OTP', async () => {
       setParams({ method: 'email', email: 'admin@example.com' })
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<AdminAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))
@@ -443,7 +439,7 @@ describe('storefront login form — rejected OTP request', () => {
    it('logs a network failure while requesting a phone OTP', async () => {
       setParams({ method: 'phone', phone: '09123456789' })
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
@@ -455,7 +451,7 @@ describe('storefront login form — rejected OTP request', () => {
    it('logs a network failure while requesting an email OTP', async () => {
       setParams({ method: 'email', email: 'shopper@example.com' })
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<StoreAuthForm />)
       await user().click(screen.getByRole('button', { name: /login with email/i }))

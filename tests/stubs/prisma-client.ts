@@ -7,8 +7,8 @@ export class PrismaClient {
    constructor(public readonly options?: unknown) {/* noop */ }
 }
 
-export class Prisma {
-   static readonly sql = () => 'sql'
+export const Prisma = {
+   sql: () => 'sql',
 }
 
 export const PrismaPromise = Promise

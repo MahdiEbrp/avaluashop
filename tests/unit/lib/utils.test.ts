@@ -120,7 +120,7 @@ describe('getErrorResponse', () => {
    it('flattens validation errors', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
-      const schema = z.object({ email: z.string().email(), age: z.number() })
+      const schema = z.object({ email: z.email(), age: z.number() })
       const parsed = schema.safeParse({ email: 'nope', age: 'old' })
 
       const response = getErrorResponse(422, 'INVALID', parsed.error)

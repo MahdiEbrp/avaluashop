@@ -1,3 +1,4 @@
+import { jsonBody, rejectWith } from '../support/http'
 import ShippingPage from '@/app/admin/(dashboard)/shipping/page'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
@@ -60,7 +61,7 @@ function stubFetch(...responses: Promise<unknown>[]) {
 }
 
 function payloadOf(fetchMock: ReturnType<typeof stubFetch>, index = 1) {
-   return JSON.parse(String(fetchMock.mock.calls[index][1]?.body)) as Record<string, unknown>
+   return jsonBody(fetchMock.mock.calls[index][1]?.body)
 }
 
 afterEach(() => {
@@ -306,7 +307,8 @@ describe('admin shipping page', () => {
 
       render(<ShippingPage />)
 
-      const article = (await screen.findByText('بالای ۵۰۰ هزار')).closest('article')
+      const priceLabel = await screen.findByText('بالای ۵۰۰ هزار')
+      const article = priceLabel.closest('article')
       expect(article).not.toBeNull()
       expect(within(article).getByRole('button', { name: 'فعال‌کردن' })).toBeInTheDocument()
       expect(within(article).getByRole('button', { name: 'حذف / توقف' })).toBeDisabled()
@@ -325,8 +327,7 @@ describe('admin shipping page — remaining branches', () => {
    })
 
    it('survives a non-Error rejection while reading', async () => {
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(Promise.reject('boom'))
+      stubFetch(rejectWith('boom'))
 
       render(<ShippingPage />)
 
@@ -371,8 +372,7 @@ describe('admin shipping page — remaining branches', () => {
    })
 
    it('survives a non-Error rejection while saving', async () => {
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- covering the non-Error rejection path
-      stubFetch(jsonResponse([]), Promise.reject('boom'))
+      stubFetch(jsonResponse([]), rejectWith('boom'))
 
       render(<ShippingPage />)
       await screen.findByText('هنوز روش ارسالی ثبت نشده است.')

@@ -50,7 +50,7 @@ describe('admin banners', () => {
       })
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET list answers 500 on failure (admin banners)', async () => {
       prismaMock.banner.findMany.mockRejectedValue(new Error('down'))
 
       const bannersGETResult2 = await bannersGET(get(USER))
@@ -105,7 +105,7 @@ describe('admin banners', () => {
       expect(bannerGETResult3.status).toBe(404)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin banners)', async () => {
       prismaMock.banner.findUnique.mockRejectedValue(new Error('down'))
 
       const bannerGETResult4 = await bannerGET(get(USER), call({ bannerId: 'b1' }))
@@ -221,7 +221,7 @@ describe('admin brands', () => {
       await expect(response.json()).resolves.toEqual([{ id: 'br1' }])
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET list answers 500 on failure (admin brands)', async () => {
       prismaMock.brand.findMany.mockRejectedValue(new Error('down'))
 
       const brandsGETResult2 = await brandsGET(get(USER))
@@ -250,7 +250,7 @@ describe('admin brands', () => {
       expect(brandGETResult4.status).toBe(400)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin brands)', async () => {
       prismaMock.brand.findUnique.mockRejectedValue(new Error('down'))
 
       const brandGETResult5 = await brandGET(get(USER), call({ brandId: 'br1' }))
@@ -375,7 +375,7 @@ describe('admin categories', () => {
       await expect(categoriesGETResult2.json()).resolves.toEqual([{ id: 'c1' }])
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET list answers 500 on failure (admin categories)', async () => {
       prismaMock.category.findMany.mockRejectedValue(new Error('down'))
 
       const categoriesGETResult3 = await categoriesGET(get(USER))
@@ -404,7 +404,7 @@ describe('admin categories', () => {
       expect(categoryGETResult4.status).toBe(400)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin categories)', async () => {
       prismaMock.category.findUnique.mockRejectedValue(new Error('down'))
 
       const categoryGETResult5 = await categoryGET(get(USER), call({ categoryId: 'c1' }))

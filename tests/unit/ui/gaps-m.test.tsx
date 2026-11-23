@@ -1,9 +1,7 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 import { DataTable } from '@/components/ui/data-table'
 import { DataTable as AdminDataTable } from '@/components/admin/ui/data-table'
-import Header from '@/components/native/nav/parent'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -12,7 +10,6 @@ vi.mock('next/navigation', async (importOriginal) => {
    return { ...actual, ...navigation, usePathname: () => '/' }
 })
 
-const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 /* The luxury redesign ships a fixed light palette and drops the storefront
    theme toggle, so there is no longer a control here to exercise. The admin

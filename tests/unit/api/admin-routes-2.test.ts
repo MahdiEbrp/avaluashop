@@ -70,7 +70,7 @@ describe('admin products', () => {
       })
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET list answers 500 on failure (admin products)', async () => {
       prismaMock.product.findMany.mockRejectedValue(new Error('down'))
       const productsGETResult2 = await productsGET(get(USER))
       expect(productsGETResult2.status).toBe(500)
@@ -112,7 +112,7 @@ describe('admin products', () => {
       prismaMock.brand.findUnique.mockResolvedValue({ id: 'br1' })
       prismaMock.category.findUnique.mockResolvedValue({ id: 'c1' })
       prismaMock.product.create.mockResolvedValueOnce({ id: 'p2' })
-      const { description: _desc, ...withoutDesc } = validProduct
+      const withoutDesc = { ...validProduct, description: undefined }
       const productsPOSTResult4 = await productsPOST(json(withoutDesc, USER))
       expect(productsPOSTResult4.status).toBe(201)
 
@@ -142,7 +142,7 @@ describe('admin products', () => {
       expect(productGETResult4.status).toBe(400)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin products)', async () => {
       prismaMock.product.findUnique.mockRejectedValue(new Error('down'))
       const productGETResult5 = await productGET(get(USER), call({ productId: 'p1' }))
       expect(productGETResult5.status).toBe(500)
@@ -306,7 +306,7 @@ describe('admin orders', () => {
       expect(orderGETResult3.status).toBe(404)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin orders)', async () => {
       prismaMock.order.findUnique.mockRejectedValue(new Error('down'))
 
       const orderGETResult4 = await orderGET(get(USER), call({ orderId: 'o1' }))
@@ -589,7 +589,7 @@ describe('admin payments', () => {
    it('requires a session for reads and settlement attempts', async () => {
       const paymentGETResult = await paymentGET(get(), call({ paymentId: 'pay1' }))
       expect(paymentGETResult.status).toBe(401)
-      const paymentPATCHResult = await paymentPATCH(json({ status: 'Paid' }), call({ paymentId: 'pay1' }))
+      const paymentPATCHResult = paymentPATCH(json({ status: 'Paid' }), call({ paymentId: 'pay1' }))
       expect(paymentPATCHResult.status).toBe(401)
    })
 
@@ -603,7 +603,7 @@ describe('admin payments', () => {
       expect(paymentGETResult3.status).toBe(404)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin payments)', async () => {
       prismaMock.payment.findUnique.mockRejectedValue(new Error('down'))
 
       const paymentGETResult4 = await paymentGET(get(USER), call({ paymentId: 'pay1' }))
@@ -617,7 +617,7 @@ describe('admin payments', () => {
       [{ fee: 1 }],
       [{ status: 'Paid', refId: 'forged', cardHash: 'x' }],
    ])('rejects admin settlement mutation %o', async (body) => {
-      const response = await paymentPATCH(json(body, USER), call({ paymentId: 'pay1' }))
+      const response = paymentPATCH(json(body, USER), call({ paymentId: 'pay1' }))
 
       expect(response.status).toBe(405)
       await expect(response.json()).resolves.toEqual({
@@ -659,7 +659,7 @@ describe('admin users', () => {
       expect(userGETResult2.status).toBe(404)
    })
 
-   it('GET answers 500 on failure', async () => {
+   it('GET by id answers 500 on failure (admin users)', async () => {
       prismaMock.user.findUnique.mockRejectedValue(new Error('down'))
 
       const userGETResult3 = await userGET(get(USER), call({ userId: 'u1' }))

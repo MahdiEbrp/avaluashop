@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { stubLocation } from '../support/location'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { Item } from '@/app/(store)/(routes)/cart/components/item'
@@ -20,6 +21,7 @@ import { CartContextProvider } from '@/state/Cart'
 import Carousel from '@/components/native/Carousel'
 import { prismaMock } from '../support/db'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
@@ -43,10 +45,10 @@ vi.mock('next/navigation', async (importOriginal) => {
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const signIn = () => {
-   document.cookie = 'logged-in=true'
+   setCookie('logged-in=true')
 }
 const signOut = () => {
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 }
 
 beforeEach(() => {
@@ -95,7 +97,7 @@ describe('profile edit form', () => {
 
    it('reports a rejected request', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<UserForm initialData={null} />)
 
@@ -109,7 +111,7 @@ describe('profile edit form', () => {
 describe('profile order form', () => {
    it('reports a failed cancellation', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(
          <ProfileOrderForm
@@ -136,7 +138,7 @@ describe('profile order form', () => {
 describe('category form failure', () => {
    it('reports a rejected save', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(
          <CategoryForm
@@ -207,6 +209,7 @@ describe('admin table status cells', () => {
 
       render(
          <table>
+            <thead><tr><th>Status</th></tr></thead>
             <tbody>
                <tr>
                   <td>
@@ -247,7 +250,7 @@ describe('admin chrome', () => {
       const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))
@@ -257,7 +260,7 @@ describe('admin chrome', () => {
 
    it('logs a failed logout request', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))

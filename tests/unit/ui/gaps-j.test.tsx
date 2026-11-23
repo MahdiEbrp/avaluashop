@@ -1,11 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { rejectWith } from '../support/http'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { NavMenu } from '@/components/native/nav/desktop'
 import { BrandForm } from '@/app/admin/(dashboard)/brands/[brandId]/components/brand-form'
 import { ProductForm } from '@/app/admin/(dashboard)/products/[productId]/components/product-form'
 import { UserForm as AdminUserForm } from '@/app/admin/(dashboard)/users/[userId]/components/user-form'
-import { routerMock } from '../support/navigation'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -55,7 +55,7 @@ describe('storefront nav menu', () => {
 describe('brand form delete failure', () => {
    it('hints about attached products', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
       vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
@@ -83,7 +83,7 @@ describe('brand form delete failure', () => {
 describe('product form delete failure', () => {
    it('reports a generic failure', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
       vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(
@@ -131,7 +131,7 @@ describe('admin user form without initial data', () => {
 
    it('reports a thrown non-Error with the generic message', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw 'offline'; }))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <AdminUserForm

@@ -8,4 +8,6 @@ export const sendMail = vi.fn((message: unknown) => {
    return Promise.resolve({ accepted: ['test@example.com'] })
 })
 
-export default { sendMail }
+const persepolisMail = { sendMail }
+
+export default persepolisMail

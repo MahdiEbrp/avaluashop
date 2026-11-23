@@ -1,8 +1,14 @@
+import { noop } from '../support/noop'
+import { jsonBody, rejectWith } from '../support/http'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderToString } from 'react-dom/server'
 
 import CheckoutPage from '@/app/(store)/(routes)/checkout/page'
+
+/* Rejection reasons that are deliberately not Error instances (the app must cope with them). */
+const NON_ERROR_REASON = 'plain string failure'
+const NON_ERROR_QUOTE = 'قطعی موقت'
 
 /* The page composes both providers itself, so the doubles replace the hooks
    rather than the providers — that keeps the real nesting under test. */
@@ -486,9 +492,9 @@ describe('checkout — returning from the gateway', () => {
 
    it('ignores a non-Error rejection while confirming the payment', async () => {
       globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      stubFetch(async (url) => {
-         if (url === '/api/orders') throw 'plain string failure'
-         return jsonResponse([])
+      stubFetch((url) => {
+         if (url === '/api/orders') return rejectWith(NON_ERROR_REASON);
+         return Promise.resolve(jsonResponse([]))
       })
 
       render(<CheckoutPage />)
@@ -500,7 +506,7 @@ describe('checkout — returning from the gateway', () => {
 
    it('ignores a payment check that rejects after unmount', async () => {
       globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      let reject: (reason: Error) => void = () => {/* noop */ }
+      let reject: (reason: Error) => void = noop
       const pending = new Promise<Response>((_resolve, rejectFn) => {
          reject = rejectFn
       })
@@ -547,7 +553,7 @@ describe('checkout — returning from the gateway', () => {
 
    it('does not update state when the payment check resolves after unmount', async () => {
       globalThis.history.replaceState({}, '', '/checkout?payment=success&orderId=o1')
-      let release: (value: Response) => void = () => {/* noop */ }
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -602,7 +608,7 @@ describe('checkout — gateway initialization', () => {
    })
 
    it('submits the entered discount code for server-side validation', async () => {
-      const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      const fetchMock = vi.fn((url: string) => {
          if (url === '/api/orders') return Promise.resolve(jsonResponse({ id: 'o1', number: 42 }))
          if (url === '/api/payments/tabapay') {
             return Promise.resolve(jsonResponse({ paymentUrl: 'https://api.tabapay.ir/pay/abc' }))
@@ -798,7 +804,7 @@ describe('checkout — gateway initialization', () => {
 
 describe('checkout — defensive branches', () => {
    it('cancels an address lookup that resolves after unmount', async () => {
-      let release: (value: Response) => void = () => {/* noop */ }
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -833,9 +839,9 @@ describe('checkout — defensive branches', () => {
    })
 
    it('falls back to a generic message when the order fetch rejects with a non-Error', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         if (url === '/api/orders') throw 'plain string failure'
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url === '/api/orders') return rejectWith(NON_ERROR_REASON);
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 
@@ -849,7 +855,7 @@ describe('checkout — defensive branches', () => {
    })
 
    it('ignores an address rejection that arrives after unmount', async () => {
-      let reject: (reason: Error) => void = () => {/* noop */ }
+      let reject: (reason: Error) => void = noop
       const pending = new Promise<Response>((_resolve, rejectFn) => {
          reject = rejectFn
       })
@@ -869,8 +875,8 @@ describe('checkout — defensive branches', () => {
    it('ignores a non-Error rejection while loading addresses', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async () => {
-            throw 'plain string failure'
+         vi.fn(() => {
+            return rejectWith(NON_ERROR_REASON);
          })
       )
 
@@ -882,9 +888,9 @@ describe('checkout — defensive branches', () => {
    it('ignores a non-Error rejection while saving an address', async () => {
       vi.stubGlobal(
          'fetch',
-         vi.fn(async (_url: string, init?: RequestInit) => {
-            if (init?.method === 'POST') throw 'plain string failure'
-            return jsonResponse([])
+         vi.fn((_url: string, init?: RequestInit) => {
+            if (init?.method === 'POST') return rejectWith(NON_ERROR_REASON);
+            return Promise.resolve(jsonResponse([]))
          })
       )
 
@@ -901,6 +907,19 @@ describe('checkout — defensive branches', () => {
       expect(await screen.findByRole('alert')).toHaveTextContent('خطا در ذخیره نشانی')
    })
 })
+
+/* The summary rows are the source of truth for money; matching on a bare
+   number collides with the method labels. */
+function summary(label: string) {
+   const row = screen.getByText(label).parentElement
+   return row?.textContent ?? ''
+}
+
+async function ready() {
+   await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled()
+   )
+}
 
 describe('checkout — shipping methods', () => {
    const settings = { taxEnabled: true, taxRate: 0.09, taxLabel: 'مالیات بر ارزش افزوده' }
@@ -968,19 +987,6 @@ describe('checkout — shipping methods', () => {
    }
 
 
-   /* The summary rows are the source of truth for money; matching on a bare
-      number collides with the method labels. */
-   function summary(label: string) {
-      const row = screen.getByText(label).parentElement
-      return row?.textContent ?? ''
-   }
-
-   async function ready() {
-      await waitFor(() =>
-         expect(screen.getByRole('button', { name: 'پرداخت و ثبت سفارش' })).toBeEnabled()
-      )
-   }
-
    it('lists the methods for the selected city and preselects the first usable one', async () => {
       stubShipping([flat, freeAbove, cityBlocked, carrier])
 
@@ -1043,7 +1049,7 @@ describe('checkout — shipping methods', () => {
 
       await waitFor(() => { expect(redirectToPayment).toHaveBeenCalled(); })
       const orderCall = fetchMock.mock.calls.find(([url]) => url === '/api/orders')
-      const payload = JSON.parse(String(orderCall?.[1]?.body)) as { shippingMethodId?: string; idempotencyKey?: string }
+      const payload = jsonBody(orderCall?.[1]?.body)
       expect(payload.shippingMethodId).toBe('sm1')
       expect(payload.idempotencyKey).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
    })
@@ -1073,7 +1079,7 @@ describe('checkout — shipping methods', () => {
 
       const keys = fetchMock.mock.calls
          .filter(([url]) => url === '/api/orders')
-         .map(([, init]) => (JSON.parse(String(init?.body)) as { idempotencyKey?: string }).idempotencyKey)
+         .map(([, init]) => jsonBody(init?.body).idempotencyKey)
       expect(keys).toHaveLength(2)
       expect(keys[0]).toEqual(expect.stringMatching(/^[a-f0-9-]{36}$/i))
       expect(keys[1]).toBe(keys[0])
@@ -1334,11 +1340,10 @@ describe('checkout — shipping edge cases', () => {
    })
 
    it('reports a non-Error quote failure with a generic message', async () => {
-      const fetchMock = vi.fn(async (url: string) => {
-         // eslint-disable-next-line @typescript-eslint/only-throw-error -- covering the non-Error rejection path
-         if (url.startsWith('/api/shipping-methods')) throw 'قطعی موقت'
-         if (url === '/api/store-settings') return jsonResponse(settings)
-         return jsonResponse([address])
+      const fetchMock = vi.fn((url: string) => {
+         if (url.startsWith('/api/shipping-methods')) return rejectWith(NON_ERROR_QUOTE);
+         if (url === '/api/store-settings') return Promise.resolve(jsonResponse(settings))
+         return Promise.resolve(jsonResponse([address]))
       })
       vi.stubGlobal('fetch', fetchMock)
 

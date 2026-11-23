@@ -12,6 +12,7 @@ import { useAuthenticated } from '@/hooks/useAuthentication'
 import { ModalProvider } from '@/providers/modal-provider'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { ToastProvider } from '@/providers/toast-provider'
+import { setCookie } from '../support/cookies'
 
 describe('zustand stores', () => {
    beforeEach(() => {
@@ -75,23 +76,23 @@ describe('useOrigin', () => {
 
 describe('useAuthenticated', () => {
    it('is false without the cookie', () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const { result } = renderHook(() => useAuthenticated())
 
       expect(result.current.authenticated).toBe(false)
    })
 
    it('is true with logged-in=true', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const { result } = renderHook(() => useAuthenticated())
 
       expect(result.current.authenticated).toBe(true)
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('ignores unrelated cookies', () => {
-      document.cookie = 'other=true'
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('other=true')
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 
       const { result } = renderHook(() => useAuthenticated())
 

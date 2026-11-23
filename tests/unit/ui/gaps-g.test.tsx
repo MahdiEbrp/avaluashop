@@ -27,7 +27,7 @@ const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const schema = z.object({ name: z.string().min(3, 'Name is too short') })
 
-function AdminFormHarness({ withError = false }: { withError?: boolean }) {
+function AdminFormHarness({ withError = false }: { readonly withError?: boolean }) {
    const form = useForm<{ name: string }>({
       resolver: zodResolver(schema),
       defaultValues: { name: withError ? 'ab' : '' },

@@ -1,3 +1,5 @@
+import { rejectWith } from '../support/http'
+import { noop } from '../support/noop'
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -6,7 +8,7 @@ import { UserForm as AdminUserForm } from '@/app/admin/(dashboard)/users/[userId
 import { UserContextProvider, useUserContext } from '@/state/User'
 import { toast, useToast } from '@/components/ui/use-toast'
 import { widgetState } from '../../stubs/next-cloudinary'
-import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -52,7 +54,7 @@ describe('admin product form image list', () => {
 
    it('reports a failed delete with the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
 
       render(
          <ProductForm
@@ -87,7 +89,7 @@ describe('admin product form image list', () => {
 
    it('reports a rejected save with the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
 
       render(<ProductForm categories={[{ id: 'c1', title: 'Shoes' }] as never} brands={[{ id: 'b1', title: 'Nike' }] as never} initialData={null} />)
 
@@ -116,7 +118,7 @@ describe('admin product form image list', () => {
 describe('admin user form error normalisation', () => {
    it('surfaces a non-Error rejection as the generic message', async () => {
       const { toast: hot } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw 'offline'; }))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <AdminUserForm
@@ -135,7 +137,7 @@ describe('admin user form error normalisation', () => {
 
 describe('user context refresh adapter', () => {
    it('refreshUser kicks off a fetch without being awaited', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const fetchMock = vi.fn(() => Promise.resolve(Response.json({ id: 'u1', name: 'Ada' })))
       vi.stubGlobal('fetch', fetchMock)
 
@@ -149,11 +151,11 @@ describe('user context refresh adapter', () => {
 
       await waitFor(() => { expect(fetchMock).toHaveBeenCalledTimes(2); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('is a guest without a session cookie so no fetch happens', () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
 
@@ -193,7 +195,7 @@ describe('toast retention timer', () => {
 
 describe('user context refreshUser guards', () => {
    it('does nothing for a guest', async () => {
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
 
@@ -208,7 +210,7 @@ describe('user context refreshUser guards', () => {
    })
 
    it('logs a failure from the manual refresh path', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       const fetchMock = vi
          .fn()
@@ -226,15 +228,15 @@ describe('user context refreshUser guards', () => {
 
       await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 })
 
 describe('user context cancellation', () => {
    it('ignores a profile response that lands after unmount', async () => {
-      document.cookie = 'logged-in=true'
-      let release: (value: Response) => void = () => {/* noop */ }
+      setCookie('logged-in=true')
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -254,13 +256,13 @@ describe('user context cancellation', () => {
 
       expect(result.current.user).toBeNull()
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
 describe('user context with an empty profile payload', () => {
    it('keeps the user null when the API answers null', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(Response.json(null))))
 
       const { result } = renderHook(() => useUserContext(), { wrapper: UserContextProvider })
@@ -273,13 +275,13 @@ describe('user context with an empty profile payload', () => {
 
       expect(result.current.user).toBeNull()
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
 describe('user context mount failure', () => {
    it('logs a rejected profile fetch', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
@@ -289,7 +291,7 @@ describe('user context mount failure', () => {
       expect(result.current.user).toBeNull()
 
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 })

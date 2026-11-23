@@ -9,7 +9,7 @@ import CompareImage from '@/components/native/CompareImage'
  * browser would do after the first frame.
  */
 class ManualResizeObserver {
-   static instances: ManualResizeObserver[] = []
+   static readonly instances: ManualResizeObserver[] = []
 
    constructor(private readonly callback: ResizeObserverCallback) {
       ManualResizeObserver.instances.push(this)
@@ -32,7 +32,7 @@ class ManualResizeObserver {
 const IMAGE_SIZE = { naturalWidth: 1000, naturalHeight: 1000 }
 
 beforeEach(() => {
-   ManualResizeObserver.instances = []
+   ManualResizeObserver.instances.splice(0)
    vi.stubGlobal('ResizeObserver', ManualResizeObserver)
 
    /* jsdom never fetches an image, so the component's own load handlers and its

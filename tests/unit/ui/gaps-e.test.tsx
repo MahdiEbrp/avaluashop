@@ -47,15 +47,7 @@ import { useCartContext, CartContextProvider } from '@/state/Cart'
 import { useFormField } from '@/components/ui/form'
 import { useFormField as useAdminFormField } from '@/components/admin/ui/form'
 import { toast, useToast } from '@/components/ui/use-toast'
-import { FormProvider, useForm } from 'react-hook-form'
-
-/* A FormProvider without the surrounding <FormField>: enough for
-   useFormContext() to succeed so the field-context guard is what throws. */
-function BareFormWrapper({ children }: { children: React.ReactNode }) {
-   const form = useForm({ defaultValues: { field: '' } })
-
-   return <FormProvider {...form}>{children}</FormProvider>
-}
+import { setCookie } from '../support/cookies'
 
 vi.mock('react-hot-toast', () => ({
    toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -91,14 +83,14 @@ describe('server snapshots', () => {
    })
 
    it('useAuthenticated is false while server rendering', () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
 
       function Probe() {
          return <p>{String(useAuthenticated().authenticated)}</p>
       }
 
       expect(renderToString(<Probe />)).toContain('false')
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
@@ -144,7 +136,7 @@ describe('client-only guards before hydration', () => {
 })
 
 describe('default contexts without a provider', () => {
-   it('useUserContext exposes inert defaults', async () => {
+   it('useUserContext exposes inert defaults', () => {
       const { result } = renderHook(() => useUserContext())
 
       expect(result.current.user).toBeNull()
@@ -153,8 +145,8 @@ describe('default contexts without a provider', () => {
       /* The no-op refresher resolves without touching the network. */
       const fetchMock = vi.fn()
       vi.stubGlobal('fetch', fetchMock)
-      await act(async () => {
-         await result.current.refreshUser()
+      act(() => {
+         result.current.refreshUser()
       })
       expect(fetchMock).not.toHaveBeenCalled()
       vi.unstubAllGlobals()
@@ -172,7 +164,7 @@ describe('default contexts without a provider', () => {
    })
 
    it('UserContextProvider refreshes through the API', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const fetchMock = vi.fn(() => Promise.resolve(Response.json({ id: 'u1', name: 'Ada' })))
       vi.stubGlobal('fetch', fetchMock)
 
@@ -183,19 +175,19 @@ describe('default contexts without a provider', () => {
       await waitFor(() => { expect(result.current.user).not.toBeNull(); })
       expect(result.current.user).toEqual({ id: 'u1', name: 'Ada' })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 
    it('UserContextProvider logs a refused profile read', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       renderHook(() => useUserContext(), { wrapper: UserContextProvider })
 
       await waitFor(() => { expect(errorSpy).toHaveBeenCalled(); })
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
       errorSpy.mockRestore()
    })
 

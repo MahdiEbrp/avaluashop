@@ -1,5 +1,4 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 
 import { CartGrid } from '@/app/(store)/(routes)/cart/components/grid'
 import { Item } from '@/app/(store)/(routes)/cart/components/item'
@@ -236,7 +235,7 @@ describe('product page CartButton', () => {
    it('swallows a network failure', async () => {
       authValue.authenticated = true
       cartValue.cart = { items: [] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<ButtonComponent product={product} />)
@@ -324,7 +323,7 @@ describe('WishlistButton', () => {
 
    it('swallows a network failure while loading', async () => {
       authValue.authenticated = true
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistButton product={product} />)
@@ -341,7 +340,7 @@ describe('cart removal request failures', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<Item cartItem={{ productId: 'p1', product, count: 1 }} />)
 
@@ -358,7 +357,7 @@ describe('cart removal request failures', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
       authValue.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', product, count: 1 }] } as never
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<ButtonComponent product={product} />)
 

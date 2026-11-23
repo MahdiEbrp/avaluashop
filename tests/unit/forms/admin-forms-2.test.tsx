@@ -1,3 +1,5 @@
+import { jsonBody } from '../support/http'
+import { stubLocation } from '../support/location'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -30,7 +32,7 @@ vi.mock('react-hot-toast', () => ({
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const setParams = (values: Record<string, string>) => {
-   for (const key of [...searchParams.keys()]) searchParams.delete(key)
+   for (const key of new Set(searchParams.keys())) searchParams.delete(key)
    for (const [key, value] of Object.entries(values)) searchParams.set(key, value)
 }
 
@@ -115,7 +117,7 @@ describe('admin OrderForm', () => {
 
       await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
       expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/orders/o1')
-      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      const payload = jsonBody(fetchMock.mock.calls[0][1]?.body)
       expect(payload.status).toBe('Processing')
       expect(payload).not.toHaveProperty('isPaid')
       expect(payload).not.toHaveProperty('isCompleted')
@@ -134,7 +136,7 @@ describe('admin OrderForm', () => {
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
       await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
-      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      const payload = jsonBody(fetchMock.mock.calls[0][1]?.body)
       expect(payload).toEqual({ status: 'Shipped', shippingTrackingNumber: 'TRK-42' })
       vi.unstubAllGlobals()
    })
@@ -178,7 +180,7 @@ describe('admin OrderForm', () => {
       await user().click(screen.getByRole('button', { name: 'Save changes' }))
 
       await waitFor(() => { expect(fetchMock).toHaveBeenCalled(); })
-      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+      const payload = jsonBody(fetchMock.mock.calls[0][1]?.body)
       expect(payload.shippingTrackingNumber).toBe('TRK-777')
       vi.unstubAllGlobals()
    })
@@ -282,7 +284,7 @@ describe('storefront login form', () => {
 
    it('logs a network failure', async () => {
       setParams({ email: 'buyer@example.com' })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<UserAuthForm />)
@@ -342,7 +344,7 @@ describe('storefront login form', () => {
       const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
+      stubLocation({ assign, origin: 'http://localhost' })
 
       render(<UserAuthForm />)
       /* Advance to the verification step first. */
@@ -365,7 +367,7 @@ describe('storefront login form', () => {
          .mockResolvedValueOnce(new Response('{}', { status: 401 }))
       vi.stubGlobal('fetch', fetchMock)
       const assign = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
+      stubLocation({ assign, origin: 'http://localhost' })
       setParams({ email: 'buyer@example.com', OTP: '00000' })
 
       render(<UserAuthForm />)
@@ -395,7 +397,7 @@ describe('admin login form', () => {
 
       /* Verifying lands the owner in the dashboard. */
       const assign = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, assign, origin: 'http://localhost' })
+      stubLocation({ assign, origin: 'http://localhost' })
       setParams({ email: 'owner@example.com', OTP: '12345' })
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 

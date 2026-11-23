@@ -1,5 +1,4 @@
-export {}
-
+import { stubLocation } from '../support/location'
 /* The lifecycle helpers run inside `prisma.$transaction`, whose mock hands the
    same delegate object back — so the assertions below read the shared spies. */
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
@@ -204,7 +203,7 @@ describe('redirectToPayment', () => {
 
    it('hands the gateway URL to the browser', async () => {
       const assign = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, assign })
+      stubLocation({ assign })
 
       const { redirectToPayment } = await import('@/lib/payments/redirect')
       redirectToPayment('https://api.tabapay.ir/pay/abc')

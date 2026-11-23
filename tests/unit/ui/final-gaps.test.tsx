@@ -1,3 +1,5 @@
+import { noop } from '../support/noop'
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -70,7 +72,7 @@ beforeEach(() => {
    cartValue.cart = undefined as never
    cartValue.dispatchCart.mockClear()
    routerMock.push.mockClear()
-   for (const key of [...searchParams.keys()]) searchParams.delete(key)
+   for (const key of new Set(searchParams.keys())) searchParams.delete(key)
 })
 
 describe('guest cart line APIs', () => {
@@ -97,7 +99,7 @@ describe('guest cart line APIs', () => {
    })
 
    it('swallows a failing product lookup', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<Item cartItem={{ productId: 'p1', product, count: 0 }} />)
@@ -203,7 +205,7 @@ describe('product page cart button', () => {
    it('renders a spinner while the request is in flight', async () => {
       authState.authenticated = true
       cartValue.cart = { items: [{ productId: 'p1', count: 1 }] } as never
-      let release: (value: Response) => void = () => {/* noop */ }
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -309,11 +311,9 @@ describe('wishlist button failures', () => {
 })
 
 describe('admin forms request failures', () => {
-   const failFetch = () =>
-      vi.fn(() => Promise.resolve(Response.json({ message: 'BOOM' }, { status: 400 })))
 
    it('banner create failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<BannerForm initialData={null} />)
@@ -326,7 +326,7 @@ describe('admin forms request failures', () => {
    })
 
    it('brand create failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<BrandForm initialData={null} />)
@@ -340,7 +340,7 @@ describe('admin forms request failures', () => {
    })
 
    it('category delete failure mentions products', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
@@ -366,7 +366,7 @@ describe('admin forms request failures', () => {
    })
 
    it('product delete failure is reported', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
@@ -476,7 +476,7 @@ describe('profile order form add path', () => {
 
 describe('address form create failure', () => {
    it('reports a failed create', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const { toast } = await import('react-hot-toast')
 
       render(<AddressForm initialData={null} />)
@@ -568,7 +568,7 @@ describe('native modal', () => {
 
 describe('logout failure paths', () => {
    it('admin logout logs a network failure', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('x'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('x')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<LogoutButton />)
@@ -582,7 +582,7 @@ describe('logout failure paths', () => {
    it('storefront logout does not reload on a non-200 answer', async () => {
       vi.stubGlobal('fetch', vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 500 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload })
+      stubLocation({ reload })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))

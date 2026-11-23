@@ -42,15 +42,14 @@ const ARABIC_DIGIT_ZERO = 1632
 /* Persian ۰-۹ and Arabic-Indic ٠-٩ digits mean the same numbers. */
 function toAsciiDigits(value: string) {
    return value.replaceAll(/[\u06F0-\u06F9\u0660-\u0669]/g, (digit) => {
-      /* Both ranges are single BMP code units, so the low byte carries the digit. */
-      // eslint-disable-next-line unicorn/prefer-code-point -- BMP digits only
-      const code = digit.charCodeAt(0)
+      /* Both ranges are single BMP code units, so the code point is the digit's code. */
+      const code = digit.codePointAt(0)
 
       return String(code - (code >= PERSIAN_DIGIT_ZERO ? PERSIAN_DIGIT_ZERO : ARABIC_DIGIT_ZERO))
    })
 }
 
-export function normalizeCity(city: string | null | undefined) {
+export function normalizeCity(city?: string | null) {
    let value = toAsciiDigits((city ?? '').trim().replaceAll(/\s+/g, ' '))
 
    for (const [pattern, replacement] of LETTER_FOLDS) value = value.replaceAll(pattern, replacement)

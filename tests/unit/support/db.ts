@@ -6,9 +6,9 @@
  * tree-shaken modules run in isolated module graphs, so a stub passed through a
  * global registry is the only reliable way to reach them.
  */
-import { vi } from 'vitest'
+import type { Mock } from 'vitest'
 
-export type MockFn = ReturnType<typeof vi.fn>
+export type MockFn = Mock
 
 /* ------------------------------------------------------------------ *
  * database
@@ -106,7 +106,6 @@ export function createPrismaMock(): PrismaMock {
 
       if (Array.isArray(arg)) return await Promise.all(arg)
 
-      return
    })
 
    for (const table of TABLES) {
@@ -157,7 +156,6 @@ export function resetPrismaMock() {
       if (typeof arg === 'function')
          return await (arg as (tx: unknown) => unknown)(prismaMock)
       if (Array.isArray(arg)) return await Promise.all(arg)
-      return
    })
 }
 

@@ -338,13 +338,13 @@ describe('POST /api/payments/tabapay', () => {
    })
 })
 
-describe('GET /api/payments/tabapay/callback', () => {
-   const callback = () =>
-      get(
-         {},
-         'https://avaluashop.vercel.app/api/payments/tabapay/callback?token=tabapay-token'
-      )
+const callback = () =>
+   get(
+      {},
+      'https://avaluashop.vercel.app/api/payments/tabapay/callback?token=tabapay-token'
+   )
 
+describe('GET /api/payments/tabapay/callback', () => {
    it('verifies the exact stored amount before marking an order paid', async () => {
       prismaMock.payment.findUnique.mockResolvedValue({
          id: 'payment-1',

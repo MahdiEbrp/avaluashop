@@ -169,7 +169,7 @@ describe('product and blog cards', () => {
 
       expect(screen.getAllByText('Blue Shoe').length).toBeGreaterThan(0)
       /* The redesign shows a Persian percentage badge and Toman prices. */
-      expect(screen.getByText(/٪.*تخفیف/)).toBeInTheDocument()
+      expect(screen.getByText(/٪[۰-۹]+ تخفیف/)).toBeInTheDocument()
       expect(screen.getByText('۱۰۰ تومان')).toBeInTheDocument()
       expect(screen.getByText('۹۹ تومان')).toBeInTheDocument()
       expect(screen.getByText('ناموجود')).toBeInTheDocument()

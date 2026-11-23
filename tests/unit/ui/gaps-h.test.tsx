@@ -1,3 +1,4 @@
+import { rejectWith } from '../support/http'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -188,7 +189,7 @@ describe('admin order form error handling', () => {
 
    it('falls back to a generic message for a thrown non-Error', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw 'offline'; }))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(<AdminOrderForm initialData={initialData as never} />)
       await user().click(screen.getByRole('button', { name: /save changes/i }))
@@ -201,7 +202,7 @@ describe('admin order form error handling', () => {
 describe('admin payment form error handling', () => {
    it('falls back to a generic message for a thrown non-Error', async () => {
       const { toast } = await import('react-hot-toast')
-      vi.stubGlobal('fetch', vi.fn(async () => { throw 'offline'; }))
+      vi.stubGlobal('fetch', vi.fn(() => { return rejectWith('offline'); }))
 
       render(
          <PaymentForm

@@ -113,7 +113,7 @@ describe('admin BannerForm', () => {
    })
 
    it('reports a failed delete with the banner hint', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('nope'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('nope')); }))
       const { toast } = await import('react-hot-toast')
       vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 

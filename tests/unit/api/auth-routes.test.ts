@@ -1,3 +1,4 @@
+import { ipv4 } from '../support/ip'
 import { POST as emailTry } from '@/app/api/auth/otp/email/try/route'
 import { POST as emailVerify } from '@/app/api/auth/otp/email/verify/route'
 import { POST as phoneTry } from '@/app/api/auth/otp/phone/try/route'
@@ -18,7 +19,7 @@ vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule
 const request = (body: unknown, headers: Record<string, string> = {}) =>
    new NextRequest('http://localhost/api/auth', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-forwarded-for': '1.2.3.4', ...headers },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': ipv4(1, 2, 3, 4), ...headers },
       body: JSON.stringify(body),
    })
 
@@ -106,13 +107,13 @@ describe('POST /api/auth/otp/email/try', () => {
    })
 })
 
-describe('POST /api/auth/otp/email/verify', () => {
-   const stubMatch = () => {
-      prismaMock.user.findFirst.mockResolvedValue({ id: 'u1' })
-      prismaMock.user.update.mockResolvedValue({ id: 'u1' })
-      prismaMock.product.findMany.mockResolvedValue([])
-   }
+const stubMatch = () => {
+   prismaMock.user.findFirst.mockResolvedValue({ id: 'u1' })
+   prismaMock.user.update.mockResolvedValue({ id: 'u1' })
+   prismaMock.product.findMany.mockResolvedValue([])
+}
 
+describe('POST /api/auth/otp/email/verify', () => {
    it('verifies, merges the guest cart and sets both cookies', async () => {
       stubMatch()
 
@@ -250,7 +251,7 @@ describe('POST /api/auth/otp/phone/try', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const phoneTryResult2 = await phoneTry(brokenRequest() as never)
+      const phoneTryResult2 = await phoneTry(brokenRequest())
       expect(phoneTryResult2.status).toBe(500)
    })
 })
@@ -296,7 +297,7 @@ describe('POST /api/auth/otp/phone/verify', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const phoneVerifyResult3 = await phoneVerify(brokenRequest() as never)
+      const phoneVerifyResult3 = await phoneVerify(brokenRequest())
       expect(phoneVerifyResult3.status).toBe(500)
    })
 })
@@ -340,7 +341,7 @@ describe('POST /api/admin/auth/otp/email/try', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const adminEmailTryResult3 = await adminEmailTry(brokenRequest() as never)
+      const adminEmailTryResult3 = await adminEmailTry(brokenRequest())
       expect(adminEmailTryResult3.status).toBe(500)
    })
 })
@@ -400,7 +401,7 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
    })
 
    it('answers 500 for a malformed body', async () => {
-      const adminEmailVerifyResult3 = await adminEmailVerify(brokenRequest() as never)
+      const adminEmailVerifyResult3 = await adminEmailVerify(brokenRequest())
       expect(adminEmailVerifyResult3.status).toBe(500)
    })
 
@@ -442,16 +443,16 @@ describe('logout endpoints', () => {
    })
 })
 
-describe('validation errors surfaced from the persistence layer', () => {
-   /* `getErrorResponse(400, 'failed validations')` is the contract for a
-      ZodError anywhere in the handler, not just from the body parser. */
-   const zodError = async () => {
-      const { ZodError } = await import('zod')
-      return new ZodError([
-         { code: 'custom', message: 'bad row', path: ['email'] },
-      ])
-   }
+/* `getErrorResponse(400, 'failed validations')` is the contract for a
+   ZodError anywhere in the handler, not just from the body parser. */
+const zodError = async () => {
+   const { ZodError } = await import('zod')
+   return new ZodError([
+      { code: 'custom', message: 'bad row', path: ['email'] },
+   ])
+}
 
+describe('validation errors surfaced from the persistence layer', () => {
    it('answers 400 when the email try route hits a validation error', async () => {
       prismaMock.user.upsert.mockRejectedValueOnce(await zodError())
 

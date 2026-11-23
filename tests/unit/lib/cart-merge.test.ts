@@ -78,7 +78,7 @@ describe('parseGuestCart', () => {
 
    it('ignores anything past the scan window (MAX_LINES * 4)', () => {
       const items = [
-         ...Array.from({ length: MAX_LINES * 4 }, (_, index) => ({
+         ...Array.from({ length: MAX_LINES * 4 }, () => ({
             productId: 'bad',
             count: 0,
          })),

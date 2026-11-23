@@ -6,7 +6,8 @@ export interface MockResponseInit {
    json?: unknown
    text?: string
    headers?: Record<string, string>
-   reject?: Error | string
+   /** Any rejection reason: an Error, or a plain value the app must tolerate. */
+   reject?: unknown
 }
 
 export function mockResponse({
@@ -16,7 +17,7 @@ export function mockResponse({
    headers = {},
    reject,
 }: MockResponseInit = {}) {
-   if (reject) return Promise.reject(reject)
+   if (reject) return rejectWith(reject)
 
    const body = text ?? (json === undefined ? '' : JSON.stringify(json))
 
@@ -78,4 +79,23 @@ export async function readJson(response: Response) {
 
 export function header(response: Response, name: string) {
    return response.headers.get(name)
+}
+
+/**
+ * Rejects with a reason that is deliberately not an Error (a plain string, say),
+ * so the code under test has to handle the non-Error branch. The value is only
+ * typed as Error here, because the lint rule for `Promise.reject` cannot see
+ * through `unknown`; at runtime it stays a non-Error.
+ */
+export function rejectWith(reason: unknown): Promise<never> {
+   const failure: Error = reason as Error
+
+   return Promise.reject(failure)
+}
+
+/** Parses a JSON request body captured from a fetch mock; fails loudly on a non-string body. */
+export function jsonBody(body: BodyInit | null | undefined): Record<string, unknown> {
+   if (typeof body !== 'string') throw new TypeError('expected a JSON string body')
+
+   return JSON.parse(body) as Record<string, unknown>
 }

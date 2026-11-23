@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { noop } from '../support/noop'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import BannersPage from '@/app/admin/(dashboard)/banners/page'
@@ -20,6 +21,7 @@ import { CategoryForm } from '@/app/admin/(dashboard)/categories/[categoryId]/co
 import { AddressForm } from '@/app/(store)/(routes)/profile/addresses/[addressId]/components/address-form'
 import { prismaMock } from '../support/db'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
@@ -42,10 +44,10 @@ vi.mock('next/navigation', async (importOriginal) => {
 const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 const signIn = () => {
-   document.cookie = 'logged-in=true'
+   setCookie('logged-in=true')
 }
 const signOut = () => {
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 }
 
 beforeEach(() => {
@@ -138,9 +140,9 @@ describe('empty storefront listings reveal their empty states', () => {
    })
 })
 
-describe('profile pages when the API payloads are unusable', () => {
-   const empty = () => vi.fn(() => Promise.resolve(Response.json(null)))
+const empty = () => vi.fn(() => Promise.resolve(Response.json(null)))
 
+describe('profile pages when the API payloads are unusable', () => {
    it('addresses page stays on the loader for a null payload', async () => {
       signIn()
       vi.stubGlobal('fetch', empty())
@@ -174,7 +176,7 @@ describe('profile pages when the API payloads are unusable', () => {
 
    it('every profile loader logs a network failure', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AddressesPage />)
@@ -199,7 +201,7 @@ describe('profile pages when the API payloads are unusable', () => {
 
    it('wishlist logs a network failure', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<WishlistPage />)
@@ -286,8 +288,8 @@ describe('admin form upload and delete wiring', () => {
 
 describe('wishlist button while the request is in flight', () => {
    it('renders a spinner', async () => {
-      document.cookie = 'logged-in=true'
-      let release: (value: Response) => void = () => {/* noop */ }
+      setCookie('logged-in=true')
+      let release: (value: Response) => void = noop
       const pending = new Promise<Response>((resolve) => {
          release = resolve
       })
@@ -303,7 +305,7 @@ describe('wishlist button while the request is in flight', () => {
       release(Response.json([]))
       await waitFor(() => expect(screen.getByRole('button')).toBeEnabled())
       vi.unstubAllGlobals()
-      document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
    })
 })
 
@@ -321,7 +323,7 @@ describe('admin users table without rows', () => {
 describe('profile order detail loader', () => {
    it('logs a network failure for the detail fetch', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       const { default: ProfileOrderPage } = await import(
@@ -340,7 +342,7 @@ describe('profile order detail loader', () => {
 describe('profile orders loader', () => {
    it('logs a network failure while listing orders', async () => {
       signIn()
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<ProfileOrdersPage />)

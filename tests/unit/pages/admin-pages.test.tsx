@@ -1,5 +1,4 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
-import { Suspense } from 'react'
 
 import BannersLoading from '@/app/admin/(dashboard)/banners/loading'
 import BannersPage from '@/app/admin/(dashboard)/banners/page'
@@ -35,6 +34,7 @@ import WishlistPage from '@/app/(store)/(routes)/wishlist/page'
 import { ProductGrid } from '@/components/native/Product'
 import { prismaMock } from '../support/db'
 import { notFound, routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 vi.mock('next/cache', () => import('../support/cache'))
@@ -498,11 +498,11 @@ describe('storefront product pages', () => {
 /* `useAuthenticated` reads the cookie synchronously, so the client pages only
    fetch once the visitor looks signed in. */
 const signIn = () => {
-   document.cookie = 'logged-in=true'
+   setCookie('logged-in=true')
 }
 
 const signOut = () => {
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 }
 
 describe('storefront profile pages', () => {

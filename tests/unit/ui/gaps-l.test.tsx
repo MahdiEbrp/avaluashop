@@ -1,3 +1,4 @@
+import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -5,6 +6,7 @@ import EditProfilePage from '@/app/(store)/(routes)/profile/edit/page'
 import { UserNav } from '@/components/native/nav/user'
 import AdminImageUpload from '@/components/admin/ui/image-upload'
 import { routerMock } from '../support/navigation'
+import { setCookie } from '../support/cookies'
 
 vi.mock('next/navigation', async (importOriginal) => {
    const actual = await importOriginal<typeof import('next/navigation')>()
@@ -17,14 +19,14 @@ const user = () => userEvent.setup({ pointerEventsCheck: 0 })
 
 afterEach(() => {
    vi.unstubAllGlobals()
-   document.cookie = 'logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+   setCookie('logged-in=; expires=Thu, 01 Jan 1970 00:00:00 GMT')
 })
 
 describe('profile edit page loader', () => {
    it('logs a refused profile read', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<EditProfilePage />)
 
@@ -33,7 +35,7 @@ describe('profile edit page loader', () => {
    })
 
    it('renders the edit card once the profile arrives', async () => {
-      document.cookie = 'logged-in=true'
+      setCookie('logged-in=true')
       vi.stubGlobal(
          'fetch',
          vi.fn(
@@ -53,7 +55,7 @@ describe('storefront user nav logout', () => {
       const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
@@ -69,7 +71,7 @@ describe('storefront user nav logout', () => {
    it('does not reload when the server refuses', async () => {
       vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
@@ -81,7 +83,7 @@ describe('storefront user nav logout', () => {
 
    it('logs a network failure', async () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
 
       render(<UserNav />)
       await user().click(screen.getByRole('button'))
@@ -115,7 +117,7 @@ describe('compare image without a position callback', () => {
       const { default: CompareImage } = await import('@/components/native/CompareImage')
 
       class Observer {
-         static live: Observer[] = []
+         static readonly live: Observer[] = []
          cb: ResizeObserverCallback
          constructor(cb: ResizeObserverCallback) {
             this.cb = cb
@@ -194,7 +196,7 @@ describe('admin logout button', () => {
       const { LogoutButton } = await import('@/components/admin/logout-button')
       vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 401 }))))
       const reload = vi.fn()
-      vi.stubGlobal('location', { ...globalThis.location, reload, origin: 'http://localhost' })
+      stubLocation({ reload, origin: 'http://localhost' })
 
       render(<LogoutButton />)
       await user().click(screen.getByRole('button'))

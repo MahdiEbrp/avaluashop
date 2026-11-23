@@ -73,7 +73,7 @@ describe('profile UserForm', () => {
    })
 
    it('reports a failed request with a toast', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
@@ -152,7 +152,7 @@ describe('profile AddressForm', () => {
    })
 
    it('reports a failed delete', async () => {
-      vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }))
+      vi.stubGlobal('fetch', vi.fn(() => { return Promise.reject(new Error('offline')); }))
       const { toast } = await import('react-hot-toast')
 
       render(
