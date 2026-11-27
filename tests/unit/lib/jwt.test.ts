@@ -1,24 +1,41 @@
 import { SignJWT } from 'jose'
 
-import { signJWT, verifyJWT } from '@/lib/jwt'
+import { JWT_ISSUER, jwtSecret, signJWT, verifyJWT } from '@/lib/jwt'
 
-const SECRET = process.env.JWT_SECRET_KEY
-const encoder = () => new TextEncoder().encode(SECRET)
+const encoder = () => new TextEncoder().encode(process.env.JWT_SECRET_KEY)
+
+beforeEach(() => {
+   vi.spyOn(console, 'error').mockImplementation(() => {/* noop */})
+})
+
+afterEach(() => {
+   vi.unstubAllEnvs()
+   vi.restoreAllMocks()
+})
 
 describe('jwt', () => {
-   it('signs a token that jose can verify', async () => {
+   it('signs a token that verifies with issuer and HS256 pinned', async () => {
       const token = await signJWT({ sub: 'user-1', role: 'admin' }, { exp: '5m' })
-      const payload = await verifyJWT<{ sub: string; role: string }>(token)
+      const payload = await verifyJWT<{ sub: string; role: string; iss: string }>(token)
 
       expect(payload.sub).toBe('user-1')
       expect(payload.role).toBe('admin')
-      const claims = payload as unknown as { iat: number; exp: number }
-      expect(claims.iat).toBeTypeOf('number')
+      expect(payload.iss).toBe(JWT_ISSUER)
+
+      const header = JSON.parse(atob(token.split('.', 1)[0]))
+      expect(header.alg).toBe('HS256')
+   })
+
+   it('sets issued-at and expiry from the requested lifetime', async () => {
+      const token = await signJWT({ sub: 'user-1', role: 'user' }, { exp: '5m' })
+      const claims = await verifyJWT<{ iat: number; exp: number }>(token)
+
       expect(claims.exp - claims.iat).toBe(300)
    })
 
    it('round-trips the user role', async () => {
       const token = await signJWT({ sub: 'user-2', role: 'user' }, { exp: '1h' })
+
       await expect(verifyJWT<{ role: string }>(token)).resolves.toMatchObject({
          sub: 'user-2',
          role: 'user',
@@ -26,24 +43,22 @@ describe('jwt', () => {
    })
 
    it('rejects a token signed with another secret and logs the failure', async () => {
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-
       const foreign = await new SignJWT({ role: 'admin' })
          .setProtectedHeader({ alg: 'HS256' })
+         .setIssuer(JWT_ISSUER)
          .setSubject('intruder')
          .sign(new TextEncoder().encode('a-completely-different-secret-key'))
 
       await expect(verifyJWT(foreign)).rejects.toThrow()
-      expect(errorSpy).toHaveBeenCalledWith(
+      expect(console.error).toHaveBeenCalledWith(
          expect.objectContaining({ error: expect.any(Error) })
       )
    })
 
    it('rejects an expired token', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
-
       const expired = await new SignJWT({ role: 'user' })
          .setProtectedHeader({ alg: 'HS256' })
+         .setIssuer(JWT_ISSUER)
          .setSubject('user-3')
          .setExpirationTime('-1m')
          .sign(encoder())
@@ -51,36 +66,48 @@ describe('jwt', () => {
       await expect(verifyJWT(expired)).rejects.toThrow(/exp/i)
    })
 
-   it('accepts a validly signed HMAC token of another strength', async () => {
-      /* The app only pins the family, not the exact size: jose verifies with
-         the key, so an HS512 signature over the same secret is valid. */
+   it('rejects another HMAC family even over the same secret', async () => {
+      /* Pinned to HS256 on verify, so an HS512 token is refused. */
       const hs512 = await new SignJWT({ role: 'user' })
          .setProtectedHeader({ alg: 'HS512' })
+         .setIssuer(JWT_ISSUER)
          .setSubject('user-4')
          .sign(encoder())
 
-      await expect(verifyJWT(hs512)).resolves.toMatchObject({ sub: 'user-4' })
+      await expect(verifyJWT(hs512)).rejects.toMatchObject({
+         code: 'ERR_JOSE_ALG_NOT_ALLOWED',
+      })
    })
 
-   it('rejects a token signed with an asymmetric algorithm', async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
+   it('rejects a token without the expected issuer', async () => {
+      const wrongIssuer = await new SignJWT({ role: 'admin' })
+         .setProtectedHeader({ alg: 'HS256' })
+         .setIssuer('someone-else')
+         .setSubject('user-5')
+         .setExpirationTime('5m')
+         .sign(encoder())
 
-      const { privateKey } = (await crypto.subtle.generateKey(
-         {
-            name: 'RSASSA-PKCS1-v1_5',
-            modulusLength: 2048,
-            publicExponent: new Uint8Array([1, 0, 1]),
-            hash: 'SHA-256',
-         },
-         true,
-         ['sign', 'verify']
-      ))
+      await expect(verifyJWT(wrongIssuer)).rejects.toThrow(/iss/i)
+   })
 
-      const rs256 = await new SignJWT({ role: 'admin' })
-         .setProtectedHeader({ alg: 'RS256' })
-         .setSubject('intruder')
-         .sign(privateKey)
+   it('refuses to sign or verify when the secret is missing', async () => {
+      vi.stubEnv('JWT_SECRET_KEY', '')
 
-      await expect(verifyJWT(rs256)).rejects.toThrow()
+      await expect(signJWT({ sub: 'user-6', role: 'user' }, { exp: '5m' })).rejects.toThrow(
+         /JWT_SECRET_KEY/
+      )
+      await expect(verifyJWT('a.b.c')).rejects.toThrow(/JWT_SECRET_KEY/)
+   })
+
+   it('refuses a secret shorter than 32 characters', () => {
+      vi.stubEnv('JWT_SECRET_KEY', 'too-short')
+
+      expect(() => jwtSecret()).toThrow(/at least 32 characters/)
+   })
+
+   it('returns the secret bytes when it is long enough', () => {
+      vi.stubEnv('JWT_SECRET_KEY', 'x'.repeat(32))
+
+      expect(jwtSecret()).toHaveLength(32)
    })
 })

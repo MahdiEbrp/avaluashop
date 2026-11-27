@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
@@ -31,7 +32,7 @@ const createSchema = z
    })
 
 function authorized(req: Request) {
-   return Boolean(req.headers.get('X-USER-ID'))
+   return Boolean(adminId(req))
 }
 
 function invalidBody() {

@@ -1,138 +1,231 @@
 import { ipv4 } from '../support/ip'
 import {
    AUTH_SEND_POLICY,
-   AUTH_VERIFY_POLICY,
    clientIp,
    consume,
+   createMemoryStore,
+   createRedisStore,
    forget,
    limitKey,
    tooManyRequests,
+   type LimitPolicy,
+   type RedisLike,
 } from '@/lib/rate-limit'
 
-const policy = { limit: 3, windowMs: 10_000 }
+const redisState = vi.hoisted(() => ({
+   instance: {},
+   configs: [] as { url: string; token: string }[],
+}))
 
-describe('consume', () => {
-   it('allows up to the limit and reports the remaining budget', () => {
-      expect(consume('a', policy)).toEqual({
-         allowed: true,
-         remaining: 2,
-         retryAfterSeconds: 0,
-      })
-      expect(consume('a', policy)).toEqual({
-         allowed: true,
-         remaining: 1,
-         retryAfterSeconds: 0,
-      })
-      expect(consume('a', policy)).toEqual({
-         allowed: true,
-         remaining: 0,
-         retryAfterSeconds: 0,
-      })
+vi.mock('@upstash/redis', () => ({
+   Redis: function RedisMock(config: { url: string; token: string }) {
+      redisState.configs.push(config)
+      return redisState.instance
+   },
+}))
+
+/** An in-memory stand-in with the four commands the store uses. */
+function fakeRedis() {
+   const values = new Map<string, { value: number; expiresAt: number }>()
+
+   return {
+      set: vi.fn((key: string, value: number, options?: { nx?: boolean; px?: number }) => {
+         const live = values.get(key)
+         if (options?.nx && live && live.expiresAt > Date.now()) return Promise.resolve(null)
+         values.set(key, { value, expiresAt: Date.now() + (options?.px ?? 0) })
+         return Promise.resolve("OK")
+      }),
+      incr: vi.fn((key: string) => {
+         const entry = values.get(key)
+         if (!entry) throw new Error("incr before set")
+         entry.value += 1
+         return Promise.resolve(entry.value)
+      }),
+      pttl: vi.fn((key: string) => {
+         const entry = values.get(key)
+         return Promise.resolve(entry ? entry.expiresAt - Date.now() : -2)
+      }),
+      del: vi.fn((key: string) => {
+         values.delete(key)
+         return Promise.resolve(1)
+      }),
+   }
+}
+
+const policy: LimitPolicy = { limit: 2, windowMs: 60_000 }
+
+beforeEach(() => {
+   vi.spyOn(console, 'warn').mockImplementation(() => {/* noop */})
+})
+
+afterEach(() => {
+   vi.unstubAllEnvs()
+   vi.restoreAllMocks()
+   vi.resetModules()
+   redisState.configs.length = 0
+})
+
+describe('memory store', () => {
+   it('counts hits and reports the time left in the window', async () => {
+      let now = 1000
+      const store = createMemoryStore(() => now)
+
+      await expect(store.hit('a', 10_000)).resolves.toEqual({ count: 1, ttlMs: 10_000 })
+      now += 4000
+      await expect(store.hit('a', 10_000)).resolves.toEqual({ count: 2, ttlMs: 6000 })
    })
 
-   it('blocks once the budget is spent and reports a retry hint', () => {
-      consume('b', policy)
-      consume('b', policy)
-      consume('b', policy)
+   it('starts a fresh window once the old one has expired', async () => {
+      let now = 0
+      const store = createMemoryStore(() => now)
 
-      const blocked = consume('b', policy)
+      await store.hit('a', 1000)
+      now = 1000
+      await expect(store.hit('a', 1000)).resolves.toEqual({ count: 1, ttlMs: 1000 })
+   })
 
+   it('clears a key on request', async () => {
+      const store = createMemoryStore()
+
+      await store.hit('a', 60_000)
+      await store.clear('a')
+      await expect(store.hit('a', 60_000)).resolves.toMatchObject({ count: 1 })
+   })
+
+   it('evicts the oldest key once the map is over its cap', async () => {
+      const store = createMemoryStore()
+
+      await store.hit('first', 60_000)
+      await store.hit('first', 60_000)
+      for (let index = 0; index < 5000; index += 1) {
+         await store.hit(`filler-${index}`, 60_000)
+      }
+
+      /* `first` was the oldest insertion and got evicted, so it counts from 1 again. */
+      await expect(store.hit('first', 60_000)).resolves.toMatchObject({ count: 1 })
+   })
+})
+
+describe('redis store', () => {
+   it('creates the window with a TTL, counts with INCR, and reads the TTL', async () => {
+      const redis = fakeRedis()
+      const store = createRedisStore(redis as unknown as RedisLike)
+
+      const first = await store.hit('k', 60_000)
+      const second = await store.hit('k', 60_000)
+
+      expect(redis.set).toHaveBeenCalledWith('k', 0, { nx: true, px: 60_000 })
+      expect(first.count).toBe(1)
+      expect(second.count).toBe(2)
+      expect(second.ttlMs).toBeGreaterThan(0)
+   })
+
+   it('falls back to the full window when the TTL is not positive', async () => {
+      const redis = fakeRedis()
+      redis.pttl.mockResolvedValueOnce(-1)
+      const store = createRedisStore(redis as unknown as RedisLike)
+
+      await expect(store.hit('k', 5000)).resolves.toMatchObject({ ttlMs: 5000 })
+   })
+
+   it('deletes the key on clear', async () => {
+      const redis = fakeRedis()
+      const store = createRedisStore(redis as unknown as RedisLike)
+
+      await store.clear('k')
+      expect(redis.del).toHaveBeenCalledWith('k')
+   })
+})
+
+describe('consume and forget', () => {
+   it('allows up to the limit and then reports the wait', async () => {
+      vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
+      vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+      const limiter = await import('@/lib/rate-limit')
+
+      const one = await limiter.consume('c1', policy)
+      const two = await limiter.consume('c1', policy)
+      const three = await limiter.consume('c1', policy)
+
+      expect(one).toEqual({ allowed: true, remaining: 1, retryAfterSeconds: 0 })
+      expect(two).toEqual({ allowed: true, remaining: 0, retryAfterSeconds: 0 })
+      expect(three.allowed).toBe(false)
+      expect(three.retryAfterSeconds).toBeGreaterThanOrEqual(1)
+   })
+
+   it('lets a cleared key start over', async () => {
+      vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
+      vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+      const limiter = await import('@/lib/rate-limit')
+
+      await limiter.consume('c2', policy)
+      await limiter.consume('c2', policy)
+      await limiter.forget('c2')
+
+      await expect(limiter.consume('c2', policy)).resolves.toMatchObject({ allowed: true })
+   })
+
+   it('warns once and uses memory when Upstash is not configured', async () => {
+      vi.stubEnv('UPSTASH_REDIS_REST_URL', '')
+      vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', '')
+      const limiter = await import('@/lib/rate-limit')
+
+      await limiter.consume('c3', AUTH_SEND_POLICY)
+      await limiter.consume('c3', AUTH_SEND_POLICY)
+
+      expect(console.warn).toHaveBeenCalledTimes(1)
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining('[RATE_LIMIT]'))
+   })
+
+   it('shares the budget through Redis when Upstash is configured', async () => {
+      vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://example.upstash.io')
+      vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'token-value')
+      redisState.instance = fakeRedis()
+      const limiter = await import('@/lib/rate-limit')
+
+      await limiter.consume('c4', policy)
+      await limiter.consume('c4', policy)
+      const blocked = await limiter.consume('c4', policy)
+      await limiter.forget('c4')
+
+      expect(redisState.configs).toEqual([
+         { url: 'https://example.upstash.io', token: 'token-value' },
+      ])
       expect(blocked.allowed).toBe(false)
-      expect(blocked.remaining).toBe(0)
-      expect(blocked.retryAfterSeconds).toBeGreaterThan(0)
-      expect(blocked.retryAfterSeconds).toBeLessThanOrEqual(10)
+      expect(console.warn).not.toHaveBeenCalled()
+      expect((redisState.instance as ReturnType<typeof fakeRedis>).del).toHaveBeenCalledWith('c4')
    })
 
-   it('keeps buckets independent per key', () => {
-      consume('c1', policy)
-      consume('c1', policy)
-      consume('c1', policy)
-
-      expect(consume('c1', policy).allowed).toBe(false)
-      expect(consume('c2', policy).allowed).toBe(true)
-   })
-
-   it('slides the window: hits older than windowMs stop counting', () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2024-01-01T00:00:00Z'))
-
-      consume('d', policy)
-      consume('d', policy)
-      consume('d', policy)
-      expect(consume('d', policy).allowed).toBe(false)
-
-      vi.setSystemTime(new Date('2024-01-01T00:00:11Z'))
-
-      expect(consume('d', policy).allowed).toBe(true)
-   })
-
-   it('reports at least one second of wait even at the edge of the window', () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2024-01-01T00:00:00Z'))
-
-      const tight = { limit: 1, windowMs: 10 }
-      consume('edge', tight)
-      vi.setSystemTime(new Date('2024-01-01T00:00:00.005Z'))
-
-      expect(consume('edge', tight).retryAfterSeconds).toBe(1)
-   })
-
-   it('bounds memory by evicting the oldest bucket past the cap', () => {
-      /* MAX_TRACKED_KEYS is 5000; the 5001st distinct key must push the first
-         one out so a flood of keys cannot grow the map without bound. */
-      for (let index = 0; index < 5001; index++) consume(`flood-${index}`, policy)
-
-      expect(consume('flood-0', policy).remaining).toBe(2)
+   it('exposes the module-level helpers', async () => {
+      await expect(consume('module-level', policy)).resolves.toMatchObject({ allowed: true })
+      await expect(forget('module-level')).resolves.toBeUndefined()
    })
 })
 
-describe('forget', () => {
-   it('clears a bucket so the next attempt starts from a full budget', () => {
-      consume('e', policy)
-      consume('e', policy)
-      consume('e', policy)
-      expect(consume('e', policy).allowed).toBe(false)
+describe('client identity and keys', () => {
+   it('takes the leftmost forwarded address', () => {
+      const req = new Request('http://localhost', {
+         headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' },
+      })
 
-      forget('e')
-
-      expect(consume('e', policy)).toMatchObject({ allowed: true, remaining: 2 })
+      expect(clientIp(req)).toBe('203.0.113.9')
    })
 
-   it('is a no-op for an unknown key', () => {
-      expect(() => { forget('never-seen'); }).not.toThrow()
-   })
-})
+   it('falls back to x-real-ip, then to unknown', () => {
+      const real = new Request('http://localhost', { headers: { 'x-real-ip': '198.51.100.2' } })
+      const none = new Request('http://localhost')
 
-describe('policies', () => {
-   it('allow six deliveries and five verification attempts per ten minutes', () => {
-      expect(AUTH_SEND_POLICY).toEqual({ limit: 6, windowMs: 600_000 })
-      expect(AUTH_VERIFY_POLICY).toEqual({ limit: 5, windowMs: 600_000 })
-   })
-})
-
-const request = (headers: Record<string, string>) =>
-   new Request('http://localhost/api/x', { headers })
-
-describe('clientIp', () => {
-   it('takes the leftmost x-forwarded-for hop', () => {
-      expect(clientIp(request({ 'x-forwarded-for': `${ipv4(1, 2, 3, 4)}, ${ipv4(10, 0, 0, 1)}` }))).toBe(ipv4(1, 2, 3, 4))
+      expect(clientIp(real)).toBe('198.51.100.2')
+      expect(clientIp(none)).toBe('unknown')
    })
 
-   it('trims whitespace around the hop and ignores a forged tail', () => {
-      expect(clientIp(request({ 'x-forwarded-for': `  ${ipv4(5, 6, 7, 8)}  ,evil` }))).toBe(ipv4(5, 6, 7, 8))
+   it('builds keys from scope, address and a case-folded identifier', () => {
+      expect(limitKey('otp-send', ipv4(1, 2, 3, 4), 'Buyer@Example.com')).toBe(
+         'rl:otp-send:1.2.3.4:buyer@example.com'
+      )
    })
 
-   it('falls back to x-real-ip', () => {
-      expect(clientIp(request({ 'x-real-ip': ipv4(9, 9, 9, 9) }))).toBe(ipv4(9, 9, 9, 9))
-   })
-
-   it('reports unknown when neither header is present', () => {
-      expect(clientIp(request({}))).toBe('unknown')
-   })
-})
-
-describe('tooManyRequests', () => {
-   it('answers 429 with retry-after and no-store', async () => {
+   it('answers 429 with Retry-After and never caches', async () => {
       const response = tooManyRequests(42)
 
       expect(response.status).toBe(429)
@@ -142,30 +235,5 @@ describe('tooManyRequests', () => {
          status: 'fail',
          message: 'TOO MANY REQUESTS',
       })
-   })
-})
-
-describe('limitKey', () => {
-   it('joins scope, client and a normalised identifier', () => {
-      expect(limitKey('otp', ipv4(1, 2, 3, 4), '  User@Example.COM ')).toBe(
-         'otp:1.2.3.4:user@example.com'
-      )
-   })
-})
-
-describe('consume with a policy that blocks everything', () => {
-   it('reports a wait hint even though no hit was ever recorded', () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2024-01-01T00:00:00Z'))
-
-      /* limit 0 means the very first attempt is already over budget, so the
-         blocked branch runs with an empty hit list — the `?? now` fallback. */
-      const denied = consume('never-allowed', { limit: 0, windowMs: 10_000 })
-
-      expect(denied.allowed).toBe(false)
-      expect(denied.remaining).toBe(0)
-      expect(denied.retryAfterSeconds).toBe(10)
-
-      vi.useRealTimers()
    })
 })

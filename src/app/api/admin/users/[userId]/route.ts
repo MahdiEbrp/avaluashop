@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { getErrorResponse } from '@/lib/utils'
 import { NextResponse } from 'next/server'
@@ -43,7 +44,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { userId } = await params
 
@@ -63,7 +64,7 @@ export async function GET(req: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { userId } = await params
 
@@ -105,7 +106,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 }
 
 export async function DELETE(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { userId } = await params
 

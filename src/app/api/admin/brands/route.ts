@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import { CATALOG_TAG } from '@/lib/catalog'
 import prisma from '@/lib/prisma'
 import { revalidateTag } from 'next/cache'
@@ -15,7 +16,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const brands = await prisma.brand.findMany({
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const input = brandSchema.parse(await req.json())

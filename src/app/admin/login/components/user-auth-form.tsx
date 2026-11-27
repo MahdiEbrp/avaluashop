@@ -318,7 +318,7 @@ function VerifyComponents({ isLoading, setIsLoading }) {
                One-Time Password
             </Label>
             <Input
-               placeholder="12345"
+               placeholder="123456"
                disabled={isLoading}
                onChange={handleOTPChange}
                required

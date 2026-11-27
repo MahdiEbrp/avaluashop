@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { getErrorResponse } from '@/lib/utils'
 import { revalidatePath } from 'next/cache'
@@ -18,7 +19,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const banners = await prisma.banner.findMany({
@@ -33,7 +34,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const data = bannerBody.parse(await req.json())

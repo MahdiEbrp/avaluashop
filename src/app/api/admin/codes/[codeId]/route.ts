@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
@@ -26,7 +27,7 @@ const patchSchema = z
    })
 
 function authorized(req: Request) {
-   return Boolean(req.headers.get('X-USER-ID'))
+   return Boolean(adminId(req))
 }
 
 export async function PATCH(req: Request, context: RouteContext) {

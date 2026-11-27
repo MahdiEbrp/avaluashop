@@ -218,3 +218,22 @@ describe('reconcilePendingOrders & POST /api/internal/orders/reconcile-pending',
       })
    })
 })
+
+describe('GET /api/internal/orders/reconcile-pending (Vercel Cron)', () => {
+   it('runs the same bearer-authenticated handler as POST', async () => {
+      const { GET: reconcileGET } = await import('@/app/api/internal/orders/reconcile-pending/route')
+
+      expect(reconcileGET).toBe(reconcilePOST)
+
+      vi.stubEnv('CRON_SECRET', 'x'.repeat(16))
+      const response = await reconcileGET(
+         new Request('http://localhost/api/internal/orders/reconcile-pending', {
+            method: 'GET',
+            headers: { authorization: `Bearer ${'y'.repeat(16)}` },
+         })
+      )
+
+      expect(response.status).toBe(401)
+      vi.unstubAllEnvs()
+   })
+})

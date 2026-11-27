@@ -1,4 +1,6 @@
-import { signJWT } from '@/lib/jwt'
+import { ADMIN_SESSION_MINUTES, startSession } from '@/lib/session'
+import { OTP_MAX_ATTEMPTS, OTP_PATTERN, isOtpUsable, otpMatches } from '@/lib/otp'
+import prisma from '@/lib/prisma'
 import {
    AUTH_VERIFY_POLICY,
    clientIp,
@@ -7,82 +9,56 @@ import {
    limitKey,
    tooManyRequests,
 } from '@/lib/rate-limit'
-import prisma from '@/lib/prisma'
 import { getErrorResponse } from '@/lib/utils'
-import { NextRequest, NextResponse } from 'next/server'
-import { ZodError } from 'zod'
+import { NextRequest } from 'next/server'
+import { z, ZodError } from 'zod'
+
+const verifyBody = z.object({
+   email: z.coerce.string().min(3).max(200),
+   OTP: z.coerce.string().regex(OTP_PATTERN),
+})
 
 export async function POST(req: NextRequest) {
    try {
-      const expiryMinutes = 30 * 24 * 60
-
-      const payload = await req.json()
-      const OTP = payload.OTP
-      const email = String(payload.email).toLowerCase()
-
-      if (!process.env.JWT_SECRET_KEY) {
-         console.error('JWT secret key is missing')
-         return getErrorResponse(500, 'Internal Server Error')
-      }
+      const { email: rawEmail, OTP } = verifyBody.parse(await req.json())
+      const email = rawEmail.toLowerCase()
 
       const attemptKey = limitKey('admin-otp-verify', clientIp(req), email)
-      const verdict = consume(attemptKey, AUTH_VERIFY_POLICY)
+      const verdict = await consume(attemptKey, AUTH_VERIFY_POLICY)
 
       if (!verdict.allowed) return tooManyRequests(verdict.retryAfterSeconds)
 
-      const user = await prisma.owner.findFirst({
-         where: { email, OTP: String(OTP) },
+      const owner = await prisma.owner.findUnique({ where: { email } })
+
+      if (!owner || !isOtpUsable(owner)) return getErrorResponse(401, 'INVALID OTP')
+
+      const reserved = await prisma.owner.updateMany({
+         where: {
+            id: owner.id,
+            otpHash: owner.otpHash,
+            otpAttempts: { lt: OTP_MAX_ATTEMPTS },
+         },
+         data: { otpAttempts: { increment: 1 } },
       })
 
-      if (!user) return getErrorResponse(401, 'INVALID OTP')
-
-      forget(attemptKey)
-
-      const token = await signJWT(
-         { sub: user.id, role: 'admin' },
-         { exp: `${expiryMinutes}m` }
-      )
-
-      const tokenMaxAge = expiryMinutes * 60
-      const cookieOptions = {
-         name: 'token',
-         value: token,
-         httpOnly: true,
-         // `lax` keeps the cookie off cross-site POSTs (CSRF) while still
-         // letting a link from another site land with the session intact.
-         sameSite: 'lax' as const,
-         path: '/',
-         secure: process.env.NODE_ENV !== 'development',
-         maxAge: tokenMaxAge,
+      if (reserved.count === 0 || !otpMatches(owner.otpHash, email, OTP)) {
+         return getErrorResponse(401, 'INVALID OTP')
       }
 
-      const response = new NextResponse(
-         JSON.stringify({
-            status: 'success',
-            token,
-         }),
-         {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-         }
-      )
-
-      response.cookies.set(cookieOptions)
-      response.cookies.set({
-         name: 'logged-in',
-         value: 'true',
-         maxAge: tokenMaxAge,
+      await prisma.owner.update({
+         where: { id: owner.id },
+         data: { otpHash: null, otpExpiresAt: null, otpAttempts: 0 },
       })
 
-      return response
+      await forget(attemptKey)
+
+      return await startSession({ sub: owner.id, role: 'admin' }, ADMIN_SESSION_MINUTES)
    } catch (error: unknown) {
       if (error instanceof ZodError) {
          return getErrorResponse(400, 'failed validations', error)
       }
 
-      return getErrorResponse(
-         500,
-         error instanceof Error ? error.message : 'Internal error'
-      )
+      console.error('[ADMIN_OTP_VERIFY]', error)
+      return getErrorResponse(500, 'Internal error')
    }
 }

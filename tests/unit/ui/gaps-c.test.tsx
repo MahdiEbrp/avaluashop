@@ -108,7 +108,7 @@ describe('admin login form — phone validation', () => {
    })
 
    it('logs a network failure when verifying an OTP', async () => {
-      setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
+      setParams({ method: 'phone', phone: '09123456789', OTP: '123456' })
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<AdminAuthForm />)
@@ -123,7 +123,7 @@ describe('admin login form — phone validation', () => {
    })
 
    it('stays on the page when the OTP is rejected', async () => {
-      setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
+      setParams({ method: 'phone', phone: '09123456789', OTP: '123456' })
       vi.stubGlobal(
          'fetch',
          vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))).mockResolvedValueOnce(
@@ -149,7 +149,7 @@ describe('admin login form — phone validation', () => {
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      await user().type(screen.getByPlaceholderText('12345'), '2')
+      await user().type(screen.getByPlaceholderText('123456'), '2')
 
       expect(routerMock.replace).toHaveBeenLastCalledWith(
          '/admin/login?method=phone&phone=09123456789&OTP=2',
@@ -262,7 +262,7 @@ describe('storefront login form', () => {
    })
 
    it('logs a network failure while verifying', async () => {
-      setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
+      setParams({ method: 'phone', phone: '09123456789', OTP: '123456' })
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {/* noop */ })
 
       render(<StoreAuthForm />)
@@ -293,7 +293,7 @@ describe('storefront login form', () => {
       await user().click(screen.getByRole('button', { name: /login with phone/i }))
       await screen.findByText('One-Time Password')
 
-      await user().type(screen.getByPlaceholderText('12345'), '2')
+      await user().type(screen.getByPlaceholderText('123456'), '2')
 
       expect(routerMock.replace).toHaveBeenCalled()
    })
@@ -358,7 +358,7 @@ describe('storefront login form — phone entry', () => {
    })
 
    it('clears the guest cart after a successful verification', async () => {
-      setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
+      setParams({ method: 'phone', phone: '09123456789', OTP: '123456' })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
 
       render(<StoreAuthForm />)
@@ -371,7 +371,7 @@ describe('storefront login form — phone entry', () => {
    })
 
    it('keeps the cart when the OTP is rejected', async () => {
-      setParams({ method: 'phone', phone: '09123456789', OTP: '12345' })
+      setParams({ method: 'phone', phone: '09123456789', OTP: '123456' })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
 
       render(<StoreAuthForm />)
@@ -390,7 +390,7 @@ describe('storefront login form — phone entry', () => {
 
 describe('storefront login form — email verification', () => {
    it('verifies through the email endpoint', async () => {
-      setParams({ method: 'email', email: 'shopper@example.com', OTP: '12345' })
+      setParams({ method: 'email', email: 'shopper@example.com', OTP: '123456' })
       const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
 

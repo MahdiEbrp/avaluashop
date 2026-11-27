@@ -9,15 +9,17 @@ datasource db {
 
 model User {
   id    String  @id @default(cuid())
-  email String?  @unique
+  email String? @unique
   phone String? @unique
 
   name     String?
   birthday String?
 
-  OTP                   String?
-  emailUnsubscribeToken String?  @unique @default(cuid())
-  referralCode          String? @unique
+  otpHash               String?
+  otpExpiresAt          DateTime?
+  otpAttempts           Int       @default(0)
+  emailUnsubscribeToken String?   @unique @default(cuid())
+  referralCode          String?   @unique
 
   isBanned          Boolean @default(false)
   isEmailVerified   Boolean @default(false)
@@ -60,24 +62,28 @@ model CartItem {
 }
 
 model Owner {
-  id     String  @id @default(cuid())
-  email  String  @unique
-  phone  String? @unique
-  name   String?
-  avatar String?
-  OTP    String?
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?   @unique
+  name         String?
+  avatar       String?
+  otpHash      String?
+  otpExpiresAt DateTime?
+  otpAttempts  Int       @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Author {
-  id     String  @id @default(cuid())
-  email  String  @unique
-  phone  String? @unique
-  name   String?
-  avatar String?
-  OTP    String?
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?   @unique
+  name         String?
+  avatar       String?
+  otpHash      String?
+  otpExpiresAt DateTime?
+  otpAttempts  Int       @default(0)
 
   blogs Blog[]
 
@@ -159,11 +165,11 @@ model ProductReview {
 }
 
 model Order {
-  id     String          @id @default(cuid())
+  id             String          @id @default(cuid())
   /// Optional client request key; unique to make checkout retries safe.
   idempotencyKey String?
-  number Int             @unique @default(autoincrement())
-  status OrderStatusEnum
+  number         Int             @unique @default(autoincrement())
+  status         OrderStatusEnum
 
   total    Float @default(100)
   shipping Float @default(100)
@@ -178,15 +184,15 @@ model Order {
   orderItems OrderItem[]
   refund     Refund?
 
-  shippingMethod   ShippingMethod? @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
-  shippingMethodId String?
-  shippingCarrier  ShippingCarrier? @relation(fields: [shippingCarrierId], references: [id], onDelete: SetNull)
+  shippingMethod    ShippingMethod?  @relation(fields: [shippingMethodId], references: [id], onDelete: SetNull)
+  shippingMethodId  String?
+  shippingCarrier   ShippingCarrier? @relation(fields: [shippingCarrierId], references: [id], onDelete: SetNull)
   shippingCarrierId String?
 
-  shippingMethodName  String?
-  shippingCarrierName String?
+  shippingMethodName     String?
+  shippingCarrierName    String?
   shippingTrackingNumber String?
-  taxRateSnapshot Float?
+  taxRateSnapshot        Float?
 
   discountCode   DiscountCode? @relation(fields: [discountCodeId], references: [id])
   discountCodeId String?
@@ -297,11 +303,11 @@ model Payment {
   number Int               @unique @default(autoincrement())
   status PaymentStatusEnum
 
-  refId    String  @unique
+  refId      String  @unique
   paymentUrl String?
-  cardPan  String?
-  cardHash String?
-  fee      Float?
+  cardPan    String?
+  cardHash   String?
+  fee        Float?
 
   isSuccessful Boolean @default(false)
   payable      Float
@@ -329,15 +335,15 @@ enum PaymentStatusEnum {
 }
 
 model PaymentProvider {
-  id          String  @id @default(cuid())
-  title       String  @unique
-  code        String? @unique
-  description String?
-  websiteUrl  String?
-  isActive    Boolean @default(false)
-  settings    Json?
+  id                   String    @id @default(cuid())
+  title                String    @unique
+  code                 String?   @unique
+  description          String?
+  websiteUrl           String?
+  isActive             Boolean   @default(false)
+  settings             Json?
   /// Encrypted server-side credentials. Never expose this field through public/admin read APIs.
-  credentialsEncrypted String? @db.Text
+  credentialsEncrypted String?   @db.Text
   credentialsUpdatedAt DateTime?
 
   orders Payment[]
@@ -367,16 +373,16 @@ model StoreSetting {
 }
 
 model ShippingMethod {
-  id          String @id @default(cuid())
-  code        String @unique
-  title       String
-  description String?
-  type        ShippingMethodType @default(FlatRate)
-  amount      Float @default(0)
-  freeAbove   Float?
-  isActive    Boolean @default(true)
-  sortOrder   Int @default(0)
-  allowedCities String[] @default([])
+  id            String             @id @default(cuid())
+  code          String             @unique
+  title         String
+  description   String?
+  type          ShippingMethodType @default(FlatRate)
+  amount        Float              @default(0)
+  freeAbove     Float?
+  isActive      Boolean            @default(true)
+  sortOrder     Int                @default(0)
+  allowedCities String[]           @default([])
 
   carrier   ShippingCarrier? @relation(fields: [carrierId], references: [id], onDelete: SetNull)
   carrierId String?
@@ -390,13 +396,13 @@ model ShippingMethod {
 }
 
 model ShippingCarrier {
-  id      String @id @default(cuid())
-  code    ShippingCarrierCode @unique
-  title   String
-  isActive Boolean @default(false)
-  settings Json?
+  id                   String              @id @default(cuid())
+  code                 ShippingCarrierCode @unique
+  title                String
+  isActive             Boolean             @default(false)
+  settings             Json?
   /// Encrypted server-side API credentials. Never return this field in API responses.
-  credentialsEncrypted String? @db.Text
+  credentialsEncrypted String?             @db.Text
   credentialsUpdatedAt DateTime?
 
   methods ShippingMethod[]
@@ -407,12 +413,12 @@ model ShippingCarrier {
 }
 
 model TaxRate {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   title             String
   rate              Float
   appliesToShipping Boolean @default(true)
   isActive          Boolean @default(true)
-  priority          Int @default(0)
+  priority          Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

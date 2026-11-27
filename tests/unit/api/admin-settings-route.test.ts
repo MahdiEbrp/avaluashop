@@ -1,6 +1,6 @@
 import { GET, PUT } from '@/app/api/admin/settings/route'
 import { encryptSettingSecret } from '@/lib/settings-crypto'
-import { get, json, prismaMock, silenceConsole, USER } from './helpers'
+import { get, json, prismaMock, silenceConsole, ADMIN } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
@@ -78,7 +78,7 @@ describe('GET /api/admin/settings', () => {
    })
 
    it('reports tax as a percentage and the gateway without any secret', async () => {
-      const response = await GET(get(USER))
+      const response = await GET(get(ADMIN))
       const body = await response.json()
 
       expect(response.status).toBe(200)
@@ -100,7 +100,7 @@ describe('GET /api/admin/settings', () => {
    })
 
    it('creates the singleton row on first read', async () => {
-      await GET(get(USER))
+      await GET(get(ADMIN))
 
       expect(prismaMock.storeSetting.upsert).toHaveBeenCalledWith(
          expect.objectContaining({ where: { id: 'default' } })
@@ -110,7 +110,7 @@ describe('GET /api/admin/settings', () => {
    it('falls back to defaults when no gateway row exists yet', async () => {
       prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(body.gateway).toEqual({
          code: 'tabapay',
@@ -127,7 +127,7 @@ describe('GET /api/admin/settings', () => {
          providerRow({ code: null, title: 'Tabapay' })
       )
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(prismaMock.paymentProvider.findFirst).toHaveBeenCalledWith(
          expect.objectContaining({ where: { title: { in: ['TabaPay', 'Tabapay'] } } })
@@ -142,7 +142,7 @@ describe('GET /api/admin/settings', () => {
          providerRow({ credentialsEncrypted: 'v1.AAAA.BBBB.CCCC' })
       )
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(body.gateway.isActive).toBe(true)
       expect(body.gateway.credentialsConfigured).toBe(false)
@@ -153,7 +153,7 @@ describe('GET /api/admin/settings', () => {
          providerRow({ credentialsEncrypted: null })
       )
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(body.gateway.credentialsConfigured).toBe(false)
    })
@@ -163,7 +163,7 @@ describe('GET /api/admin/settings', () => {
          providerRow({ settings: { sandbox: false } })
       )
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(body.gateway.sandbox).toBe(false)
    })
@@ -173,7 +173,7 @@ describe('GET /api/admin/settings', () => {
          providerRow({ settings: [] })
       )
 
-      const body = await settingsOf(await GET(get(USER)))
+      const body = await settingsOf(await GET(get(ADMIN)))
 
       expect(body.gateway.sandbox).toBe(true)
    })
@@ -181,7 +181,7 @@ describe('GET /api/admin/settings', () => {
    it('answers 500 when the store row cannot be read', async () => {
       prismaMock.storeSetting.upsert.mockRejectedValue(new Error('db down'))
 
-      const response = await GET(get(USER))
+      const response = await GET(get(ADMIN))
 
       expect(response.status).toBe(500)
       await expect(response.json()).resolves.toEqual({ message: 'SETTINGS_READ_FAILED' })
@@ -203,7 +203,7 @@ describe('PUT /api/admin/settings', () => {
       ['an unsupported currency', { currency: 'USD' }],
       ['a missing gateway flag', { gatewayActive: undefined }],
    ])('rejects %s', async (_label, patch) => {
-      const response = await PUT(json({ ...validBody, ...patch }, USER))
+      const response = await PUT(json({ ...validBody, ...patch }, ADMIN))
 
       expect(response.status).toBe(400)
       expect(await messageOf(response)).toBe('INVALID_SETTINGS')
@@ -214,7 +214,7 @@ describe('PUT /api/admin/settings', () => {
          providerRow({ settings: { sandbox: true, extra: 'kept' } })
       )
 
-      const response = await PUT(json({ ...validBody, sandbox: false }, USER))
+      const response = await PUT(json({ ...validBody, sandbox: false }, ADMIN))
 
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({
@@ -240,7 +240,7 @@ describe('PUT /api/admin/settings', () => {
    })
 
    it('encrypts a new merchant key and stamps the update time', async () => {
-      await PUT(json({ ...validBody, gatewayActive: true, merchantKey: 'new-key' }, USER))
+      await PUT(json({ ...validBody, gatewayActive: true, merchantKey: 'new-key' }, ADMIN))
 
       const call = prismaMock.paymentProvider.update.mock.calls[0][0] as {
          data: { credentialsEncrypted: string; credentialsUpdatedAt: Date }
@@ -255,7 +255,7 @@ describe('PUT /api/admin/settings', () => {
       prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
       prismaMock.paymentProvider.findFirst.mockResolvedValue(null)
 
-      const response = await PUT(json({ ...validBody, gatewayActive: true, merchantKey: 'k' }, USER))
+      const response = await PUT(json({ ...validBody, gatewayActive: true, merchantKey: 'k' }, ADMIN))
 
       expect(response.status).toBe(200)
       expect(prismaMock.paymentProvider.create).toHaveBeenCalledWith(
@@ -274,7 +274,7 @@ describe('PUT /api/admin/settings', () => {
       prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
       prismaMock.paymentProvider.findFirst.mockResolvedValue(providerRow({ code: null }))
 
-      await PUT(json({ ...validBody, merchantKey: 'k' }, USER))
+      await PUT(json({ ...validBody, merchantKey: 'k' }, ADMIN))
 
       expect(prismaMock.paymentProvider.update).toHaveBeenCalled()
       expect(prismaMock.paymentProvider.create).not.toHaveBeenCalled()
@@ -285,7 +285,7 @@ describe('PUT /api/admin/settings', () => {
          providerRow({ credentialsEncrypted: null })
       )
 
-      const response = await PUT(json({ ...validBody, gatewayActive: true }, USER))
+      const response = await PUT(json({ ...validBody, gatewayActive: true }, ADMIN))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({
@@ -296,7 +296,7 @@ describe('PUT /api/admin/settings', () => {
    it('refuses to enable the gateway when the encryption key is missing', async () => {
       delete process.env.APP_SETTINGS_ENCRYPTION_KEY
 
-      const response = await PUT(json({ ...validBody, merchantKey: 'k' }, USER))
+      const response = await PUT(json({ ...validBody, merchantKey: 'k' }, ADMIN))
 
       expect(response.status).toBe(503)
       await expect(response.json()).resolves.toEqual({
@@ -309,7 +309,7 @@ describe('PUT /api/admin/settings', () => {
          providerRow({ credentialsEncrypted: 'v1.AAAA.BBBB.CCCC' })
       )
 
-      const response = await PUT(json({ ...validBody, gatewayActive: true }, USER))
+      const response = await PUT(json({ ...validBody, gatewayActive: true }, ADMIN))
 
       expect(response.status).toBe(400)
    })
@@ -317,7 +317,7 @@ describe('PUT /api/admin/settings', () => {
    it('blocks a gateway change while recent payments are still processing', async () => {
       prismaMock.payment.count.mockResolvedValue(2)
 
-      const response = await PUT(json({ ...validBody, sandbox: false }, USER))
+      const response = await PUT(json({ ...validBody, sandbox: false }, ADMIN))
 
       expect(response.status).toBe(409)
       await expect(response.json()).resolves.toEqual({
@@ -327,7 +327,7 @@ describe('PUT /api/admin/settings', () => {
    })
 
    it('counts only recent processing payments so an abandoned one cannot freeze settings', async () => {
-      await PUT(json({ ...validBody, sandbox: false }, USER))
+      await PUT(json({ ...validBody, sandbox: false }, ADMIN))
 
       const guard = prismaMock.payment.count.mock.calls[0][0] as {
          where: { status: string; createdAt: { gte: Date } }
@@ -339,7 +339,7 @@ describe('PUT /api/admin/settings', () => {
 
    it('skips the guard when nothing about the gateway changed', async () => {
       /* Body matches the stored row exactly, so no gateway field moved. */
-      await PUT(json({ ...validBody, gatewayActive: true }, USER))
+      await PUT(json({ ...validBody, gatewayActive: true }, ADMIN))
 
       expect(prismaMock.payment.count).not.toHaveBeenCalled()
    })
@@ -350,7 +350,7 @@ describe('PUT /api/admin/settings', () => {
       prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
       prismaMock.paymentProvider.findFirst.mockResolvedValue(null)
 
-      await PUT(json(validBody, USER))
+      await PUT(json(validBody, ADMIN))
 
       expect(prismaMock.payment.count).not.toHaveBeenCalled()
    })
@@ -359,7 +359,7 @@ describe('PUT /api/admin/settings', () => {
       prismaMock.paymentProvider.findUnique.mockResolvedValue(null)
       prismaMock.paymentProvider.findFirst.mockResolvedValue(null)
 
-      await PUT(json({ ...validBody, sandbox: false }, USER))
+      await PUT(json({ ...validBody, sandbox: false }, ADMIN))
 
       expect(prismaMock.payment.count).not.toHaveBeenCalled()
    })
@@ -367,7 +367,7 @@ describe('PUT /api/admin/settings', () => {
    it('answers 500 when the write transaction fails', async () => {
       prismaMock.paymentProvider.update.mockRejectedValue(new Error('db down'))
 
-      const response = await PUT(json(validBody, USER))
+      const response = await PUT(json(validBody, ADMIN))
 
       expect(response.status).toBe(500)
       await expect(response.json()).resolves.toEqual({ message: 'SETTINGS_SAVE_FAILED' })
@@ -377,7 +377,7 @@ describe('PUT /api/admin/settings', () => {
       /* A malformed body must not surface as a server error. */
       const request = new Request('http://localhost/api/admin/settings', {
          method: 'PUT',
-         headers: { 'content-type': 'application/json', ...USER },
+         headers: { 'content-type': 'application/json', ...ADMIN },
          body: '{not json',
       })
 

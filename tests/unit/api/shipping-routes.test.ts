@@ -2,7 +2,7 @@ import { DELETE as methodDELETE, PATCH as methodPATCH } from '@/app/api/admin/sh
 import { GET as adminGET, POST as adminPOST } from '@/app/api/admin/shipping-methods/route'
 import { GET as shippingGET } from '@/app/api/shipping-methods/route'
 import { GET as settingsGET } from '@/app/api/store-settings/route'
-import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
+import { call, get, json, prismaMock, silenceConsole, ADMIN } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
@@ -95,7 +95,7 @@ describe('admin shipping method routes', () => {
 
    it('lists methods in display order', async () => {
       prismaMock.shippingMethod.findMany.mockResolvedValue([{ id: 'sm1' }])
-      const adminGETResult2 = await adminGET(get(USER))
+      const adminGETResult2 = await adminGET(get(ADMIN))
       expect(adminGETResult2.status).toBe(200)
       expect(prismaMock.shippingMethod.findMany).toHaveBeenCalledWith(
          expect.objectContaining({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] })
@@ -110,7 +110,7 @@ describe('admin shipping method routes', () => {
          type: 'FlatRate',
          amount: 25_000,
          allowedCities: [' تهران ', 'تهران'],
-      }, USER))
+      }, ADMIN))
 
       expect(response.status).toBe(201)
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
@@ -125,10 +125,10 @@ describe('admin shipping method routes', () => {
    })
 
    it('rejects invalid or malformed method data', async () => {
-      const adminPOSTResult2 = await adminPOST(json({ code: 'Bad Code', title: 'x', type: 'FlatRate', amount: 1 }, USER))
+      const adminPOSTResult2 = await adminPOST(json({ code: 'Bad Code', title: 'x', type: 'FlatRate', amount: 1 }, ADMIN))
       expect(adminPOSTResult2.status).toBe(400)
       const malformed = new Request('http://localhost/api/admin/shipping-methods', {
-         method: 'POST', headers: USER, body: '{',
+         method: 'POST', headers: ADMIN, body: '{',
       })
       const adminPOSTResult3 = await adminPOST(malformed)
       expect(adminPOSTResult3.status).toBe(400)
@@ -138,31 +138,31 @@ describe('admin shipping method routes', () => {
       prismaMock.shippingMethod.create.mockRejectedValue({ code: 'P2002' })
       const response = await adminPOST(json({
          code: 'post-standard', title: 'پست', type: 'FlatRate', amount: 10,
-      }, USER))
+      }, ADMIN))
       expect(response.status).toBe(409)
    })
 
    it('patches a method and rejects a missing method', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue({ id: 'sm1', type: 'FlatRate', freeAbove: null })
       prismaMock.shippingMethod.update.mockResolvedValue({ id: 'sm1', isActive: false })
-      const response = await methodPATCH(json({ isActive: false }, USER), call({ methodId: 'sm1' }))
+      const response = await methodPATCH(json({ isActive: false }, ADMIN), call({ methodId: 'sm1' }))
       expect(response.status).toBe(200)
 
       prismaMock.shippingMethod.findUnique.mockResolvedValue(null)
-      const methodPATCHResult2 = await methodPATCH(json({ isActive: false }, USER), call({ methodId: 'missing' }))
+      const methodPATCHResult2 = await methodPATCH(json({ isActive: false }, ADMIN), call({ methodId: 'missing' }))
       expect(methodPATCHResult2.status).toBe(404)
    })
 
    it('requires a threshold when switching to free-above', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue({ id: 'sm1', type: 'FlatRate', freeAbove: null })
-      const methodPATCHResult3 = await methodPATCH(json({ type: 'FreeAbove' }, USER), call({ methodId: 'sm1' }))
+      const methodPATCHResult3 = await methodPATCH(json({ type: 'FreeAbove' }, ADMIN), call({ methodId: 'sm1' }))
       expect(methodPATCHResult3.status).toBe(400)
    })
 
    it('soft-disables a method so historical orders remain intact', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue({ id: 'sm1' })
       prismaMock.shippingMethod.update.mockResolvedValue({ id: 'sm1', isActive: false })
-      const response = await methodDELETE(get(USER), call({ methodId: 'sm1' }))
+      const response = await methodDELETE(get(ADMIN), call({ methodId: 'sm1' }))
       expect(response.status).toBe(200)
       expect(prismaMock.shippingMethod.update).toHaveBeenCalledWith({
          where: { id: 'sm1' }, data: { isActive: false },
@@ -171,7 +171,7 @@ describe('admin shipping method routes', () => {
 
    it('answers 500 when persistence fails', async () => {
       prismaMock.shippingMethod.findMany.mockRejectedValue(new Error('down'))
-      const adminGETResult3 = await adminGET(get(USER))
+      const adminGETResult3 = await adminGET(get(ADMIN))
       expect(adminGETResult3.status).toBe(500)
    })
 })

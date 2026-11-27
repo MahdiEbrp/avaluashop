@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { getErrorResponse } from '@/lib/utils'
 import { NextResponse } from 'next/server'
@@ -9,7 +10,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { paymentId } = await params
 
@@ -33,7 +34,7 @@ export async function GET(req: Request, { params }: RouteContext) {
 }
 
 export function PATCH(req: Request, _context?: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    /* Payment settlement is evidence from the verified gateway callback.
       Admin edits must never be able to mark a payment paid or rewrite its

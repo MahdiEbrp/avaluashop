@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { getErrorResponse } from '@/lib/utils'
 import { NextResponse } from 'next/server'
@@ -18,7 +19,7 @@ const refundDecisionSchema = z.discriminatedUnion('action', [
 type RouteContext = Readonly<{ params: Promise<{ orderId: string }> }>
 
 export async function PATCH(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) {
+   if (!adminId(req)) {
       return getErrorResponse(401, 'UNAUTHORIZED')
    }
 

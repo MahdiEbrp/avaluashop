@@ -6,6 +6,7 @@ import { resetPrismaMock } from './unit/support/db'
 
 /* Deterministic environment for every test file. */
 process.env.JWT_SECRET_KEY ??= 'test-secret-key-that-is-at-least-32-chars-long'
+process.env.OTP_PEPPER ??= 'test-otp-pepper-that-is-at-least-32-characters'
 process.env.DATABASE_URL ??= 'postgresql://shop:shop@127.0.0.1:5432/avaluashop'
 process.env.NEXT_PUBLIC_URL ??= 'http://localhost:3000'
 

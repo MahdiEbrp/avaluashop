@@ -339,7 +339,7 @@ describe('storefront login form', () => {
    })
 
    it('verifies the OTP, clears the guest cart and redirects home', async () => {
-      setParams({ email: 'buyer@example.com', OTP: '12345' })
+      setParams({ email: 'buyer@example.com', OTP: '123456' })
       localStorage.setItem('Cart', JSON.stringify({ items: [{ productId: 'p1', count: 1 }] }))
       const fetchMock = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(new Response('{}', { status: 200 })))
       vi.stubGlobal('fetch', fetchMock)
@@ -348,11 +348,11 @@ describe('storefront login form', () => {
 
       render(<UserAuthForm />)
       /* Advance to the verification step first. */
-      setParams({ email: 'buyer@example.com', OTP: '12345' })
+      setParams({ email: 'buyer@example.com', OTP: '123456' })
       await user().click(screen.getByRole('button', { name: /login with email/i }))
       await waitFor(() => expect(screen.getByText('One-Time Password')).toBeInTheDocument())
 
-      await user().type(screen.getByPlaceholderText('12345'), '1')
+      await user().type(screen.getByPlaceholderText('123456'), '1')
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
       await waitFor(() => { expect(assign).toHaveBeenCalled(); })
@@ -398,7 +398,7 @@ describe('admin login form', () => {
       /* Verifying lands the owner in the dashboard. */
       const assign = vi.fn()
       stubLocation({ assign, origin: 'http://localhost' })
-      setParams({ email: 'owner@example.com', OTP: '12345' })
+      setParams({ email: 'owner@example.com', OTP: '123456' })
       await user().click(screen.getByRole('button', { name: 'Submit' }))
 
       await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(

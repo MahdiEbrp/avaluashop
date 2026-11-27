@@ -18,6 +18,14 @@ function secretsMatch(expected: string, provided: string): boolean {
 }
 
 export async function POST(req: Request) {
+   return reconcile(req)
+}
+
+/* Vercel Cron issues GET requests with the same bearer header, so both verbs
+   run the same authenticated handler. */
+export const GET = POST
+
+async function reconcile(req: Request) {
    const configuredSecret = process.env.CRON_SECRET?.trim() ?? ''
    if (configuredSecret.length < 16) {
       return NextResponse.json(
