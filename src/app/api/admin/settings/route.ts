@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { decryptSettingSecret, encryptSettingSecret } from '@/lib/settings-crypto'
 import { TABAPAY_PROVIDER_CODE, providerSettings } from '@/lib/payments/tabapay'
@@ -35,7 +36,7 @@ class PendingPaymentsError extends Error {}
 function isAdminRequest(req: Request) {
    // src/proxy.ts verifies the signed JWT and the admin role, and overwrites
    // any client-supplied X-USER-ID before forwarding this header.
-   return Boolean(req.headers.get('X-USER-ID'))
+   return Boolean(adminId(req))
 }
 
 function credentialsReadable(blob: string | null | undefined) {

@@ -46,11 +46,11 @@ once, no `-w` flags, no per-workspace `node_modules` to reason about.
 - Dynamic `sitemap.xml` + `robots.txt`, Next Metadata API for SEO
 - UI built on **Radix UI** / shadcn-ui primitives and **TailwindCSS**
 - Validation with **Zod**, forms with **react-hook-form**
-- **Zarinpal** payment gateway integration
+- **Tabapay** payment gateway integration
 
 ## 🛠 Tech stack
 
-Everything is pinned to the latest **stable** release. TypeScript is deliberately held at the
+Dependencies use caret ranges (`^`) and the lockfile pins the exact versions. TypeScript is deliberately held at the
 newest **6.x** rather than 7.0: `typescript-eslint` (used by `eslint-config-next`) hard-throws
 _"typescript-eslint does not support TS 7.0"_, which would make `npm run lint` unusable.
 

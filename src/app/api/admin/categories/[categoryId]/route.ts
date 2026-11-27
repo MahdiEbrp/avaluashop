@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import { CATALOG_TAG } from '@/lib/catalog'
 import prisma from '@/lib/prisma'
 import { revalidateTag } from 'next/cache'
@@ -20,7 +21,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request, context: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const { categoryId } = await context.params
@@ -40,7 +41,7 @@ export async function GET(req: Request, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const { categoryId } = await context.params
@@ -68,7 +69,7 @@ export async function PATCH(req: Request, context: RouteContext) {
 }
 
 export async function DELETE(req: Request, context: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    try {
       const { categoryId } = await context.params

@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { canTransitionOrderStatus, ORDER_STATUSES } from '@/lib/order-status'
 import { getErrorResponse } from '@/lib/utils'
@@ -26,7 +27,7 @@ function unauthorized() {
 }
 
 export async function GET(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { orderId } = await params
 
@@ -91,7 +92,7 @@ function validateOrderFulfilmentPatch(
 }
 
 export async function PATCH(req: Request, { params }: RouteContext) {
-   if (!req.headers.get('X-USER-ID')) return unauthorized()
+   if (!adminId(req)) return unauthorized()
 
    const { orderId } = await params
 

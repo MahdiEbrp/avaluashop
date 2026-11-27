@@ -1,24 +1,10 @@
 {
    "$schema": "https://openapi.vercel.sh/vercel.json",
    "cleanUrls": true,
-   "headers": [
+   "crons": [
       {
-         "source": "/fonts/Inter/Inter.woff2",
-         "headers": [
-            {
-               "key": "Cache-Control",
-               "value": "public, max-age=31536000, immutable"
-            }
-         ]
-      },
-      {
-         "source": "/fonts/Yekan/Yekan.woff",
-         "headers": [
-            {
-               "key": "Cache-Control",
-               "value": "public, max-age=31536000, immutable"
-            }
-         ]
+         "path": "/api/internal/orders/reconcile-pending",
+         "schedule": "0 3 * * *"
       }
    ],
    "redirects": []

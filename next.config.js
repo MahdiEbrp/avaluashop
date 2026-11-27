@@ -49,15 +49,19 @@ const securityHeaders = [
 module.exports = {
    // Do not advertise the framework version to scanners.
    poweredByHeader: false,
+   // Traces only the files the server needs, so the runtime image stays small.
+   output: 'standalone',
    images: {
       // AVIF is ~30% smaller than WebP at the same quality; Next negotiates it
       // from the Accept header and falls back to WebP and then the original.
       formats: ['image/avif', 'image/webp'],
       minimumCacheTTL: 2_678_400,
+      // Only the CDN that the admin upload widget writes to. An open wildcard
+      // turns the optimizer into a free image proxy for anyone.
       remotePatterns: [
          {
             protocol: 'https',
-            hostname: '**',
+            hostname: 'res.cloudinary.com',
          },
       ],
    },

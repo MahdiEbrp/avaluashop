@@ -1,6 +1,6 @@
 import { GET, POST } from '@/app/api/admin/shipping-methods/route'
 import { DELETE, PATCH } from '@/app/api/admin/shipping-methods/[methodId]/route'
-import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
+import { call, get, json, prismaMock, silenceConsole, ADMIN } from './helpers'
 
 vi.mock('@/lib/prisma', () => import('../support/db').then((m) => m.prismaModule()))
 
@@ -42,7 +42,7 @@ describe('GET /api/admin/shipping-methods', () => {
    })
 
    it('lists every method, active or not, with its order count', async () => {
-      const response = await GET(get(USER))
+      const response = await GET(get(ADMIN))
 
       expect(response.status).toBe(200)
       expect(response.headers.get('cache-control')).toBe('no-store')
@@ -56,7 +56,7 @@ describe('GET /api/admin/shipping-methods', () => {
    it('answers 500 when the list cannot be read', async () => {
       prismaMock.shippingMethod.findMany.mockRejectedValue(new Error('down'))
 
-      const response = await GET(get(USER))
+      const response = await GET(get(ADMIN))
 
       expect(response.status).toBe(500)
       await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHODS_READ_FAILED' })
@@ -76,7 +76,7 @@ describe('POST /api/admin/shipping-methods', () => {
       ['a negative amount', { amount: -1 }],
       ['an unsupported type', { type: 'Teleport' }],
    ])('rejects %s', async (_label, patch) => {
-      const response = await POST(json({ ...validBody, ...patch }, USER))
+      const response = await POST(json({ ...validBody, ...patch }, ADMIN))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ message: 'INVALID_SHIPPING_METHOD' })
@@ -85,7 +85,7 @@ describe('POST /api/admin/shipping-methods', () => {
    it('rejects a malformed body', async () => {
       const request = new Request('http://localhost/api/admin/shipping-methods', {
          method: 'POST',
-         headers: { 'content-type': 'application/json', ...USER },
+         headers: { 'content-type': 'application/json', ...ADMIN },
          body: '{not json',
       })
 
@@ -95,7 +95,7 @@ describe('POST /api/admin/shipping-methods', () => {
    })
 
    it('rejects a free threshold on a type that cannot use it', async () => {
-      const response = await POST(json({ ...validBody, freeAbove: 100_000 }, USER))
+      const response = await POST(json({ ...validBody, freeAbove: 100_000 }, ADMIN))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({
@@ -104,14 +104,14 @@ describe('POST /api/admin/shipping-methods', () => {
    })
 
    it('requires a threshold when the type is FreeAbove', async () => {
-      const response = await POST(json({ ...validBody, type: 'FreeAbove' }, USER))
+      const response = await POST(json({ ...validBody, type: 'FreeAbove' }, ADMIN))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ message: 'INVALID_SHIPPING_METHOD' })
    })
 
    it('stores a free method at zero cost', async () => {
-      await POST(json({ ...validBody, type: 'Free', amount: 9000 }, USER))
+      await POST(json({ ...validBody, type: 'Free', amount: 9000 }, ADMIN))
 
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
          data: expect.objectContaining({ amount: 0, freeAbove: null }),
@@ -119,7 +119,7 @@ describe('POST /api/admin/shipping-methods', () => {
    })
 
    it('stores a free-above method with its threshold', async () => {
-      await POST(json({ ...validBody, type: 'FreeAbove', freeAbove: 500_000 }, USER))
+      await POST(json({ ...validBody, type: 'FreeAbove', freeAbove: 500_000 }, ADMIN))
 
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
          data: expect.objectContaining({ type: 'FreeAbove', freeAbove: 500_000 }),
@@ -128,7 +128,7 @@ describe('POST /api/admin/shipping-methods', () => {
 
    it('deduplicates and trims the allowed cities', async () => {
       await POST(
-         json({ ...validBody, allowedCities: [' تهران ', 'تهران', 'کرج'] }, USER)
+         json({ ...validBody, allowedCities: [' تهران ', 'تهران', 'کرج'] }, ADMIN)
       )
 
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
@@ -137,7 +137,7 @@ describe('POST /api/admin/shipping-methods', () => {
    })
 
    it('turns an empty description into null', async () => {
-      await POST(json({ ...validBody, description: '' }, USER))
+      await POST(json({ ...validBody, description: '' }, ADMIN))
 
       expect(prismaMock.shippingMethod.create).toHaveBeenCalledWith({
          data: expect.objectContaining({ description: null }),
@@ -147,7 +147,7 @@ describe('POST /api/admin/shipping-methods', () => {
    it('answers 409 when the code is already taken', async () => {
       prismaMock.shippingMethod.create.mockRejectedValue({ code: 'P2002' })
 
-      const response = await POST(json(validBody, USER))
+      const response = await POST(json(validBody, ADMIN))
 
       expect(response.status).toBe(409)
       await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_CODE_EXISTS' })
@@ -156,7 +156,7 @@ describe('POST /api/admin/shipping-methods', () => {
    it('answers 500 for an unexpected failure', async () => {
       prismaMock.shippingMethod.create.mockRejectedValue(new Error('down'))
 
-      const response = await POST(json(validBody, USER))
+      const response = await POST(json(validBody, ADMIN))
 
       expect(response.status).toBe(500)
    })
@@ -170,7 +170,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    })
 
    it('rejects an empty patch', async () => {
-      const response = await PATCH(json({}, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({}, ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({ message: 'INVALID_SHIPPING_METHOD' })
@@ -179,14 +179,14 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    it('answers 404 for an unknown method', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue(null)
 
-      const response = await PATCH(json({ title: 'جدید' }, USER), call({ methodId: 'nope' }))
+      const response = await PATCH(json({ title: 'جدید' }, ADMIN), call({ methodId: 'nope' }))
 
       expect(response.status).toBe(404)
       await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_NOT_FOUND' })
    })
 
    it('updates a title', async () => {
-      const response = await PATCH(json({ title: 'جدید' }, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({ title: 'جدید' }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(200)
       expect(prismaMock.shippingMethod.update).toHaveBeenCalledWith({
@@ -197,7 +197,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
 
    it('requires a threshold when switching to FreeAbove', async () => {
       const response = await PATCH(
-         json({ type: 'FreeAbove' }, USER),
+         json({ type: 'FreeAbove' }, ADMIN),
          call({ methodId: 'sm1' })
       )
 
@@ -212,7 +212,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
          freeAbove: 100_000,
       })
 
-      await PATCH(json({ type: 'FlatRate' }, USER), call({ methodId: 'sm1' }))
+      await PATCH(json({ type: 'FlatRate' }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(prismaMock.shippingMethod.update).toHaveBeenCalledWith({
          where: { id: 'sm1' },
@@ -221,7 +221,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    })
 
    it('rejects a threshold on a type that cannot use it', async () => {
-      const response = await PATCH(json({ freeAbove: 5000 }, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({ freeAbove: 5000 }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(400)
       await expect(response.json()).resolves.toEqual({
@@ -230,7 +230,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    })
 
    it('zeroes the amount a method becomes free', async () => {
-      await PATCH(json({ type: 'Free' }, USER), call({ methodId: 'sm1' }))
+      await PATCH(json({ type: 'Free' }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(prismaMock.shippingMethod.update).toHaveBeenCalledWith({
          where: { id: 'sm1' },
@@ -239,7 +239,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    })
 
    it('deduplicates the allowed cities', async () => {
-      await PATCH(json({ allowedCities: ['تهران', ' تهران '] }, USER), call({ methodId: 'sm1' }))
+      await PATCH(json({ allowedCities: ['تهران', ' تهران '] }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(prismaMock.shippingMethod.update).toHaveBeenCalledWith({
          where: { id: 'sm1' },
@@ -250,7 +250,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    it('answers 409 when the new code is taken', async () => {
       prismaMock.shippingMethod.update.mockRejectedValue({ code: 'P2002' })
 
-      const response = await PATCH(json({ code: 'taken' }, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({ code: 'taken' }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(409)
    })
@@ -258,7 +258,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    it('answers 500 for an unexpected failure', async () => {
       prismaMock.shippingMethod.update.mockRejectedValue(new Error('down'))
 
-      const response = await PATCH(json({ title: 'جدید' }, USER), call({ methodId: 'sm1' }))
+      const response = await PATCH(json({ title: 'جدید' }, ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(500)
    })
@@ -266,7 +266,7 @@ describe('PATCH /api/admin/shipping-methods/[methodId]', () => {
    it('answers 400 for a malformed body', async () => {
       const request = new Request('http://localhost/api/admin/shipping-methods/sm1', {
          method: 'PATCH',
-         headers: { 'content-type': 'application/json', ...USER },
+         headers: { 'content-type': 'application/json', ...ADMIN },
          body: '{not json',
       })
 
@@ -286,13 +286,13 @@ describe('DELETE /api/admin/shipping-methods/[methodId]', () => {
    it('answers 404 for an unknown method', async () => {
       prismaMock.shippingMethod.findUnique.mockResolvedValue(null)
 
-      const response = await DELETE(get(USER), call({ methodId: 'nope' }))
+      const response = await DELETE(get(ADMIN), call({ methodId: 'nope' }))
 
       expect(response.status).toBe(404)
    })
 
    it('disables instead of deleting so old orders keep their method', async () => {
-      const response = await DELETE(get(USER), call({ methodId: 'sm1' }))
+      const response = await DELETE(get(ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toMatchObject({ deleted: true })
@@ -306,7 +306,7 @@ describe('DELETE /api/admin/shipping-methods/[methodId]', () => {
    it('answers 500 when the disable fails', async () => {
       prismaMock.shippingMethod.update.mockRejectedValue(new Error('down'))
 
-      const response = await DELETE(get(USER), call({ methodId: 'sm1' }))
+      const response = await DELETE(get(ADMIN), call({ methodId: 'sm1' }))
 
       expect(response.status).toBe(500)
       await expect(response.json()).resolves.toEqual({ message: 'SHIPPING_METHOD_DELETE_FAILED' })

@@ -1,6 +1,6 @@
 import { DELETE, PATCH } from '@/app/api/admin/codes/[codeId]/route'
 import { GET, POST } from '@/app/api/admin/codes/route'
-import { call, get, json, prismaMock, silenceConsole, USER } from './helpers'
+import { call, get, json, prismaMock, silenceConsole, ADMIN } from './helpers'
 
 vi.mock('@/lib/prisma', () =>
    import('../support/db').then((m) => m.prismaModule())
@@ -35,7 +35,7 @@ describe('/api/admin/codes', () => {
          { id: 'code-1', code: 'WINTER-20' },
       ])
 
-      const response = await GET(get(USER))
+      const response = await GET(get(ADMIN))
 
       expect(response.status).toBe(200)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -56,7 +56,7 @@ describe('/api/admin/codes', () => {
          code: 'WINTER-20',
       })
 
-      const response = await POST(json(validCode, USER))
+      const response = await POST(json(validCode, ADMIN))
 
       expect(response.status).toBe(201)
       expect(prismaMock.discountCode.create).toHaveBeenCalledWith(
@@ -78,21 +78,21 @@ describe('/api/admin/codes', () => {
       ['end date before start date', { startDate: endDate, endDate: startDate }],
       ['zero maximum discount', { maxDiscountAmount: 0 }],
    ])('rejects %s', async (_label, patch) => {
-      const response = await POST(json({ ...validCode, ...patch }, USER))
+      const response = await POST(json({ ...validCode, ...patch }, ADMIN))
       expect(response.status).toBe(400)
    })
 
    it('returns conflict for a duplicate code', async () => {
       prismaMock.discountCode.create.mockRejectedValue({ code: 'P2002' })
 
-      const response = await POST(json(validCode, USER))
+      const response = await POST(json(validCode, ADMIN))
 
       expect(response.status).toBe(409)
    })
 
    it('handles GET and POST database failures and optional description', async () => {
       prismaMock.discountCode.findMany.mockRejectedValueOnce(new Error('down'))
-      const failedGet = await GET(get(USER))
+      const failedGet = await GET(get(ADMIN))
       expect(failedGet.status).toBe(500)
 
       prismaMock.discountCode.create.mockResolvedValueOnce({
@@ -100,12 +100,12 @@ describe('/api/admin/codes', () => {
          code: 'WINTER-20',
       })
       const createdWithoutDesc = await POST(
-         json({ ...validCode, description: undefined }, USER)
+         json({ ...validCode, description: undefined }, ADMIN)
       )
       expect(createdWithoutDesc.status).toBe(201)
 
       prismaMock.discountCode.create.mockRejectedValueOnce(new Error('down'))
-      const failedPost = await POST(json(validCode, USER))
+      const failedPost = await POST(json(validCode, ADMIN))
       expect(failedPost.status).toBe(500)
    })
 
@@ -113,7 +113,7 @@ describe('/api/admin/codes', () => {
       const response = await POST(
          new Request('http://localhost/api/admin/codes', {
             method: 'POST',
-            headers: { 'content-type': 'application/json', ...USER },
+            headers: { 'content-type': 'application/json', ...ADMIN },
             body: '{',
          })
       )
@@ -140,7 +140,7 @@ describe('/api/admin/codes/[codeId]', () => {
       })
 
       const response = await PATCH(
-         json({ stock: 10 }, USER),
+         json({ stock: 10 }, ADMIN),
          call({ codeId: 'code-1' })
       )
 
@@ -161,7 +161,7 @@ describe('/api/admin/codes/[codeId]', () => {
       })
 
       const response = await PATCH(
-         json({ startDate: endDate }, USER),
+         json({ startDate: endDate }, ADMIN),
          call({ codeId: 'code-1' })
       )
 
@@ -172,7 +172,7 @@ describe('/api/admin/codes/[codeId]', () => {
       prismaMock.discountCode.findUnique.mockResolvedValue(null)
 
       const response = await PATCH(
-         json({ stock: 10 }, USER),
+         json({ stock: 10 }, ADMIN),
          call({ codeId: 'missing' })
       )
 
@@ -183,7 +183,7 @@ describe('/api/admin/codes/[codeId]', () => {
       prismaMock.discountCode.findUnique.mockResolvedValue({ id: 'code-1' })
       prismaMock.order.count.mockResolvedValue(1)
 
-      const response = await DELETE(get(USER), call({ codeId: 'code-1' }))
+      const response = await DELETE(get(ADMIN), call({ codeId: 'code-1' }))
 
       expect(response.status).toBe(409)
       expect(prismaMock.discountCode.delete).not.toHaveBeenCalled()
@@ -191,7 +191,7 @@ describe('/api/admin/codes/[codeId]', () => {
 
    it('covers PATCH validation, endDate update, and 500 failure, plus DELETE 401/404/500 paths', async () => {
       const emptyPatch = await PATCH(
-         json({}, USER),
+         json({}, ADMIN),
          call({ codeId: 'code-1' })
       )
       expect(emptyPatch.status).toBe(400)
@@ -203,14 +203,14 @@ describe('/api/admin/codes/[codeId]', () => {
       })
       prismaMock.discountCode.update.mockResolvedValueOnce({ id: 'code-1' })
       const updatedEnd = await PATCH(
-         json({ endDate: '2026-12-15T00:00:00.000Z' }, USER),
+         json({ endDate: '2026-12-15T00:00:00.000Z' }, ADMIN),
          call({ codeId: 'code-1' })
       )
       expect(updatedEnd.status).toBe(200)
 
       prismaMock.discountCode.findUnique.mockRejectedValueOnce(new Error('down'))
       const failedPatch = await PATCH(
-         json({ stock: 5 }, USER),
+         json({ stock: 5 }, ADMIN),
          call({ codeId: 'code-1' })
       )
       expect(failedPatch.status).toBe(500)
@@ -220,13 +220,13 @@ describe('/api/admin/codes/[codeId]', () => {
 
       prismaMock.discountCode.findUnique.mockResolvedValueOnce(null)
       const missingDelete = await DELETE(
-         get(USER),
+         get(ADMIN),
          call({ codeId: 'missing' })
       )
       expect(missingDelete.status).toBe(404)
 
       prismaMock.discountCode.findUnique.mockRejectedValueOnce(new Error('down'))
-      const failedDelete = await DELETE(get(USER), call({ codeId: 'code-1' }))
+      const failedDelete = await DELETE(get(ADMIN), call({ codeId: 'code-1' }))
       expect(failedDelete.status).toBe(500)
    })
 
@@ -235,7 +235,7 @@ describe('/api/admin/codes/[codeId]', () => {
       prismaMock.order.count.mockResolvedValue(0)
       prismaMock.discountCode.delete.mockResolvedValue({ id: 'code-1' })
 
-      const response = await DELETE(get(USER), call({ codeId: 'code-1' }))
+      const response = await DELETE(get(ADMIN), call({ codeId: 'code-1' }))
 
       expect(response.status).toBe(200)
       await expect(response.json()).resolves.toEqual({ deleted: true })

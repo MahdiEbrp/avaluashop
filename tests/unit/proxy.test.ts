@@ -1,3 +1,8 @@
+const statusOf = async (pending: Promise<Response>) => {
+   const response = await pending
+
+   return response.status
+}
 import { NextRequest } from 'next/server'
 
 import { signJWT } from '@/lib/jwt'
@@ -175,4 +180,88 @@ describe('proxy — matcher', () => {
 
       expect(config.matcher).toEqual(['/profile/:path*', '/admin/:path*', '/api/:path*'])
    })
+})
+
+const withHeaders = (path: string, headers: Record<string, string>) =>
+   new NextRequest(`http://localhost:3000${path}`, { headers })
+
+describe('proxy — identity headers', () => {
+   it('lets the cron route through on its own bearer check', async () => {
+      const response = await proxy(request('/api/internal/orders/reconcile-pending'))
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('x-middleware-next')).toBe('1')
+   })
+
+   it('treats the exact public prefixes as public, but not look-alikes', async () => {
+      expect(await statusOf(proxy(request('/api/auth')))).toBe(200)
+      expect(await statusOf(proxy(request('/api/internal')))).toBe(200)
+
+      const lookalike = await proxy(request('/api/authorized-only'))
+      expect(lookalike.status).toBe(401)
+   })
+
+   it('strips client-supplied identity headers on public routes', async () => {
+      const response = await proxy(
+         withHeaders('/api/internal/orders/reconcile-pending', {
+            'x-user-id': 'attacker',
+            'x-user-role': 'admin',
+         })
+      )
+
+      expect(response.headers.get('x-middleware-request-x-user-id')).toBeNull()
+      expect(response.headers.get('x-middleware-request-x-user-role')).toBeNull()
+   })
+
+   it('stamps the verified role on a storefront session and overwrites a forged one', async () => {
+      const token = await tokenFor('user-7', 'user')
+      const response = await proxy(
+         withHeaders('/api/cart', {
+            cookie: `token=${token}`,
+            'x-user-id': 'someone-else',
+            'x-user-role': 'admin',
+         })
+      )
+
+      expect(response.headers.get('x-middleware-request-x-user-id')).toBe('user-7')
+      expect(response.headers.get('x-middleware-request-x-user-role')).toBe('user')
+   })
+
+   it('stamps the admin role for an admin session', async () => {
+      const token = await tokenFor('owner-9', 'admin')
+      const response = await proxy(request('/api/admin/products', { cookie: `token=${token}` }))
+
+      expect(response.headers.get('x-middleware-request-x-user-role')).toBe('admin')
+   })
+
+   it('defaults the role to user when a verified token carries none', async () => {
+      const { SignJWT } = await import('jose')
+      const { JWT_ISSUER } = await import('@/lib/jwt')
+      const roleless = await new SignJWT({})
+         .setProtectedHeader({ alg: 'HS256' })
+         .setIssuer(JWT_ISSUER)
+         .setSubject('user-10')
+         .setExpirationTime('5m')
+         .sign(new TextEncoder().encode(process.env.JWT_SECRET_KEY))
+
+      const response = await proxy(request('/api/cart', { cookie: `token=${roleless}` }))
+
+      expect(response.headers.get('x-middleware-request-x-user-role')).toBe('user')
+   })
+})
+
+describe('proxy — subject guard', () => {
+   it('answers 401 for a verified token that names no subject', async () => {
+      const { SignJWT } = await import('jose')
+      const { JWT_ISSUER } = await import('@/lib/jwt')
+      const subjectless = await new SignJWT({ role: 'user' })
+         .setProtectedHeader({ alg: 'HS256' })
+         .setIssuer(JWT_ISSUER)
+         .setExpirationTime('5m')
+         .sign(new TextEncoder().encode(process.env.JWT_SECRET_KEY))
+
+      const response = await proxy(request('/api/cart', { cookie: `token=${subjectless}` }))
+
+      expect(response.status).toBe(401)
+    })
 })

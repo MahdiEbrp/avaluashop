@@ -21,7 +21,10 @@ function json(body: unknown, userId?: string): Request {
    const headers: Record<string, string> = {
       'content-type': 'application/json',
    }
-   if (userId) headers['X-USER-ID'] = userId
+   if (userId) {
+      headers['X-USER-ID'] = userId
+      headers['X-USER-ROLE'] = userId === ADMIN ? 'admin' : 'user'
+   }
    return new Request('http://localhost/api/orders/o1/refund', {
       method: 'POST',
       headers,

@@ -1,6 +1,8 @@
 
 
 export const USER = { 'X-USER-ID': 'user-1' }
+/* Admin routes need the role the proxy stamps from a verified admin token. */
+export const ADMIN = { 'X-USER-ID': 'owner-1', 'X-USER-ROLE': 'admin' }
 
 export const json = (body: unknown, headers: Record<string, string> = {}) =>
    new Request('http://localhost/api/test', {

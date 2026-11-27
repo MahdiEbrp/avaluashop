@@ -8,24 +8,50 @@ import { NextRequest, NextResponse } from 'next/server'
  * Protected areas:
  *   - /profile/**      storefront account pages  -> redirect to /login
  *   - /admin/**        admin panel (except /admin/login) -> redirect to /admin/login
- *   - /api/**          storefront API (except /api/auth/**)      -> 401 JSON
- *   - /api/admin/**    admin API (except /api/admin/auth/**)     -> 401 JSON
+ *   - /api/**          storefront API -> 401 JSON
+ *   - /api/admin/**    admin API (except /api/admin/auth/**) -> 401 JSON
+ *
+ * Public endpoints are exempt from the session check. `/api/internal/**`
+ * authenticates itself with `CRON_SECRET`, because cron callers carry no
+ * session cookie.
  */
+
+const PUBLIC_PREFIXES = ['/api/auth', '/api/admin/auth', '/api/internal']
+const PUBLIC_PATHS = new Set(['/api/health', '/admin/login'])
+
+/** Identity headers only this proxy may write. */
+const IDENTITY_HEADERS = ['X-USER-ID', 'X-USER-ROLE'] as const
+
+function isUnder(pathname: string, prefix: string): boolean {
+   return pathname === prefix || pathname.startsWith(`${prefix}/`)
+}
+
+function isPublic(pathname: string): boolean {
+   return (
+      PUBLIC_PATHS.has(pathname) ||
+      PUBLIC_PREFIXES.some((prefix) => isUnder(pathname, prefix))
+   )
+}
+
+function withoutIdentityHeaders(headers: Headers): Headers {
+   const clean = new Headers(headers)
+
+   for (const name of IDENTITY_HEADERS) clean.delete(name)
+
+   return clean
+}
+
 export async function proxy(req: NextRequest) {
    const { pathname } = req.nextUrl
 
    const isAdminArea = pathname.startsWith('/admin')
-   const isAdminAPI = pathname.startsWith('/api/admin')
-   const isAPI = pathname.startsWith('/api')
+   const isAdminAPI = isUnder(pathname, '/api/admin')
+   const isAPI = isUnder(pathname, '/api')
 
-   // Public endpoints: auth handshakes and the admin login screen.
-   if (
-      pathname.startsWith('/api/auth') ||
-      pathname.startsWith('/api/admin/auth') ||
-      pathname === '/api/health' ||
-      pathname === '/admin/login'
-   ) {
-      return NextResponse.next()
+   /* A public route must never see identity headers from the client, or a
+      future handler that trusts `X-USER-ID` could be impersonated. */
+   if (isPublic(pathname)) {
+      return NextResponse.next({ request: { headers: withoutIdentityHeaders(req.headers) } })
    }
 
    const loginPath = isAdminArea ? '/admin/login' : '/login'
@@ -67,10 +93,11 @@ export async function proxy(req: NextRequest) {
          return NextResponse.redirect(new URL(loginPath, req.url))
       }
 
-      // Forward the authenticated user id via *request* headers so downstream
-      // route handlers see it in `req.headers.get('X-USER-ID')`.
+      /* Identity comes from the verified token only, so both headers are
+         overwritten rather than trusted from the client. */
       const requestHeaders = new Headers(req.headers)
       requestHeaders.set('X-USER-ID', sub)
+      requestHeaders.set('X-USER-ROLE', role ?? 'user')
 
       return NextResponse.next({ request: { headers: requestHeaders } })
    } catch {

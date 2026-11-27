@@ -1,3 +1,4 @@
+import { adminId } from '@/lib/require-admin'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { z, ZodError } from 'zod'
@@ -25,7 +26,7 @@ const methodSchema = z.object({
 })
 
 function isAdmin(req: Request) {
-   return Boolean(req.headers.get('X-USER-ID'))
+   return Boolean(adminId(req))
 }
 
 export async function GET(req: Request) {
