@@ -29,8 +29,9 @@ export async function POST(req: NextRequest) {
       /* An unknown address gets the exact same response as a known one, so the
          endpoint cannot be used to enumerate admin accounts. The cooldown is
          silent for the same reason: no 429 for a real admin only. */
-      const owner = await prisma.owner.findUnique({
-         where: { email: address },
+      /* Case-insensitive so a row stored as Owner@Example.com still matches. */
+      const owner = await prisma.owner.findFirst({
+         where: { email: { equals: address, mode: 'insensitive' } },
          select: { id: true, otpExpiresAt: true },
       })
 

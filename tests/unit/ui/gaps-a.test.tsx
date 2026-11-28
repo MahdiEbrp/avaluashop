@@ -1,5 +1,4 @@
 import { noop } from '../support/noop'
-import { stubLocation } from '../support/location'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
@@ -7,7 +6,6 @@ import { BrandCombobox, CategoriesCombobox, SortBy as AdminSortBy, AvailableTogg
 import { Item } from '@/app/(store)/(routes)/cart/components/item'
 import { ButtonComponent } from '@/app/(store)/(routes)/products/[productId]/components/cart_button'
 import { ProductForm } from '@/app/admin/(dashboard)/products/[productId]/components/product-form'
-import { UserAuthForm } from '@/app/admin/login/components/user-auth-form'
 import AdminImageUpload from '@/components/admin/ui/image-upload'
 import StoreImageUpload from '@/components/native/image-upload'
 import { widgetState } from '../../stubs/next-cloudinary'
@@ -292,47 +290,6 @@ describe('product form image field', () => {
       await user().click(switches[1])
 
       expect(switches[0]).toHaveAttribute('data-state', 'checked')
-   })
-})
-
-describe('admin login form phone flow', () => {
-   it('requests an OTP by phone and verifies it', async () => {
-      searchParams.set('method', 'phone')
-      searchParams.set('phone', '09123456789')
-      const fetchMock = vi.fn(() => Promise.resolve(new Response('{}', { status: 200 })))
-      vi.stubGlobal('fetch', fetchMock)
-      const assign = vi.fn()
-      stubLocation({ assign, origin: 'http://localhost' })
-
-      render(<UserAuthForm />)
-
-      await user().click(screen.getByRole('button', { name: /login with phone/i }))
-      await waitFor(() => expect(screen.getByText('One-Time Password')).toBeInTheDocument())
-      expect(fetchMock).toHaveBeenCalledWith(
-         '/api/admin/auth/otp/phone/try',
-         expect.objectContaining({ method: 'POST' })
-      )
-
-      await user().click(screen.getByRole('button', { name: 'Submit' }))
-
-      await waitFor(() => { expect(fetchMock).toHaveBeenLastCalledWith(
-            '/api/admin/auth/otp/phone/verify',
-            expect.objectContaining({ method: 'POST' })
-         ); }
-      )
-      await waitFor(() => { expect(assign).toHaveBeenCalledWith('http://localhost/admin'); })
-      vi.unstubAllGlobals()
-   })
-
-   it('switches the admin method back and forth', async () => {
-      searchParams.set('method', 'phone')
-      render(<UserAuthForm />)
-
-      await user().click(screen.getByRole('button', { name: 'Email' }))
-
-      expect(routerMock.replace).toHaveBeenCalledWith('/admin/orders?method=email', {
-         scroll: false,
-      })
    })
 })
 

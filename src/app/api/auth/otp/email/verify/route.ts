@@ -5,6 +5,7 @@ import {
    isOtpUsable,
    otpMatches,
 } from '@/lib/otp'
+import { digitsOf } from '@/lib/digits'
 import prisma from '@/lib/prisma'
 import {
    AUTH_VERIFY_POLICY,
@@ -21,7 +22,7 @@ import { z, ZodError } from 'zod'
 
 const verifyBody = z.object({
    email: z.coerce.string().min(3).max(200),
-   OTP: z.coerce.string().regex(OTP_PATTERN),
+   OTP: z.preprocess((value) => digitsOf(value), z.string().regex(OTP_PATTERN)),
    /* Validated line by line in parseGuestCart, never trusted here. */
    cart: z.unknown().optional(),
 })
