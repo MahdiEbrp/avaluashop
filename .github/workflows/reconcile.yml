@@ -1,0 +1,12 @@
+name: reconcile-pending-orders
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST "${{ secrets.APP_URL }}/api/internal/orders/reconcile-pending" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
