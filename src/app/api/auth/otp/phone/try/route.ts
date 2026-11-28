@@ -1,3 +1,4 @@
+import { digitsOf } from '@/lib/digits'
 import { generateOtp, isOtpCoolingDown, otpFields } from '@/lib/otp'
 import prisma from '@/lib/prisma'
 import { AUTH_SEND_POLICY, clientIp, consume, limitKey, tooManyRequests } from '@/lib/rate-limit'
@@ -9,8 +10,9 @@ import { ZodError } from 'zod'
 
 export async function POST(req: NextRequest) {
    try {
-      const { phone } = await req.json()
-      const number = String(phone).toLowerCase()
+      const { phone: rawPhone } = await req.json()
+      const phone = digitsOf(rawPhone)
+      const number = phone.toLowerCase()
 
       const verdict = await consume(
          limitKey('otp-send-phone', clientIp(req), number),

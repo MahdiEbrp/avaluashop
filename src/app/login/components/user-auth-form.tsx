@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getLocalCart, writeLocalCart } from '@/lib/cart'
+import { toLatinDigits } from '@/lib/digits'
 import { cn, isVariableValid } from '@/lib/utils'
 import { isEmailValid, isIranianPhoneNumberValid } from '@persepolis/regex'
 import { Loader, MailIcon, SmartphoneIcon } from 'lucide-react'
@@ -12,12 +13,20 @@ import * as React from 'react'
 
 type UserAuthFormProps = React.HTMLAttributes<HTMLDivElement>
 
+const OTP_LENGTH = 6
+
+/* The contact details and the code live in component state, never in the URL.
+   A query string ends up in browser history, server logs and Referer headers.
+   Only the login method (email or phone) stays in the URL. */
 export function UserAuthForm({
    className,
    ...props
 }: Readonly<UserAuthFormProps>) {
    const [isLoading, setIsLoading] = React.useState<boolean>(false)
    const [fetchedOTP, setFetchedOTP] = React.useState<boolean>(false)
+   const [email, setEmail] = React.useState('')
+   const [phone, setPhone] = React.useState('')
+   const [otp, setOtp] = React.useState('')
 
    return (
       <div className={cn('grid gap-6', className)} {...props}>
@@ -25,25 +34,40 @@ export function UserAuthForm({
             <VerifyComponents
                isLoading={isLoading}
                setIsLoading={setIsLoading}
+               email={email}
+               phone={phone}
+               otp={otp}
+               setOtp={setOtp}
             />
          ) : (
             <TryComponents
                isLoading={isLoading}
                setIsLoading={setIsLoading}
                setFetchedOTP={setFetchedOTP}
+               email={email}
+               setEmail={setEmail}
+               phone={phone}
+               setPhone={setPhone}
             />
          )}
-         <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-               <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-               <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-               </span>
-            </div>
-         </div>
-         <ChangeMethodButton isLoading={isLoading} />
+         {/* Switching method mid-verification would send the code to the
+             wrong endpoint with an empty contact, so the switch is only
+             offered before a code has been requested. */}
+         {!fetchedOTP && (
+            <>
+               <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                     <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                     <span className="bg-background px-2 text-muted-foreground">
+                        Or continue with
+                     </span>
+                  </div>
+               </div>
+               <ChangeMethodButton isLoading={isLoading} />
+            </>
+         )}
       </div>
    )
 }
@@ -55,16 +79,13 @@ function ChangeMethodButton({ isLoading }) {
    const method = searchParams.get('method')
 
    function changeMethod() {
-      const params = new URLSearchParams([...searchParams.entries()])
+      /* Only the method lives in the URL, so the query is always just this one
+         parameter. */
+      const query = new URLSearchParams({
+         method: method === 'phone' ? 'email' : 'phone',
+      }).toString()
 
-      params.set('method', method == 'phone' ? 'email' : 'phone')
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
+      router.replace(`${pathname}?${query}`, {
          scroll: false,
       })
    }
@@ -73,9 +94,9 @@ function ChangeMethodButton({ isLoading }) {
       return (
          <Button onClick={changeMethod} disabled={isLoading} type="button">
             {isLoading ? (
-               <Loader className="mr-2 h-4 animate-spin" />
+               <Loader className="me-2 h-4 animate-spin" />
             ) : (
-               <MailIcon className="mr-2 h-4" />
+               <MailIcon className="me-2 h-4" />
             )}
             Email
          </Button>
@@ -84,52 +105,26 @@ function ChangeMethodButton({ isLoading }) {
    return (
       <Button onClick={changeMethod} disabled={isLoading} type="button">
          {isLoading ? (
-            <Loader className="mr-2 h-4 animate-spin" />
+            <Loader className="me-2 h-4 animate-spin" />
          ) : (
-            <SmartphoneIcon className="mr-2 h-4" />
+            <SmartphoneIcon className="me-2 h-4" />
          )}
          Phone Number
       </Button>
    )
 }
 
-function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
-   const router = useRouter()
-   const pathname = usePathname()
+function TryComponents({
+   isLoading,
+   setIsLoading,
+   setFetchedOTP,
+   email,
+   setEmail,
+   phone,
+   setPhone,
+}) {
    const searchParams = useSearchParams()
    const method = searchParams.get('method')
-   const email = searchParams.get('email')
-   const phone = searchParams.get('phone')
-
-   const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('email', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
-
-   const handlePhoneChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('phone', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
 
    async function onSubmitEmail() {
       try {
@@ -175,18 +170,24 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
       return (
          <>
             <div className="grid gap-1">
-               <Label variant="subtle" htmlFor="email">
+               <Label variant="subtle" htmlFor="phone">
                   Phone
                </Label>
                <Input
                   id="phone"
+                  dir="ltr"
+                  className="text-start"
                   placeholder="+989123456789"
-                  type="phone"
+                  type="tel"
+                  inputMode="tel"
                   autoCapitalize="none"
-                  autoComplete="phone"
+                  autoComplete="tel"
                   autoCorrect="off"
+                  value={phone}
                   disabled={isLoading}
-                  onChange={handlePhoneChange}
+                  onChange={(event) => {
+                     setPhone(toLatinDigits(event.target.value).trim())
+                  }}
                   required
                />
                {isVariableValid(phone) && !isIranianPhoneNumberValid(phone) && (
@@ -201,7 +202,7 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
                }}
                disabled={isLoading || !isIranianPhoneNumberValid(phone)}
             >
-               {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
+               {isLoading && <Loader className="me-2 h-4 animate-spin" />}
                Login with Phone
             </Button>
          </>
@@ -215,13 +216,18 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
             </Label>
             <Input
                id="email"
+               dir="ltr"
+               className="text-start"
                placeholder="name@example.com"
                type="email"
                autoCapitalize="none"
                autoComplete="email"
                autoCorrect="off"
+               value={email}
                disabled={isLoading}
-               onChange={handleEmailChange}
+               onChange={(event) => {
+                  setEmail(event.target.value.trim())
+               }}
                required
             />
          </div>
@@ -231,36 +237,16 @@ function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
             }}
             disabled={isLoading || !isEmailValid(email)}
          >
-            {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
+            {isLoading && <Loader className="me-2 h-4 animate-spin" />}
             Login with Email
          </Button>
       </>
    )
 }
 
-function VerifyComponents({ isLoading, setIsLoading }) {
-   const router = useRouter()
-   const pathname = usePathname()
+function VerifyComponents({ isLoading, setIsLoading, email, phone, otp, setOtp }) {
    const searchParams = useSearchParams()
    const method = searchParams.get('method')
-   const email = searchParams.get('email')
-   const phone = searchParams.get('phone')
-   const OTP = searchParams.get('OTP')
-
-   const handleOTPChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('OTP', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
 
    async function onVerifyOTP() {
       try {
@@ -272,10 +258,10 @@ function VerifyComponents({ isLoading, setIsLoading }) {
                : '/api/auth/otp/email/verify',
             {
                method: 'POST',
-                  body: JSON.stringify({
+               body: JSON.stringify({
                   email,
                   phone,
-                  OTP,
+                  OTP: otp,
                   /* Hand the guest cart to the server so it survives sign-in,
                      then clear the copy on this device. */
                   cart: getLocalCart(),
@@ -292,19 +278,30 @@ function VerifyComponents({ isLoading, setIsLoading }) {
          }
       } catch (error) {
          console.error({ error })
+      } finally {
+         setIsLoading(false)
       }
    }
 
    return (
       <>
          <div className="grid gap-1">
-            <Label variant="subtle" htmlFor="email">
+            <Label variant="subtle" htmlFor="otp">
                One-Time Password
             </Label>
             <Input
+               id="otp"
+               dir="ltr"
+               className="text-start"
                placeholder="123456"
+               inputMode="numeric"
+               autoComplete="one-time-code"
+               maxLength={OTP_LENGTH}
+               value={otp}
                disabled={isLoading}
-               onChange={handleOTPChange}
+               onChange={(event) => {
+                  setOtp(toLatinDigits(event.target.value).replaceAll(/\D/g, ''))
+               }}
                required
             />
          </div>
@@ -312,9 +309,9 @@ function VerifyComponents({ isLoading, setIsLoading }) {
             onClick={() => {
                void onVerifyOTP()
             }}
-            disabled={isLoading}
+            disabled={isLoading || otp.length !== OTP_LENGTH}
          >
-            {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
+            {isLoading && <Loader className="me-2 h-4 animate-spin" />}
             Submit
          </Button>
       </>

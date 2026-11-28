@@ -3,336 +3,176 @@
 import { Button } from '@/components/admin/ui/button'
 import { Input } from '@/components/admin/ui/input'
 import { Label } from '@/components/admin/ui/label'
-import { cn, isVariableValid } from '@/lib/utils'
-import { isEmailValid, isIranianPhoneNumberValid } from '@persepolis/regex'
-import { Loader, MailIcon, SmartphoneIcon } from 'lucide-react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { toLatinDigits } from '@/lib/digits'
+import { cn } from '@/lib/utils'
+import { isEmailValid } from '@persepolis/regex'
+import { Loader } from 'lucide-react'
 import * as React from 'react'
 
 type UserAuthFormProps = React.HTMLAttributes<HTMLDivElement>
 
+const OTP_LENGTH = 6
+
+const MESSAGES = {
+   tooMany: 'Too many attempts. Try again in a few minutes.',
+   requestFailed: 'The code could not be sent. Check the address and try again.',
+   invalidCode: 'The code is incorrect or has expired.',
+   network: 'The server could not be reached. Check your connection.',
+} as const
+
+/* Admin login is email-only. The storefront form is not reused here: it posts
+   to the customer endpoints and would create a customer record for an admin. */
 export function UserAuthForm({
    className,
    ...props
 }: Readonly<UserAuthFormProps>) {
-   const [isLoading, setIsLoading] = React.useState<boolean>(false)
-   const [fetchedOTP, setFetchedOTP] = React.useState<boolean>(false)
+   const [step, setStep] = React.useState<'email' | 'otp'>('email')
+   const [email, setEmail] = React.useState('')
+   const [otp, setOtp] = React.useState('')
+   const [isLoading, setIsLoading] = React.useState(false)
+   const [error, setError] = React.useState<string | null>(null)
 
-   return (
-      <div className={cn('grid gap-6', className)} {...props}>
-         {fetchedOTP ? (
-            <VerifyComponents
-               isLoading={isLoading}
-               setIsLoading={setIsLoading}
-            />
-         ) : (
-            <TryComponents
-               isLoading={isLoading}
-               setIsLoading={setIsLoading}
-               setFetchedOTP={setFetchedOTP}
-            />
-         )}
-         <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-               <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-               <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-               </span>
-            </div>
-         </div>
-         <ChangeMethodButton isLoading={isLoading} />
-      </div>
-   )
-}
+   async function requestOtp() {
+      setError(null)
+      setIsLoading(true)
 
-function ChangeMethodButton({ isLoading }) {
-   const router = useRouter()
-   const pathname = usePathname()
-   const searchParams = useSearchParams()
-   const method = searchParams.get('method')
-
-   function changeMethod() {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('method', method == 'phone' ? 'email' : 'phone')
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
-
-   if (method === 'phone')
-      return (
-         <Button onClick={changeMethod} disabled={isLoading} type="button">
-            {isLoading ? (
-               <Loader className="mr-2 h-4 animate-spin" />
-            ) : (
-               <MailIcon className="mr-2 h-4" />
-            )}
-            Email
-         </Button>
-      )
-
-   return (
-      <Button onClick={changeMethod} disabled={isLoading} type="button">
-         {isLoading ? (
-            <Loader className="mr-2 h-4 animate-spin" />
-         ) : (
-            <SmartphoneIcon className="mr-2 h-4" />
-         )}
-         Phone Number
-      </Button>
-   )
-}
-
-function TryComponents({ isLoading, setIsLoading, setFetchedOTP }) {
-   const router = useRouter()
-   const pathname = usePathname()
-   const searchParams = useSearchParams()
-   const method = searchParams.get('method')
-   const email = searchParams.get('email')
-   const phone = searchParams.get('phone')
-
-   const handleEmailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('email', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
-
-   const handlePhoneChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('phone', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
-
-   async function onSubmitEmail() {
       try {
-         setIsLoading(true)
-
-         if (!process.env.JWT_SECRET_KEY) {
-            console.error('JWT secret key is missing')
-            setIsLoading(false)
-            return
-         }
-
          const response = await fetch('/api/admin/auth/otp/email/try', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email }),
             cache: 'no-store',
          })
 
-         if (response.ok) {
-            setFetchedOTP(true)
-         }
-
-         setIsLoading(false)
-      } catch (error) {
-         console.error({ error })
-      }
-   }
-
-   async function onSubmitPhone() {
-      try {
-         setIsLoading(true)
-
-         if (!process.env.JWT_SECRET_KEY) {
-            console.error('JWT secret key is missing')
-            setIsLoading(false)
+         if (!response.ok) {
+            setError(response.status === 429 ? MESSAGES.tooMany : MESSAGES.requestFailed)
             return
          }
 
-         const response = await fetch('/api/admin/auth/otp/phone/try', {
-            method: 'POST',
-            body: JSON.stringify({ phone }),
-            cache: 'no-store',
-         })
-
-         if (response.ok) {
-            setFetchedOTP(true)
-         }
-
+         setStep('otp')
+      } catch {
+         setError(MESSAGES.network)
+      } finally {
          setIsLoading(false)
-      } catch (error) {
-         console.error({ error })
       }
    }
 
-   if (method === 'phone')
-      return (
-         <>
-            <div className="grid gap-1">
-               <Label
-                  className="text-sm font-light text-foreground/60"
-                  htmlFor="email"
-               >
-                  Phone
-               </Label>
-               <Input
-                  id="phone"
-                  placeholder="+989123456789"
-                  type="phone"
-                  autoCapitalize="none"
-                  autoComplete="phone"
-                  autoCorrect="off"
-                  disabled={isLoading}
-                  onChange={handlePhoneChange}
-                  required
-               />
-               {isVariableValid(phone) && !isIranianPhoneNumberValid(phone) && (
-                  <p className="mt-2 text-sm text-destructive">
-                     Phone Number is not valid.
-                  </p>
-               )}
-            </div>
-            <Button
-               onClick={() => {
-                  void onSubmitPhone()
-               }}
-               disabled={isLoading || !isIranianPhoneNumberValid(phone)}
-            >
-               {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
-               Login with Phone
-            </Button>
-         </>
-      )
+   async function verifyOtp() {
+      setError(null)
+      setIsLoading(true)
 
-   return (
-      <>
-         <div className="grid gap-1">
-            <Label
-               className="text-sm font-light text-foreground/60"
-               htmlFor="email"
-            >
-               Email
-            </Label>
-            <Input
-               id="email"
-               placeholder="name@example.com"
-               type="email"
-               autoCapitalize="none"
-               autoComplete="email"
-               autoCorrect="off"
-               disabled={isLoading}
-               onChange={handleEmailChange}
-               required
-            />
-         </div>
-         <Button
-            onClick={() => {
-               void onSubmitEmail()
-            }}
-            disabled={isLoading || !isEmailValid(email)}
-         >
-            {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
-            Login with Email
-         </Button>
-      </>
-   )
-}
-
-function VerifyComponents({ isLoading, setIsLoading }) {
-   const router = useRouter()
-   const pathname = usePathname()
-   const searchParams = useSearchParams()
-   const method = searchParams.get('method')
-   const email = searchParams.get('email')
-   const phone = searchParams.get('phone')
-   const OTP = searchParams.get('OTP')
-
-   const handleOTPChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      const params = new URLSearchParams([...searchParams.entries()])
-
-      params.set('OTP', event.target.value)
-      const search = params.toString()
-      /* `params.set` above always yields a non-empty string, so the
-         empty-query arm cannot be taken. */
-      /* v8 ignore next */
-      const query = search ? `?${search}` : ''
-
-      router.replace(`${pathname}${query}`, {
-         scroll: false,
-      })
-   }
-
-   async function onVerifyOTP() {
       try {
-         setIsLoading(true)
-
-         const response = await fetch(
-            method === 'phone'
-               ? '/api/admin/auth/otp/phone/verify'
-               : '/api/admin/auth/otp/email/verify',
-            {
-               method: 'POST',
-               body: JSON.stringify({
-                  email,
-                  phone,
-                  OTP,
-               }),
-               cache: 'no-store',
-            }
-         )
+         const response = await fetch('/api/admin/auth/otp/email/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, OTP: otp }),
+            cache: 'no-store',
+         })
 
          if (response.ok) {
             globalThis.location.assign(
                new URL('/admin', globalThis.location.origin).toString()
             )
+            return
          }
-      } catch (error) {
-         console.error({ error })
+
+         setError(response.status === 429 ? MESSAGES.tooMany : MESSAGES.invalidCode)
+      } catch {
+         setError(MESSAGES.network)
+      } finally {
+         setIsLoading(false)
       }
    }
 
+   function useAnotherEmail() {
+      setStep('email')
+      setOtp('')
+      setError(null)
+   }
+
    return (
-      <>
-         <div className="grid gap-1">
-            <Label
-               className="text-sm font-light text-foreground/60"
-               htmlFor="email"
+      <div className={cn('grid gap-6', className)} {...props}>
+         {step === 'email' ? (
+            <form
+               className="grid gap-4"
+               onSubmit={(event) => {
+                  event.preventDefault()
+                  void requestOtp()
+               }}
             >
-               One-Time Password
-            </Label>
-            <Input
-               placeholder="123456"
-               disabled={isLoading}
-               onChange={handleOTPChange}
-               required
-            />
-         </div>
-         <Button
-            onClick={() => {
-               void onVerifyOTP()
-            }}
-            disabled={isLoading}
-         >
-            {isLoading && <Loader className="mr-2 h-4 animate-spin" />}
-            Submit
-         </Button>
-      </>
+               <div className="grid gap-1">
+                  <Label className="text-sm font-light text-foreground/60" htmlFor="email">
+                     Email
+                  </Label>
+                  <Input
+                     id="email"
+                     dir="ltr"
+                     className="text-start"
+                     placeholder="name@example.com"
+                     type="email"
+                     inputMode="email"
+                     autoCapitalize="none"
+                     autoComplete="email"
+                     autoCorrect="off"
+                     value={email}
+                     disabled={isLoading}
+                     onChange={(event) => {
+                        setEmail(event.target.value.trim())
+                     }}
+                     required
+                  />
+               </div>
+               <Button type="submit" disabled={isLoading || !isEmailValid(email)}>
+                  {isLoading && <Loader className="me-2 h-4 animate-spin" />}
+                  Login with Email
+               </Button>
+            </form>
+         ) : (
+            <form
+               className="grid gap-4"
+               onSubmit={(event) => {
+                  event.preventDefault()
+                  void verifyOtp()
+               }}
+            >
+               <div className="grid gap-1">
+                  <Label className="text-sm font-light text-foreground/60" htmlFor="otp">
+                     One-Time Password
+                  </Label>
+                  <Input
+                     id="otp"
+                     dir="ltr"
+                     className="text-start tracking-widest"
+                     placeholder="123456"
+                     inputMode="numeric"
+                     autoComplete="one-time-code"
+                     maxLength={OTP_LENGTH}
+                     value={otp}
+                     disabled={isLoading}
+                     onChange={(event) => {
+                          setOtp(toLatinDigits(event.target.value).replaceAll(/\D/g, ''))
+                     }}
+                     required
+                  />
+               </div>
+               <Button type="submit" disabled={isLoading || otp.length !== OTP_LENGTH}>
+                  {isLoading && <Loader className="me-2 h-4 animate-spin" />}
+                  Submit
+               </Button>
+               <button
+                  type="button"
+                  className="text-sm text-muted-foreground underline underline-offset-4"
+                  onClick={useAnotherEmail}
+               >
+                  Use another email
+               </button>
+            </form>
+         )}
+         {error && (
+            <p role="alert" className="text-sm text-destructive">
+               {error}
+            </p>
+         )}
+      </div>
    )
 }

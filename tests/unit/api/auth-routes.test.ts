@@ -80,7 +80,7 @@ beforeEach(() => {
    prismaMock.user.upsert.mockResolvedValue({ id: 'account-1' })
    prismaMock.user.updateMany.mockResolvedValue({ count: 1 })
    prismaMock.user.update.mockImplementation(({ data }) => Promise.resolve({ id: 'account-1', ...data }))
-   prismaMock.owner.findUnique.mockResolvedValue(null)
+   prismaMock.owner.findFirst.mockResolvedValue(null)
    prismaMock.owner.update.mockResolvedValue({ id: 'owner-1' })
    prismaMock.owner.updateMany.mockResolvedValue({ count: 1 })
    vi.mocked(sendMail).mockClear()
@@ -414,7 +414,7 @@ describe('POST /api/auth/otp/phone/verify', () => {
 
 describe('POST /api/admin/auth/otp/email/try', () => {
    it('stores a hashed code on the owner and sends it', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce({ id: 'owner-1', otpExpiresAt: null })
+      prismaMock.owner.findFirst.mockResolvedValueOnce({ id: 'owner-1', otpExpiresAt: null })
 
       const response = await adminEmailTry(request({ email: 'Owner@Example.com' }))
 
@@ -441,7 +441,7 @@ describe('POST /api/admin/auth/otp/email/try', () => {
    })
 
    it('stays silent during the cooldown instead of revealing the account', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce({
+      prismaMock.owner.findFirst.mockResolvedValueOnce({
          id: 'owner-1',
          otpExpiresAt: new Date(Date.now() + 4 * 60_000 + 30_000),
       })
@@ -453,7 +453,7 @@ describe('POST /api/admin/auth/otp/email/try', () => {
    })
 
    it('logs but does not return a delivery failure', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce({ id: 'owner-1', otpExpiresAt: null })
+      prismaMock.owner.findFirst.mockResolvedValueOnce({ id: 'owner-1', otpExpiresAt: null })
       vi.mocked(sendMail).mockRejectedValueOnce(new Error('smtp down'))
 
       const response = await adminEmailTry(request({ email: 'owner@example.com' }))
@@ -484,7 +484,7 @@ describe('POST /api/admin/auth/otp/email/try', () => {
    })
 
    it('maps a validation error from persistence to 400', async () => {
-      prismaMock.owner.findUnique.mockRejectedValueOnce(await zodError())
+      prismaMock.owner.findFirst.mockRejectedValueOnce(await zodError())
 
       const response = await adminEmailTry(request({ email: 'owner@example.com' }))
 
@@ -494,7 +494,7 @@ describe('POST /api/admin/auth/otp/email/try', () => {
 
 describe('POST /api/admin/auth/otp/email/verify', () => {
    it('issues an eight-hour admin session for a matching owner', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
+      prismaMock.owner.findFirst.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
 
       const response = await adminEmailVerify(request({ email: 'owner@example.com', OTP: CODE }))
 
@@ -507,7 +507,7 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
    })
 
    it('rejects a wrong code', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
+      prismaMock.owner.findFirst.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
 
       const response = await adminEmailVerify(request({ email: 'owner@example.com', OTP: '000001' }))
 
@@ -522,7 +522,7 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
    })
 
    it('refuses when a parallel guess already reserved the last attempt', async () => {
-      prismaMock.owner.findUnique.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
+      prismaMock.owner.findFirst.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
       prismaMock.owner.updateMany.mockResolvedValueOnce({ count: 0 })
 
       const response = await adminEmailVerify(request({ email: 'owner@example.com', OTP: CODE }))
@@ -532,7 +532,7 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
 
    it('locks out after five failures', async () => {
       for (let index = 0; index < 5; index += 1) {
-         prismaMock.owner.findUnique.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
+         prismaMock.owner.findFirst.mockResolvedValueOnce(challenge({ id: 'owner-1', identifier: 'owner@example.com' }))
          await adminEmailVerify(request({ email: 'owner@example.com', OTP: '111111' }))
       }
 
@@ -552,7 +552,7 @@ describe('POST /api/admin/auth/otp/email/verify', () => {
    })
 
    it('normalises a non-Error rejection to a generic 500', async () => {
-      prismaMock.owner.findUnique.mockRejectedValueOnce('boom')
+      prismaMock.owner.findFirst.mockRejectedValueOnce('boom')
 
       const response = await adminEmailVerify(request({ email: 'owner@example.com', OTP: CODE }))
 

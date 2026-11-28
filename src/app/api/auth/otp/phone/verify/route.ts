@@ -1,4 +1,5 @@
 import { parseGuestCart, mergeGuestCart } from '@/lib/cart-merge'
+import { digitsOf } from '@/lib/digits'
 import { OTP_MAX_ATTEMPTS, OTP_PATTERN, isOtpUsable, otpMatches } from '@/lib/otp'
 import prisma from '@/lib/prisma'
 import {
@@ -15,8 +16,8 @@ import { NextRequest } from 'next/server'
 import { z, ZodError } from 'zod'
 
 const verifyBody = z.object({
-   phone: z.coerce.string().min(3).max(200),
-   OTP: z.coerce.string().regex(OTP_PATTERN),
+   phone: z.preprocess((value) => digitsOf(value), z.string().min(3).max(200)),
+   OTP: z.preprocess((value) => digitsOf(value), z.string().regex(OTP_PATTERN)),
    /* Validated line by line in parseGuestCart, never trusted here. */
    cart: z.unknown().optional(),
 })

@@ -1,3 +1,4 @@
+import { digitsOf } from '@/lib/digits'
 import { ADMIN_SESSION_MINUTES, startSession } from '@/lib/session'
 import { OTP_MAX_ATTEMPTS, OTP_PATTERN, isOtpUsable, otpMatches } from '@/lib/otp'
 import prisma from '@/lib/prisma'
@@ -15,7 +16,7 @@ import { z, ZodError } from 'zod'
 
 const verifyBody = z.object({
    email: z.coerce.string().min(3).max(200),
-   OTP: z.coerce.string().regex(OTP_PATTERN),
+   OTP: z.preprocess((value) => digitsOf(value), z.string().regex(OTP_PATTERN)),
 })
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,10 @@ export async function POST(req: NextRequest) {
 
       if (!verdict.allowed) return tooManyRequests(verdict.retryAfterSeconds)
 
-      const owner = await prisma.owner.findUnique({ where: { email } })
+      /* Case-insensitive so a row stored as Owner@Example.com still matches. */
+      const owner = await prisma.owner.findFirst({
+         where: { email: { equals: email, mode: 'insensitive' } },
+      })
 
       if (!owner || !isOtpUsable(owner)) return getErrorResponse(401, 'INVALID OTP')
 
